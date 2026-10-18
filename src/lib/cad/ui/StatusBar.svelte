@@ -7,10 +7,12 @@
 	import { KEYS } from './shellKeys'
 	import { composing } from './keyGuards'
 	import { GRID_STEPS, gridStepOf } from '../editor/snap'
-	import type { Workspace } from '../app/workspace.svelte'
+	import type { Workspace, ViewInfo } from '../app/workspace.svelte'
 
-	let { ws, hint, onfit, onanswer, selected, onzoomsel, working }: {
+	let { ws, info, hint, onfit, onanswer, selected, onzoomsel, working }: {
 		ws: Workspace; hint: string; onfit: () => void; onanswer: () => void
+		/** What the active view reports: the cursor, length · angle while drawing, scale and zoom. */
+		info?: ViewInfo | null
 		/** "12 selected (outlets)" (UX review V3); a click zooms to them. */
 		selected: string; onzoomsel: () => void
 		/** The change being worked on ("Working on 3", design log step 5): its chip; a click opens it, × stops. */
@@ -48,7 +50,7 @@
 		if (e.key === 'Enter' && ws.prompt) { const t = (e.currentTarget as HTMLInputElement).value; const p = ws.prompt; ws.prompt = null; p.apply(t); onanswer() }
 		else if (e.key === 'Escape') ws.prompt = null
 	}
-	const v = $derived(ws.viewInfo)
+	const v = $derived(info)
 </script>
 
 <footer class="status" class:asking={!!ws.prompt}>

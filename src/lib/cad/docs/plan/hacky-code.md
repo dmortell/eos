@@ -33,7 +33,12 @@ grips, plan label placement, the layer / shape style rules), 7 (027d41d5), 8 (Co
    Fix: a `CordToolDeps` object; one typed `ShellActions` injected once.
 
 ## The rest, by kind
-- **Effects that should be derived / mirror state**: ViewCanvas `tick` counter + `ws.pathPending` mirror (~93-95,
+- **Effects that should be derived / mirror state** — FIXED 2026-10-18: the status bar's readout, the guides key and
+  the points being drawn are read off the active canvas (`canvas.info()` / `guidesKey()` / `pathPending()`); the
+  Layers panel takes the sheet from the active pane's spec; the project's name / owner / details / user name are
+  getters over the shell's props (`CadProject` `meta`), the new-cord status a query like `toolDefaults`; the deleted
+  pane / tab check runs when something is gone, not on every edit; the level fix-up reads what it writes untracked;
+  `buildingsOf()` drops a stale answer. Was: ViewCanvas `tick` counter + `ws.pathPending` mirror (~93-95,
   516); `ws.viewInfo`, `ws.activeGuideKey` pushed up by effects (~718-731, ~199); CadShell mirrors `ws.activeSheet`,
   `ws.newCordStatus`, project name / owner by effects (~224, 614, 86); an effect reads + writes `ws.levelId` /
   `paneLevels` (~435-440); an effect on `project.rev` runs `setPane()` / `tabs.prune()` on every edit (~335-343); an

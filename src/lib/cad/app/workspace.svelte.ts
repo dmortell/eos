@@ -180,8 +180,6 @@ export class Workspace {
 	/** The Image tool's picture (Draw › Image…): its file in Uploads and page, and its name for the hint. */
 	/** The last press was a finger (touch screen): the options row shows Finish / Cancel while a run is drawn. */
 	touchInput = $state(false)
-	/** Points in the run / line being drawn (0 = none), kept by the active ViewCanvas. */
-	pathPending = $state(0)
 	imagePick = $state<{ fileId: string; page?: number; name: string; /** the picture's width ÷ height, once measured */ ratio?: number } | null>(null)
 	/** The Dimension tool's kind: along the two points, or only horizontally / vertically. */
 	dimMode = $state<DimMode>('aligned')
@@ -219,8 +217,6 @@ export class Workspace {
 	 *  never in the drawing or the print. `guideAxis` = what the Guide tool places next. */
 	guides = $state<Record<string, Guide[]>>(loadGuides())
 	guideAxis = $state<Guide['axis'] | 'both'>('both')
-	/** The active pane's guides key (set by it), for the tool bar's Clear. */
-	activeGuideKey = $state('')
 	guidesOf = (key: string): Guide[] => this.guides[key] ?? []
 	setGuides = (key: string, gs: Guide[]): void => {
 		const next = { ...this.guides }
@@ -238,8 +234,6 @@ export class Workspace {
 	/** Show changes (W23; this screen only): a sheet's last issued list, loaded — the sheet view draws what is new or
 	 *  changed since it, and what has gone, over the sheet (domain/issue.ts changeOverlay). Null = off. */
 	sheetChanges = $state.raw<{ sheetId: Id; rev: string; issued: Prim[] } | null>(null)
-	/** What the active view reports for the status bar: the cursor, length · angle while drawing, scale and zoom. */
-	viewInfo = $state.raw<ViewInfo | null>(null)
 	/** Show this one thing when the view next fits (a `?rack=` link, Find a device); cleared once done. It names the view
 	 *  kind (and level) it is meant for: only the ACTIVE pane showing that kind of view takes it — so neither the other pane nor the
 	 *  view being switched away from fits it first (hacky-code review #1). Set with `focusOn`. */
@@ -312,8 +306,9 @@ export class Workspace {
 	bulkFrom = $state.raw<BulkFrom | null>(null)
 	/** Match properties: its source is set when it starts (CadShell setTool). */
 	readonly matchTool = new MatchTool()
-	/** What new cords start as: the project's Planning / Surveying toggle (settings.newCordStatus; CadShell keeps it in step). */
-	newCordStatus = $state<'add' | 'installed'>('add')
+	/** What new cords start as: the project's Planning / Surveying toggle (settings.newCordStatus; CadShell points this at
+	 *  the open project). */
+	newCordStatus: () => 'add' | 'installed' = () => 'add'
 	/** A bulk patch's plan waiting for OK (ui/PatchPreview.svelte); null = none. */
 	patchPreview = $state.raw<PatchPreview | null>(null)
 	/** Bulk patch maps in step (false) or fills only the target's free ports (true) — kept as last chosen. */
@@ -323,7 +318,7 @@ export class Workspace {
 	/** The port under the pointer in a rack view (any pane): every rack view lights the far ends of its cords and cable. */
 	hoverPort = $state.raw<PortRef | null>(null)
 	readonly cordTool = new CordTool({
-		defaults: () => ({ ...this.cordDefaults, status: this.newCordStatus }),
+		defaults: () => ({ ...this.cordDefaults, status: this.newCordStatus() }),
 		bulkFrom: { get: () => this.bulkFrom, set: (b) => { this.bulkFrom = b } },
 		linkType: () => this.linkType,
 		done: () => this.bulkDone(),
@@ -433,8 +428,6 @@ export class Workspace {
 	/** Select from a table: as `select`, and the drawing shows it. */
 	selectAndReveal = (ids: Id[]): void => { this.select(ids); if (ids.length) this.reveal++ }
 	selectPorts = (s: PortSel | null): void => { this.portSel = s && s.ports.length ? s : null }
-	/** The sheet the active pane shows (null = a model view): the Layers eyes are its own then (set by the shell). */
-	activeSheet = $state<Id | null>(null)
 	/** The viewport selected on the selected sheet (null = the sheet itself). */
 	viewportId = $state<Id | null>(null)
 	/** The other viewports picked with it (Ctrl-click, a window on the paper): `viewportId` is the first. */

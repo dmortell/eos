@@ -40,7 +40,7 @@
 	<Properties {project} {ws} {current} onfloors={on.floors} />
 	<ImportNotes {project} {ws} />
 {:else if id === 'layers'}
-	<div class="p-2"><LayersPanel {project} {ws} /></div>
+	<div class="p-2"><LayersPanel {project} {ws} sheetId={current.spec.kind === 'sheet' ? current.spec.sheetId : undefined} /></div>
 {:else if id === 'blocks'}
 	<div class="p-2"><BlockManager {project} {ws} levelId={level?.id} onpick={(b) => on.insert(b ?? null)} /></div>
 {:else if id === 'racks'}

@@ -54,21 +54,23 @@ const DISCIPLINES_DOC = ['settings', 'cadDisciplines'] as const
 /** The disciplines offered until someone edits the list (Settings › Sheets). */
 export const DEFAULT_DISCIPLINES = ['ICT', 'Electrical', 'Mechanical', 'Architectural']
 
+/** What the projects page knows of the project and who's signed in (the shell's props). */
+export interface ProjectMeta { name: string; details?: ProjectDetails; ownerId?: string; userName: string }
+
 export class CadProject {
 	readonly store = new EntityStore()
-	/** The project's display name (title blocks, export file names); set by the shell. */
-	name = $state('')
-	/** The projects page's Project details the title block falls back on (client, address, author, company); set by
-	 *  the shell. */
-	details = $state<ProjectDetails | undefined>()
+	/** The project's display name (title blocks, export file names). */
+	get name(): string { return this.meta().name }
+	/** The projects page's Project details the title block falls back on (client, address, author, company). */
+	get details(): ProjectDetails | undefined { return this.meta().details }
 	/** What every sheet's title block is drawn with: the name, the template, the Project details. */
 	get sheetBase(): { projectName: string; template?: TitleBlockTemplate; details?: ProjectDetails } {
 		return { projectName: this.name, template: this.settings?.titleBlock, details: this.details }
 	}
-	/** The project's owner (`projects/{pid}.ownerId`; set by the shell): only they restore a backup (ADR 0008 §4). */
-	ownerId = $state<string | undefined>()
+	/** The project's owner (`projects/{pid}.ownerId`): only they restore a backup (ADR 0008 §4). */
+	get ownerId(): string | undefined { return this.meta().ownerId }
 	/** The signed-in user's name, for who made a backup. */
-	userName = $state('')
+	get userName(): string { return this.meta().userName }
 	/** This browser tab (see clientTag): tells a restore notice it wrote from one another tab wrote. */
 	readonly client = clientTag()
 	readonly pdf: PdfCache
@@ -128,7 +130,8 @@ export class CadProject {
 	#offCategories: () => void
 	#offDisciplines: () => void
 
-	constructor(readonly pid: string, readonly db: Firestore, readonly user: string) {
+	/** `meta`: read through, so the name, owner and details are always the shell's current props (no effect copying them). */
+	constructor(readonly pid: string, readonly db: Firestore, readonly user: string, readonly meta: () => ProjectMeta = () => ({ name: '', userName: '' })) {
 		this.pdf = new PdfCache(db)
 		this.#offBlocks = onSnapshot(doc(db, ...BLOCKS_DOC), (s) => { this.globalBlocks = (s.data()?.blocks ?? {}) as Record<Id, Block> }, this.#listenFailed('the block library'))
 		this.#offTemplates = onSnapshot(doc(db, ...TEMPLATES_DOC), (s) => { this.globalTemplates = (s.data()?.templates ?? {}) as Record<Id, DeviceTemplate> }, this.#listenFailed('the device templates'))

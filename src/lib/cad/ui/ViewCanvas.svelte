@@ -6,7 +6,7 @@
      as a dashed line, an elevation shows the work height. -->
 <script lang="ts">
 	import type { CadProject } from '../app/project.svelte'
-	import { toolWorksIn, ANNOTATION_TOOLS, type Workspace } from '../app/workspace.svelte'
+	import { toolWorksIn, ANNOTATION_TOOLS, type Workspace, type ViewInfo } from '../app/workspace.svelte'
 	import type { ToolCtx, PointerIn, PortSel } from '../editor/tools'
 	import type { Bounds, Prim } from '../views/display'
 	import type { Pt, Underlay } from '../domain/types'
@@ -92,7 +92,7 @@
 	/** Bumped after every tool event, so the preview (which reads the tool's own fields) is recomputed. */
 	let tick = $state(0)
 	/** How many points the run / line being drawn has (0 = none): the shell shows its Finish / Cancel chips on touch. */
-	$effect(() => { void tick; if (active) ws.pathPending = ws.tool instanceof PathTool ? ws.tool.pts.length : 0 })
+	const pathPts = $derived.by(() => { void tick; return ws.tool instanceof PathTool ? ws.tool.pts.length : 0 })
 	let fittedFor: string | null = null
 
 	const section = $derived(spec.kind === 'section' ? (project.index.get(spec.sectionId) as SectionCut | undefined) : undefined)
@@ -196,7 +196,6 @@
 	 *  only (never on a sheet's print); points snap onto them (`ctx().snap`). */
 	const guideKey = $derived(vpe ? `${vpe.levelId}|${specKey(vpe.vp.view.spec)}` : `${levelId}|${specKey(spec)}`)
 	const viewGuides = $derived(ws.guidesOf(guideKey))
-	$effect(() => { if (active) ws.activeGuideKey = guideKey })   // the tool bar's Clear takes the active pane's
 	// the riser view refits when empty floors are hidden / shown (Round 7: hiding 18 floors left the rest a speck at
 	// the bottom of the old view)
 	let riserCompact: boolean | undefined = undefined
@@ -522,12 +521,11 @@
 
 	// the status bar's readout (UX05): the active pane reports the cursor in its own terms (plan / sheet x, y with y down;
 	// elevations, sections and rack rows x, z up), the length · angle while drawing, the scale and the zoom
-	$effect(() => {
-		if (!active) return
+	const viewInfo = $derived.by((): ViewInfo => {
 		const up = toolKind === 'elevation' || toolKind === 'section' || toolKind === 'row'
 		// with SNAP on, the point a click would take on the grid (User 2026-10-15: the readout ignored the grid)
 		const g = ws.drafting.snap && spec.kind !== 'sheet' ? ws.drafting.grid : 0, r = (v: number) => (g ? Math.round(v / g) * g : Math.round(v))
-		ws.viewInfo = {
+		return {
 			loading: floorplanPending,
 			xy: cursor ? `X ${r(cursor.x)} · ${up ? 'Z' : 'Y'} ${r(up ? -cursor.y : cursor.y)}` : null,
 			readout, scale: spec.kind === 'sheet' ? 'paper mm' : `1:${PLOT_SCALE}`,
@@ -535,6 +533,12 @@
 			...(vpe ? { extra: `editing ${specLabel(vpe.vp.view.spec)} at 1:${vpe.vp.scale}` } : spec.kind === 'elevation' ? { extra: `work depth ${Math.round(work.depth)}` } : {}),
 		}
 	})
+	/** What the shell reads off the ACTIVE pane (hacky-code review: these were pushed into the workspace by effects):
+	 *  points in the run / line being drawn (0 = none; the touch Finish / Cancel chips, Riser to floor), the guides key
+	 *  (the tool bar's Clear) and the status bar's readout. */
+	export function pathPending(): number { return pathPts }
+	export function guidesKey(): string { return guideKey }
+	export function info(): ViewInfo { return viewInfo }
 	/** The drawn grid (GRID, UX05): lines every grid step, coarsened ×10 until they're at least 8 px apart; every 5th
 	 *  darker. Model views only (a sheet's paper has its margins; a rack view its Us). */
 	const gridLines = $derived(!ws.drafting.showGrid || spec.kind === 'sheet' || spec.kind === 'row' || !w || !h ? [] : gridLines_(cam, w, h, ws.drafting.grid))

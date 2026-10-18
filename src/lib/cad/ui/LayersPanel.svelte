@@ -22,7 +22,11 @@
 	import ColorPick from './ColorPick.svelte'
 	import NameInput from './NameInput.svelte'
 
-	let { project, ws }: { project: CadProject; ws: Workspace } = $props()
+	let { project, ws, sheetId }: {
+		project: CadProject; ws: Workspace
+		/** The sheet the active pane shows (none = a model view): the eyes are its own then. */
+		sheetId?: string
+	} = $props()
 
 	let q = $state('')
 	const all = $derived(layersOf(project.index.layers))
@@ -57,7 +61,7 @@
 	const groups = $derived(groupLayers(rows))
 	const flat = $derived([...groups.flatMap((g) => g.layers.map((l) => l.id)), ...(showIdle ? idle.map((l) => l.id) : [])])   // the order on screen, for Shift-click ranges
 	// the sheet the active pane shows, when no viewport is picked: its own paper's layers
-	const paper = $derived(!vp && ws.activeSheet ? project.index.getOf('sheet', ws.activeSheet) : undefined)
+	const paper = $derived(!vp && sheetId ? project.index.getOf('sheet', sheetId) : undefined)
 	const onPaper = $derived(paper?.type === 'sheet' ? paper : undefined)
 	/** Where the eye points, for the titles and the note. */
 	const eyeOf = $derived(vps.length > 1 ? `in the ${vps.length} picked viewports (Shift: every viewport on the sheet)` : vp ? 'in this viewport (Shift: every viewport on the sheet)' : onPaper ? 'on this sheet’s paper (its own notes; not in viewports)' : '(only for you)')

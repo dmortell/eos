@@ -80,17 +80,18 @@
 
 	// Created once per mount (the route keys this component by pid).
 	// svelte-ignore state_referenced_locally
-	const project = new CadProject(pid, firestore, user)
+	const project = new CadProject(pid, firestore, user, () => ({ name: projectName, ownerId, userName, details }))
 	// image shapes' pictures, resolved for every canvas (ui/Prims.svelte)
 	setContext('cad-picture', (ref: string) => project.pdf.picture(ref))
-	$effect(() => { project.name = projectName; project.ownerId = ownerId; project.userName = userName; project.details = details })
 	// ── project groups (User 2026-10-16): this project's other buildings — open one, add one, copy one's settings ──
 	type ProjDoc = GroupedProject & ProjectDetails
 	let buildings = $state<{ id: string; label: string; current: boolean }[]>([])
 	$effect(() => {
 		const d = details as ProjDoc | undefined
 		if (!d?.masterId) { buildings = []; return }
-		void buildingsOf({ id: pid, masterId: d.masterId }).then((bs) => { buildings = bs.map((b) => ({ id: b.id, label: b.buildingName || b.name, current: b.id === pid })) })
+		let stale = false   // details changed again before the answer came: a later lookup's answer wins
+		void buildingsOf({ id: pid, masterId: d.masterId }).then((bs) => { if (!stale) buildings = bs.map((b) => ({ id: b.id, label: b.buildingName || b.name, current: b.id === pid })) })
+		return () => { stale = true }
 	})
 	function addBuildingCmd() {
 		const d = details as ProjDoc | undefined
@@ -110,6 +111,7 @@
 	}
 	const ws = new Workspace()
 	ws.toolDefaults = () => project.settings?.toolDefaults   // Properties › Use as default
+	ws.newCordStatus = () => project.settings?.newCordStatus ?? 'add'
 	// every export asks for its file name first (User 2026-10-15): filled from the project's pattern (Settings › Files),
 	// else the export's own name; the Save as dialog (User: a dialog, not the status bar) — Enter saves, Esc cancels
 	// Help › Tips opens by itself once a day, on the next tip, until its "Show at start" is unticked (User 2026-10-15)
@@ -210,7 +212,6 @@
 	 *  level is `ws.levelId`. */
 	let panes = $state<ViewSpec[]>(fromUrl.panes ?? [PLAN])
 	const activePane = $derived(ws.pane)
-	$effect(() => { const s = panes[activePane]; ws.activeSheet = s?.kind === 'sheet' ? s.sheetId : null })
 	/** The drawing tabs (UX review D1): one list for both panes; each pane shows one. */
 	// svelte-ignore state_referenced_locally
 	const tabs = new Tabs(pid)
@@ -218,6 +219,8 @@
 	panes.forEach((v, i) => tabs.ensure(i, { levelId: ws.paneLevels[i] ?? undefined, spec: v }))
 	let canvases = $state<(ViewCanvas | undefined)[]>([])
 	const canvas = $derived(canvases[activePane])
+	/** Points in the run / line the active pane is drawing (0 = none). */
+	const pathPending = $derived(canvas?.pathPending() ?? 0)
 	const level = $derived(project.levels.find((l) => l.id === ws.levelId))
 	/** The level each pane draws: its own, else (gone, not loaded yet) the active pane's. */
 	const paneLevelIds = $derived(panes.map((_, i) => (project.levels.some((l) => l.id === ws.paneLevels[i]) ? ws.paneLevels[i]! : level?.id)))
@@ -320,16 +323,18 @@
 		otherPane: (id) => showTab(id, 1 - activePane),
 		toSheet: (id) => { showTab(id); void tick().then(() => canvas?.toSheet('new')) },
 	}) : [])
-	/** A pane showing a sheet (or section) that was deleted goes back to the plan. */
-	$effect(() => {
+	/** A pane showing a sheet (or section) that was deleted goes back to the plan… */
+	const gonePanes = $derived.by((): string => {
 		void project.rev
-		panes.forEach((s, i) => {
-			const gone = s.kind === 'sheet' ? !project.store.get(s.sheetId) : s.kind === 'section' ? !project.store.get(s.sectionId) : false
-			if (gone && project.loaded) untrack(() => setPane(i, PLAN))
-		})
-		// …and a tab of a floor whose model was deleted (User 2026-10-16: "(level gone) plan" tabs stayed)
-		if (project.loaded) untrack(() => tabs.prune((v) => exists(v.spec) && !(levelBound(v) && v.levelId && project.store.get(v.levelId)?.type !== 'level')))
+		if (!project.loaded) return ''
+		return panes.flatMap((s, i) => (s.kind === 'sheet' ? !project.store.get(s.sheetId) : s.kind === 'section' ? !project.store.get(s.sectionId) : false) ? [i] : []).join(',')
 	})
+	$effect(() => { const g = gonePanes; if (g) untrack(() => { for (const i of g.split(',')) setPane(+i, PLAN) }) })
+	// …and a tab of a floor whose model was deleted closes (User 2026-10-16: "(level gone) plan" tabs stayed). Worked
+	// out as "is anything gone", so the effect runs when that changes, not on every edit (hacky-code review)
+	const tabKept = (v: TabView) => exists(v.spec) && !(levelBound(v) && v.levelId && project.store.get(v.levelId)?.type !== 'level')
+	const tabsGone = $derived.by(() => { void project.rev; return project.loaded && tabs.list.some((t) => !tabKept(t.view)) })
+	$effect(() => { if (tabsGone) untrack(() => tabs.prune(tabKept)) })
 	/** A level from the list: its model. A pane showing something that isn't this level's (a sheet, the riser view,
 	 *  another floor's racks) goes to the level's plan (User: clicking a level with S001 open did nothing visible). */
 	function openLevel(id: string) {
@@ -432,11 +437,15 @@
 
 	/** Open the first level once levels arrive (and if the open one disappears); a pane whose level went shows the
 	 *  active pane's. */
+	// (it runs when the levels or the pane count change; the level ids it fixes are read untracked — an effect that
+	// tracks what it writes, hacky-code review)
 	$effect(() => {
-		const lv = project.levels, ok = (id: string | null) => lv.some((l) => l.id === id)
+		const lv = project.levels, n = panes.length, ok = (id: string | null) => lv.some((l) => l.id === id)
 		if (!lv.length) return
-		if (!ok(ws.levelId)) ws.levelId = lv[0].id
-		panes.forEach((_, i) => { if (!ok(ws.paneLevels[i])) ws.paneLevels[i] = ws.levelId })
+		untrack(() => {
+			if (!ok(ws.levelId)) ws.levelId = lv[0].id
+			for (let i = 0; i < n; i++) if (!ok(ws.paneLevels[i])) ws.paneLevels[i] = ws.levelId
+		})
 	})
 
 
@@ -611,7 +620,6 @@
 	 *  chosen — Patch to… / P / drag-to-patch use them without the Cord tool being picked first. */
 	$effect(() => { const d = project.settings?.defaults; untrack(() => ws.seedCordDefaults(d)) })
 	// Planning / Surveying (a project setting): what the cord tool's new cords start as
-	$effect(() => { ws.newCordStatus = project.settings?.newCordStatus ?? 'add' })
 	/** Help › a tool's button: in a view it doesn't work in, say so (it used to drop back to Select silently). */
 	function helpTool(id: ToolId) { pickTool(id) }
 	/** A tool picked (the strip, Help): in a view it doesn't work in, the pane goes to this level's PLAN when the tool
@@ -828,12 +836,12 @@
 			</select>
 		</label>
 		{#if ws.vpEdit}<button class="chip vp" title="Leave the viewport (Esc, or a double-click outside it)" onclick={() => canvas?.leaveViewport()}>Editing in a viewport ✕</button>{/if}
-		<ToolOptions {project} {ws} {level} kind={activeKind} />
+		<ToolOptions {project} {ws} {level} kind={activeKind} guidesKey={canvas?.guidesKey()} />
 		<!-- V as a button (Round 7, User: "is the V command easy to find?" — it was only in the hint line) -->
 		{#if (ws.toolId === 'trunk' || ws.toolId === 'conduit') && activeKind === 'plan'}
-			<button class="chip" disabled={!ws.pathPending} title={ws.pathPending ? 'A riser from the last point to another floor (V); that floor’s plan opens and the run carries on from the riser' : 'Click where the run starts first'} onclick={() => canvas?.riserPath()}>Riser to floor… <kbd>V</kbd></button>
+			<button class="chip" disabled={!pathPending} title={pathPending ? 'A riser from the last point to another floor (V); that floor’s plan opens and the run carries on from the riser' : 'Click where the run starts first'} onclick={() => canvas?.riserPath()}>Riser to floor… <kbd>V</kbd></button>
 		{/if}
-		{#if ws.touchInput && ws.pathPending}
+		{#if ws.touchInput && pathPending}
 			<!-- no Enter / Esc on a touch screen: finish or drop the run being drawn (a double-tap finishes too) -->
 			<button class="chip" title="Finish this run or line (a double-tap does too)" onclick={() => canvas?.finishPath()}>Finish</button>
 			<button class="chip" title="Drop it — nothing is drawn" onclick={() => canvas?.cancelPath()}>Cancel</button>
@@ -920,7 +928,7 @@
 		{:else if tablesBar}{@render tables(true)}{/if}
 	</section>
 
-	<StatusBar {ws} hint="" onfit={() => canvas?.zoomExtents()} onanswer={() => canvas?.refresh()} selected={selectedText} onzoomsel={zoomSel} {working} />
+	<StatusBar {ws} info={canvas?.info()} hint="" onfit={() => canvas?.zoomExtents()} onanswer={() => canvas?.refresh()} selected={selectedText} onzoomsel={zoomSel} {working} />
 </div>
 
 <style>
