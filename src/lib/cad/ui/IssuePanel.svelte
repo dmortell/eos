@@ -108,7 +108,7 @@
 		<label title="New changes in the Log number from 1 again after this release (ticked for a major revision that isn't a sheet's first). The change list on the package's sheet then starts empty."><input type="checkbox" checked={newRound} onchange={(e) => { roundTouched = true; newRound = e.currentTarget.checked }} /> Number changes from 1 again</label>
 		<label title="The released sheets' revision clouds: they're in the released copy either way. Keep = they stay (hidden once a later major revision is released); Delete = gone from the drawing now (Undo brings them back).">Clouds
 			<select class="inp" bind:value={clouds}><option value="keep">keep</option><option value="delete">delete</option></select></label>
-		<label title="Who releases it: initials, recorded on each new revision">By <input class="inp w-12" bind:value={by} placeholder="DM" /></label>
+		<label title="Who releases it: initials, recorded on each new revision">By <input class="inp w-16" bind:value={by} placeholder="initials" /></label>
 		<!-- design log step 3: a big submittal (A → B) or a small update after one (A → A.1) -->
 		<span class="flex items-center gap-1">
 			<button class="btn" disabled={!plan} title="Every changed sheet to its next revision: a major release (A → B, A.2 → B)" onclick={() => level(false)}>Next revision</button>
