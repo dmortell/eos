@@ -9,9 +9,10 @@
 //                     the next click there (a segment);  release without a drag = a plain click at the press point
 import type { Pt } from '../domain/types'
 import type { PointerIn } from './tools'
+import { PATH_KINDS } from './pathTool'
 
 /** Tools whose points are clicks. */
-export const PRESS_DRAG_TOOLS: ReadonlySet<string> = new Set(['line', 'trunk', 'conduit', 'wall', 'dimension'])
+export const PRESS_DRAG_TOOLS: ReadonlySet<string> = new Set([...PATH_KINDS, 'dimension'])
 
 export class PressDrag {
 	#press: Pt | null = null

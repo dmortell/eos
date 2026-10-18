@@ -17,6 +17,8 @@ import { splitRunsAt, runZAt, splitSegRefs } from '../domain/pathEdit'
 import { heightsOf } from '../domain/floors'
 
 export type PathKind = 'line' | 'trunk' | 'conduit' | 'wall'
+/** The tools that draw a path point by point (each a PathTool). */
+export const PATH_KINDS: ReadonlySet<string> = new Set<PathKind>(['line', 'trunk', 'conduit', 'wall'])
 
 interface Pick { x: number; y: number; z: number; attach?: Id; levelId?: Id }
 

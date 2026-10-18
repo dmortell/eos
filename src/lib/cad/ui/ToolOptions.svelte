@@ -3,7 +3,7 @@
      block to insert, the device template, the cord's type and color. Nothing for tools without options. -->
 <script lang="ts">
 	import type { CadProject } from '../app/project.svelte'
-	import type { Workspace, ToolId } from '../app/workspace.svelte'
+	import type { Workspace } from '../app/workspace.svelte'
 	import type { Level } from '../domain/types'
 	import type { ViewSpec } from '../views/space'
 	import { sortedCableTypes } from '../domain/cableTypes'
@@ -14,6 +14,7 @@
 	import ShapeOptions from './ShapeOptions.svelte'
 	import DimOptions from './DimOptions.svelte'
 	import CordMode from './CordMode.svelte'
+	import { PATH_KINDS } from '../editor/pathTool'
 
 	let { project, ws, level, kind, guidesKey = '' }: {
 		project: CadProject; ws: Workspace; level: Level | undefined; kind: ViewSpec['kind']
@@ -21,7 +22,6 @@
 		guidesKey?: string
 	} = $props()
 
-	const DRAWS = new Set<ToolId>(['line', 'trunk', 'conduit', 'wall'])
 
 	// Location presets for a trunk / conduit (UX20, decision "Height presets" (a)): the same names as Properties
 	const places = $derived(Object.keys(RUN_PLACES).map((k) => ({ k: k as RunPlace, at: placeOf(level?.heights, k as RunPlace, ws.opts.h) })).filter((x) => x.at))
@@ -31,7 +31,7 @@
 	const linkCores = $derived(coresOf(project.settings, ws.linkType || ws.cordDefaults.cableType))
 </script>
 
-{#if DRAWS.has(ws.toolId)}
+{#if PATH_KINDS.has(ws.toolId)}
 	<span class="sep"></span>
 	{#if kind === 'elevation'}
 		<label class="opt" title="Where clicks land in the elevation: distance along the view direction (blank = the middle of the floor)">Depth

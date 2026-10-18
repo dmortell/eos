@@ -67,7 +67,7 @@
 	import ToolStrip from './ToolStrip.svelte'
 	import ToolPalette from './ToolPalette.svelte'
 	import type { ShapeOpts } from '../editor/shapeTool'
-	import { TOOL_GROUPS } from './toolGroups'
+	import { toolName as toolNameOf } from './toolGroups'
 	import StatusBar from './StatusBar.svelte'
 	import AskBox from './AskBox.svelte'
 	import { provideModals } from './modals.svelte'
@@ -452,7 +452,7 @@
 
 	/** The status bar's hint: the tool's, or (Select) the selected viewport's ways of working. */
 	/** The options row's chips (review R53). */
-	const toolName = $derived(TOOL_GROUPS.flatMap((g) => g.tools).find((t) => t.id === ws.toolId)?.label.replace(/ \(.*\)$/, '') ?? ws.toolId)
+	const toolName = $derived(toolNameOf(ws.toolId))
 	const layerList = $derived(layersOf(project.index.layers).filter((l) => !l.system || ['sys:drawing', 'sys:walls'].includes(l.id)).sort((a, b) => a.order - b.order))
 	const hint = $derived((ws.toolId === 'rack' && ws.rackTool.target ? HINT_PLACE : HINT[ws.toolId] ?? ''))
 
@@ -636,7 +636,7 @@
 	}
 	function pickTool(id: ToolId, keep = false) {
 		if (toolWorksIn(id, activeKind, !!vpEditKind)) { setTool(id, keep); return }
-		const n = TOOL_GROUPS.flatMap((g) => g.tools).find((t) => t.id === id)?.label.replace(/ \(.*\)$/, '') ?? id
+		const n = toolNameOf(id)
 		if (level && TOOL_VIEWS[id].includes('plan')) {
 			setPane(activePane, PLAN)
 			void tick().then(() => { setTool(id, keep); ws.say(`${n}: on the ${level.name} plan (it doesn’t work in that view)`) })

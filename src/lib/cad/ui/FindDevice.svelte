@@ -8,6 +8,7 @@
 	import type { Device, Rack } from '../domain/types'
 	import type { ViewSpec } from '../views/space'
 	import { naturalCompare } from '../domain/labels'
+	import { deviceFace, deviceMatches } from '../domain/devices'
 
 	let { project, ws, onview }: { project: CadProject; ws: Workspace; onview?: (s: ViewSpec) => void } = $props()
 
@@ -17,12 +18,12 @@
 		if (!s) return []
 		return project.index.devices
 			.flatMap((d) => { const r = project.index.getOf('rack', d.rackId); return r ? [{ d, r }] : [] })   // a device whose rack is gone: none
-			.filter(({ d, r }) => `${d.name} ${d.kind} ${d.model ?? ''} ${r.name}`.toLowerCase().includes(s))
+			.filter(({ d, r }) => deviceMatches(d, r, s))
 			.sort((a, b) => naturalCompare(`${a.r.name} ${a.d.name}`, `${b.r.name} ${b.d.name}`))
 			.slice(0, 10)
 	})
 	function open(d: Device, r: Rack) {
-		const spec: ViewSpec = { kind: 'row', spaceId: r.spaceId, face: d.mount === 'rear' || d.face === 'rear' ? 'rear' : 'front' }
+		const spec: ViewSpec = { kind: 'row', spaceId: r.spaceId, face: deviceFace(d) }
 		// the whole rack in view, the device picked in it — the request names the rack view, so the plan can't take it
 		ws.focusOn(r.id, spec, r.levelId)
 		ws.levelId = r.levelId

@@ -18,6 +18,8 @@ export const TOOL_GROUPS: { name: string; tools: { id: ToolId; label: string; ic
 
 /** One tool by id (its label and icon). */
 export const toolInfo = (id: ToolId) => TOOL_GROUPS.flatMap((g) => g.tools).find((t) => t.id === id)
+/** Its name in words ("Viewport", not "Viewport (draw a box on the sheet)"); the id when it isn't on the strip. */
+export const toolName = (id: ToolId): string => toolInfo(id)?.label.replace(/ \(.*\)$/, '') ?? id
 
 /** The Shape / Box tools' kinds as flyout items (User 2026-10-15: Rectangle, Polygon, Ellipse, Arc; Box, Cylinder,
  *  Polygon). */

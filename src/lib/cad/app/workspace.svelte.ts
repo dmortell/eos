@@ -45,6 +45,8 @@ import type { Underlay } from '../domain/types'
 import type { Guide } from '../domain/guides'
 import type { PageCalibUsed } from './pdf.svelte'
 import type { ToolDefaults } from '../domain/toolDefaults'
+import type { WinId } from './windows.svelte'
+import type { SettingsTab } from '../ui/SettingsDialog.svelte'
 
 export type ToolId = 'select' | 'move' | 'copy' | 'array' | 'room' | 'measure' | 'rotate' | 'mirror' | 'insert' | 'shape' | 'box' | 'image' | 'legend' | 'changelist' | 'dimension' | 'outlet' | 'rack' | 'device' | 'assign' | 'cord' | 'opening' | 'section' | 'renumber' | 'viewport' | 'match' | 'calibrate' | 'guide' | NoteKind | PathKind
 
@@ -109,10 +111,10 @@ export interface ShellActions {
 	releaseSheets(): void
 	/** The Tables' Log tab (the design log). */
 	openLog(): void
-	/** Project settings on a tab (SettingsDialog's SettingsTab). */
-	openSettings(tab: 'floors' | 'plans' | 'usages' | 'cables' | 'lengths' | 'drawing' | 'sheets' | 'files'): void
-	/** One of the shell's windows (app/windows.svelte.ts WinId). */
-	openWindow(id: 'blocks' | 'devices' | 'layers' | 'racks' | 'navigator' | 'properties' | 'cables'): void
+	/** Project settings on a tab. */
+	openSettings(tab: SettingsTab): void
+	/** One of the shell's windows. */
+	openWindow(id: WinId): void
 	/** Properties › Renumber (outlet / rack): the Renumber tool, the selection kept as its first picks. */
 	startRenumber(): void
 	/** The Restore dialog on a stored backup (an issue's, from the Issues list). */

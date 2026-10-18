@@ -60,7 +60,10 @@ grips, plan label placement, the layer / shape style rules), 7 (027d41d5), 8 (Co
   CommandPalette); Properties' delegated Enter / Esc sets `t.value` and blurs in a microtask.
 - **Parameters**: `makeBox(levelId, centre, w, d, z, h, rot)`, `dimGrips(prims, id, a, b, a2, b2)`,
   `dragDevices(…, copy: boolean, …)`, `setTool(id, keep)`, `groupKey(ungroup)`, `tabs.open(i, view, keep, rev)`.
-- **Drift / copies**: Find matching differs between FindDevice and Ctrl+K (navTree), the rear-face rule copied in both;
+- **Drift / copies** — FIXED 2026-10-18: `deviceMatches` / `deviceFace` (domain/devices.ts) for Find a device and Ctrl+K
+  (Ctrl+K now also finds a device by its kind and its rack's name, as Find a device did); `PATH_KINDS` (editor/
+  pathTool.ts) for the click-drawn tools; `toolName()` (ui/toolGroups.ts); the Workspace's openSettings / openWindow
+  take `SettingsTab` / `WinId` (details, company, members and walkthrough, tips now too). Was: Find matching differs between FindDevice and Ctrl+K (navTree), the rear-face rule copied in both;
   the path-tool id list (`line / trunk / conduit / wall`) in 3–4 places; the tool display-name expression ×4;
   `SettingsTab` / window-id unions restated in workspace.svelte.ts (already missing details / company / members).
 - **Timers / polling**: a double `tick()` before scrolling Settings to the title block (CadShell ~176); 100 ms / 250 ms

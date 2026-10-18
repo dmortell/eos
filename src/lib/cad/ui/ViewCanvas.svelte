@@ -41,7 +41,7 @@
 	import { PressDragInput, PRESS_DRAG_TOOLS } from '../editor/pressDrag'
 	import { TouchNav, pinchContent, settleScale, type ContentGesture } from '../editor/touch'
 	import { LONG_PRESS_SLOP } from './longPress'
-	import { PathTool } from '../editor/pathTool'
+	import { PathTool, PATH_KINDS } from '../editor/pathTool'
 	import { pageKey } from '../app/pdf.svelte'
 	import { gridLines as gridLines_, readoutText, CameraMemory, ClickCounter, RESTORED } from './canvasInfo'
 	import { viewToSheet } from '../app/sheetActions'
@@ -58,7 +58,7 @@
 	import Prims from './Prims.svelte'
 	import { frozenNow } from '../app/issue'
 	import { primChanges, changeOverlay } from '../domain/issue'
-	import { TOOL_GROUPS } from './toolGroups'
+	import { toolName } from './toolGroups'
 	import { portCells, outletPortCells, circuitOf, fillBands, fillBandsElev, routesOf, allRoutesOf, workPlaneOf, workPlaneGrip, workPlaneAt, viewportHighlight, pickableIn } from '../views/overlays'
 	import { fieldCtx, withFields } from '../domain/fields'
 
@@ -516,7 +516,7 @@
 	 *  drag started) — backlog "Length / angle readout" (User: in the status bar, not at the cursor). */
 	const readout = $derived.by(() => {
 		void tick
-		const t = ws.tool, from = t.dragFrom?.() ?? (['line', 'trunk', 'conduit', 'wall'].includes(ws.toolId) ? t.lastPoint?.(ctx()) : null)
+		const t = ws.tool, from = t.dragFrom?.() ?? (PATH_KINDS.has(ws.toolId) ? t.lastPoint?.(ctx()) : null)
 		return cursor && from ? readoutText(cursor, from, toolKind) : null
 	})
 
@@ -628,7 +628,7 @@
 			if (ANNOTATION_TOOLS.has(ws.toolId)) { exitVp(); ws.say('Left the viewport: annotations go on the sheet, tied to the view') }
 		}
 		// a tool that doesn't belong in this view does nothing here (split view: both panes share the tool)
-		if (!toolWorksIn(ws.toolId, toolKind)) { ws.say(`The ${TOOL_GROUPS.flatMap((g) => g.tools).find((t) => t.id === ws.toolId)?.label.replace(/ \(.*\)$/, '') ?? ws.toolId} tool doesn’t work in this view`); return }
+		if (!toolWorksIn(ws.toolId, toolKind)) { ws.say(`The ${toolName(ws.toolId)} tool doesn’t work in this view`); return }
 		// Rack rows: double-click a rack to focus it (fit), double-click empty space to see the whole row again
 		if (spec.kind === 'row' && count >= 2 && ws.toolId === 'select') { focusRack(input(e).p); return }
 		// inside a viewport, what's hidden is the viewport's own (its layers are apart from the model's eye)

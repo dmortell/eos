@@ -12,6 +12,7 @@ import type { ViewSpec } from '../views/space'
 import { naturalCompare } from './labels'
 import { portMapTitle } from './portMap'
 import { riserLevels } from './fill'
+import { deviceFace, deviceMatches } from './devices'
 
 export interface NavNode {
 	key: string
@@ -194,9 +195,9 @@ export function findItems(ix: ProjectIndex, q: string, max = 15): { items: FindI
 	const out: FindItem[] = []
 	for (const d of ix.devices) {
 		const r = ix.getOf('rack', d.rackId)
-		if (r?.type !== 'rack' || !`${d.name} ${d.model ?? ''}`.toLowerCase().includes(w)) continue
+		if (r?.type !== 'rack' || !deviceMatches(d, r, w)) continue
 		out.push({ key: `find:${d.id}`, kind: 'rack', label: d.name.trim() || d.kind, detail: `${r.name} · U${d.u} · ${ix.nameOf(r.levelId)}`, select: d.id, focus: r.id,
-			open: { levelId: r.levelId, spec: { kind: 'row', spaceId: r.spaceId, face: d.mount === 'rear' || d.face === 'rear' ? 'rear' : 'front' } } })
+			open: { levelId: r.levelId, spec: { kind: 'row', spaceId: r.spaceId, face: deviceFace(d) } } })
 	}
 	for (const o of ix.outlets) {
 		if (!o.label.toLowerCase().includes(w)) continue

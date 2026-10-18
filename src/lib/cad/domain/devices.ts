@@ -32,6 +32,12 @@ export interface DeviceTemplate {
 export const RACK_DEVICE_W = 450
 /** A device that can be offset sideways in its rack (narrower than a 19" device). */
 export const narrowDevice = (d: Pick<Device, 'widthMm'>): boolean => !!d.widthMm && d.widthMm < RACK_DEVICE_W
+/** The rack face a device is seen from: rear-mounted or rear-facing → rear (Find a device, Ctrl+K open that face). */
+export const deviceFace = (d: Pick<Device, 'mount' | 'face'>): 'front' | 'rear' => (d.mount === 'rear' || d.face === 'rear' ? 'rear' : 'front')
+/** A search finds a device by its name, kind, model or rack's name (one rule for Find a device and Ctrl+K; `w` is
+ *  already lowercase). */
+export const deviceMatches = (d: Pick<Device, 'name' | 'kind' | 'model'>, r: Pick<Rack, 'name'>, w: string): boolean =>
+	`${d.name} ${d.kind} ${d.model ?? ''} ${r.name}`.toLowerCase().includes(w)
 
 /** Where port `n` (1-based) sits in a device's grid of `rows` × `cols`: [row, col]. Along the rows ('row': 1–24 top,
  *  25–48 under) or DOWN ('column': 2 under 1), down each U's pair of rows in turn — a 96-port 2U switch has 1–48 on
