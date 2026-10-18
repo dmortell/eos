@@ -4129,3 +4129,27 @@ User 2026-10-15: every P1 / P2 done (W12 to later.md) → "P3s in order", skippi
   the last; the status bar in words ("row"); a click on a port takes the cell under the pointer (`pickPrim`); a rack
   view goes on a sheet whole, titled with room and row, and a new viewport goes beside the others; a Tip on cord
   channels.
+
+## Hacky-code pass (2026-10-17/18)
+
+The User's todo "Look for more hacky code to improve": surveyed in `docs/plan/hacky-code.md`, then fixed by area, one
+commit each (that doc marks each FIXED, and what was kept and why).
+- Top 8 (2026-10-17/18): focus requests name their view, swallowed errors logged, `getOf` / `settingsOf`,
+  `REGION_KINDS`, file-namer removers, `Prim.role`, `domain/units.ts`, `CordToolDeps` + `ShellActions`.
+- Effects (bd324139): the status bar readout, guides key and points being drawn read off the active canvas; Layers
+  takes the sheet from the active pane; project meta are getters over the shell's props; gone panes / tabs checked
+  only when something is gone; a stale buildings lookup dropped.
+- DOM (6802e253): open dialogs counted (`ui/modals.svelte.ts`) instead of `querySelector('[role=dialog]')`; Ctrl+K
+  hands the cad page a view through `setCadOpener` / `openInCad`.
+- Types (065d5350): no casts after a narrowing check; `SelKind` keyed by kind; Open project maps Firestore docs.
+- Strings (d1aa42e3): `pageKey` / `parsePageKey`; the viewport picker's choices carry their views; Uploads' release
+  check reads a frozen copy's joined parts — a reference cut between two parts was missed (a released file could be
+  deleted; tested in `issueGuard.test.ts`).
+- Drift (c51e0601): `deviceMatches` / `deviceFace`, `PATH_KINDS`, `toolName()`, `SettingsTab` / `WinId` reused —
+  Ctrl+K now also finds devices by kind and rack name.
+- Timers + global state (717c7457): Title block… scrolls via a request, not two ticks; the riser refit needs no
+  microtask; Z's chord time on the workspace.
+- Parameters (2dda1921): options objects / named values for makeBox, dimGrips, dragDevices, setTool, groupKey,
+  tabs.open.
+Left, with reasons in hacky-code.md: EditHistorySettings' copied styles, Properties' Enter / Esc microtask, the
+backup / restore polls, the remaining `cls` checks of #6.
