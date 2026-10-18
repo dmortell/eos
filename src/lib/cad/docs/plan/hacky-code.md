@@ -6,7 +6,7 @@ hacky code to improve" (backlog). Nothing fixed yet; paths relative to `src/lib/
 
 ## Top 8 to fix first
 
-FIXED 2026-10-17: 1 (c36b0062), 2 (3c4537f3), 3 (0e58f036), 4 (5bea71cc), 5 (91b396a6 — a remover that removes only its own; the namer is still a module global), 7 (027d41d5). Open: 6, 8.
+FIXED 2026-10-17/18: 1 (c36b0062), 2 (3c4537f3), 3 (0e58f036), 4 (5bea71cc), 5 (91b396a6 — a remover that removes only its own; the namer is still a module global), 7 (027d41d5), 8 (CordToolDeps; ShellActions attached once — toolDefaults left as a settable query). Open: 6 (in progress in a worktree).
 1. `ws.focus` / `ws.centreOn` are one-shot requests held as shared state: whichever pane's fit effect runs first takes
    them (FindDevice waits a `tick()` so "the plan doesn't take it"; Navigator / CadShell don't) — ui/ViewCanvas.svelte
    ~268-300. Fix: a request naming its pane / view, or a direct `canvas.focus(id)`.

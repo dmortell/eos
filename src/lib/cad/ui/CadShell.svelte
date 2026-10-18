@@ -175,13 +175,7 @@
 	// Title block…: the Sheets tab, scrolled to its Title block section (Round 8: it opened on the categories, the block
 	// below the fold)
 	function openTitleBlock() { openSettings('sheets'); void tick().then(() => tick()).then(() => document.getElementById('settings-title-block')?.scrollIntoView({ block: 'start' })) }
-	ws.openTitleBlock = openTitleBlock
-	ws.openSettings = (t) => openSettings(t)
-	ws.releaseSheets = () => { openTable('sheets'); ws.sheetsAsk = 'release' }
-	ws.openLog = () => openTable('log')
-	ws.openWindow = (id) => layout.open(id)
-	ws.startRenumber = () => { if (ws.toolId !== 'renumber') pickTool('renumber', true) }
-	ws.restoreBackup = async (id) => {
+	async function restoreBackup(id: string) {
 		try {
 			const head = (await getDoc(doc(backupsCol(project), id))).data() as BackupHead | undefined
 			if (!head) { ws.say('That backup has been deleted'); return }
@@ -191,10 +185,7 @@
 	}
 	// svelte-ignore state_referenced_locally
 	ws.layers.load(pid)
-	ws.applyLinks = (label, add, remove) => project.applyLinks(label, add, remove)
-	ws.openView = (s) => setPane(activePane, s)
-	ws.openLevel = (id) => openLevel(id)
-	ws.openInTab = (v) => { if (v.levelId && project.index.get(v.levelId)) ws.levelId = v.levelId; setPane(activePane, $state.snapshot(v.spec) as ViewSpec, 'keep') }
+	function openInTab(v: { levelId?: string; spec: ViewSpec }) { if (v.levelId && project.index.get(v.levelId)) ws.levelId = v.levelId; setPane(activePane, $state.snapshot(v.spec) as ViewSpec, 'keep') }
 	/** A level / sheet picked in the app-wide palette (Ctrl+K elsewhere, the title bar's search): `search` is the cad URL's
 	 *  query (`?v=plan&level=…` / `?v=sheet.…`); opened in a tab like any other jump, not by re-reading the URL (Q45). */
 	function openFromPalette(search: string) {
@@ -206,9 +197,6 @@
 		window.addEventListener('cad-open', h)
 		return () => window.removeEventListener('cad-open', h)
 	})
-	ws.remove = () => deleteSelected()
-	ws.align = (how) => canvas?.align(how)
-	ws.selectSimilar = () => canvas?.selectSimilar()
 	onDestroy(() => project.destroy())
 
 	// the view state comes back from the URL on a refresh (User): each pane's level and view, the active pane — read
@@ -398,10 +386,21 @@
 	type ModelView = { levelId: string; spec: Exclude<ViewSpec, { kind: 'sheet' }> }
 	let lastModel: ModelView | null = null
 	$effect(() => { const p = panes[activePane], lv = ws.levelId; if (p && p.kind !== 'sheet' && lv) lastModel = { levelId: lv, spec: $state.snapshot(p) as ModelView['spec'] } })
-	ws.viewportView = () => {
+	function viewportView() {
 		const o = 1 - activePane, other = panes.length === 2 ? panes[o] : undefined, lv = paneLevelIds[o]
 		return other && other.kind !== 'sheet' && lv ? { levelId: lv, spec: $state.snapshot(other) as ModelView['spec'] } : lastModel
 	}
+	// this page's actions for the workspace, given once (hacky-code review #8); taken back when it goes
+	const detachShell = ws.attachShell({
+		remove: () => deleteSelected(), align: (how) => canvas?.align(how), selectSimilar: () => canvas?.selectSimilar(), viewportView,
+		openTitleBlock, openSettings: (t) => openSettings(t), openLog: () => openTable('log'), openWindow: (id) => layout.open(id),
+		releaseSheets: () => { openTable('sheets'); ws.sheetsAsk = 'release' },
+		startRenumber: () => { if (ws.toolId !== 'renumber') pickTool('renumber', true) },
+		restoreBackup: (id) => void restoreBackup(id),
+		applyLinks: (label, add, remove) => project.applyLinks(label, add, remove),
+		openView: (s) => setPane(activePane, s), openLevel: (id) => openLevel(id), openInTab,
+	})
+	onDestroy(detachShell)
 	// switching to a view the current tool doesn't work in drops back to Select
 	$effect(() => { if (!toolWorksIn(untrack(() => ws.toolId), activeKind, !!vpEditKind)) untrack(() => setTool('select')) })
 

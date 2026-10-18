@@ -214,7 +214,7 @@ describe('devices in the rack row', () => {
 		const ix = new ProjectIndex(h.store.all()), l = rackLayout(ix, { spaceId: 'SR-A', face: 'front' })[0]
 		const base = (rackHeight(l.rack) - l.rack.heightU * RU_MM) / 2, mid = l.x0 + l.rack.widthMm / 2
 		const portOf = (id: string, n: number) => { const d = h.store.get(id) as Device; const c = portCell(d, n, mid, base + (d.u - 1) * RU_MM)!; return at(c.x + c.w / 2, c.y + c.h / 2) }
-		const tool = new CordTool(() => ({ cableType: 'cat6a', colour: '#ef4444' }), { get: () => null, set: () => {} })
+		const tool = new CordTool({ defaults: () => ({ cableType: 'cat6a', colour: '#ef4444' }), bulkFrom: { get: () => null, set: () => {} } })
 		tool.down(portOf('P1', 10), h.ctx())
 		expect(h.said.at(-1)).toMatch(/no label yet/)
 		tool.down(portOf('P1', 3), h.ctx()); tool.down(portOf('SW1', 5), h.ctx())
@@ -251,7 +251,7 @@ describe('devices in the rack row', () => {
 		const base = (rackHeight(l.rack) - l.rack.heightU * RU_MM) / 2, mid = l.x0 + l.rack.widthMm / 2
 		const portOf = (id: string, n: number) => { const d = h.store.get(id) as Device; const c = portCell(d, n, mid, base + (d.u - 1) * RU_MM)!; return at(c.x + c.w / 2, c.y + c.h / 2) }
 		let bulk: BulkFrom | null = { on: 'P1', ports: [3], face: 'front' }, done = 0
-		const tool = new CordTool(() => ({ cableType: 'cat6a', colour: '#ef4444' }), { get: () => bulk, set: (b) => { bulk = b } }, () => '', () => done++)
+		const tool = new CordTool({ defaults: () => ({ cableType: 'cat6a', colour: '#ef4444' }), bulkFrom: { get: () => bulk, set: (b) => { bulk = b } }, done: () => done++ })
 		tool.down(portOf('SW1', 5), h.ctx())
 		expect([bulk, done]).toEqual([null, 1])
 		bulk = { on: 'P1', ports: [4], face: 'front', kind: 'link' }
@@ -265,8 +265,8 @@ describe('devices in the rack row', () => {
 		const base = (rackHeight(l.rack) - l.rack.heightU * RU_MM) / 2, mid = l.x0 + l.rack.widthMm / 2
 		const portOf = (id: string, n: number) => { const d = h.store.get(id) as Device; const c = portCell(d, n, mid, base + (d.u - 1) * RU_MM)!; return at(c.x + c.w / 2, c.y + c.h / 2) }
 		let bulk: BulkFrom | null = { on: 'P1', ports: [3, 4], face: 'front' }, done = 0, shown = null as PatchPreview | null, fill = false
-		const tool = new CordTool(() => ({ cableType: 'cat6a', colour: '#ef4444' }), { get: () => bulk, set: (b) => { bulk = b } }, () => '', () => done++,
-			{ show: (p) => { shown = p }, fill: () => fill, setFill: (on) => { fill = on } })
+		const tool = new CordTool({ defaults: () => ({ cableType: 'cat6a', colour: '#ef4444' }), bulkFrom: { get: () => bulk, set: (b) => { bulk = b } }, done: () => done++,
+			previewHost: { show: (p) => { shown = p }, fill: () => fill, setFill: (on) => { fill = on } } })
 		const cords = () => h.store.ofType('cord').length, before = cords()
 		const rows = () => shown!.rows.map((r) => `${r.a}→${r.b}`)
 		tool.down(portOf('SW1', 3), h.ctx())   // in step: SW1:4 is taken, so P1:4 is skipped
@@ -290,8 +290,8 @@ describe('devices in the rack row', () => {
 		const base = (rackHeight(l.rack) - l.rack.heightU * RU_MM) / 2, mid = l.x0 + l.rack.widthMm / 2
 		const portOf = (id: string, n: number) => { const d = h.store.get(id) as Device; const c = portCell(d, n, mid, base + (d.u - 1) * RU_MM)!; return at(c.x + c.w / 2, c.y + c.h / 2) }
 		let bulk: BulkFrom | null = { on: 'SW1', ports: [20, 21], face: 'front', kind: 'link' }, done = 0, shown = null as PatchPreview | null
-		const tool = new CordTool(() => ({ cableType: 'cat6a', colour: '#ef4444' }), { get: () => bulk, set: (b) => { bulk = b } }, () => '', () => done++,
-			{ show: (p) => { shown = p }, fill: () => false, setFill: () => {} })
+		const tool = new CordTool({ defaults: () => ({ cableType: 'cat6a', colour: '#ef4444' }), bulkFrom: { get: () => bulk, set: (b) => { bulk = b } }, done: () => done++,
+			previewHost: { show: (p) => { shown = p }, fill: () => false, setFill: () => {} } })
 		const links = () => h.store.ofType('link').length, before = links()
 		tool.down(portOf('P1', 20), h.ctx())
 		expect(shown).not.toBeNull()

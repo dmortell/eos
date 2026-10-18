@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { Workspace } from './workspace.svelte'
+import { Workspace, type ShellActions } from './workspace.svelte'
 import type { Level } from '../domain/types'
 
 describe('each pane has its own level', () => {
@@ -77,5 +77,22 @@ describe('tool bars from the project defaults (Use as default)', () => {
 		td = { ...td, dimension: { mode: 'horizontal' } }
 		ws.adoptDefaults(td, 'dimension')
 		expect(ws.dimMode).toBe('horizontal')
+	})
+})
+
+describe('the page’s actions (attachShell, hacky-code review #8)', () => {
+	it('an action with no page attached says so; a page’s detach takes back only its own', () => {
+		const ws = new Workspace(), noop = () => {}
+		const page = (log: string[]): ShellActions => ({ remove: () => log.push('remove'), align: noop, viewportView: () => null, openTitleBlock: noop, releaseSheets: noop, openLog: () => log.push('log'),
+			openSettings: noop, openWindow: noop, startRenumber: noop, restoreBackup: noop, selectSimilar: noop, openInTab: noop, openView: noop, openLevel: noop, applyLinks: noop })
+		expect(() => ws.remove()).toThrow(/no page is attached/)
+		expect(ws.viewportView()).toBeNull()   // a query: nothing, not an error
+		const a: string[] = [], b: string[] = []
+		const offA = ws.attachShell(page(a)), offB = ws.attachShell(page(b))
+		offA()   // the old page goes after the new one came (a hot reload)
+		ws.openLog()
+		expect([a, b]).toEqual([[], ['log']])
+		offB()
+		expect(() => ws.openLog()).toThrow()
 	})
 })

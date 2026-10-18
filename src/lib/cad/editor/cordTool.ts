@@ -43,6 +43,23 @@ export interface PatchPreview {
 /** Where the bulk preview is shown (the workspace) and the sticky in-step / fill choice. */
 export interface PatchPreviewHost { show(p: PatchPreview | null): void; fill(): boolean; setFill(on: boolean): void }
 
+/** What the cord tool is given (the workspace holds the state the UI shows). */
+export interface CordToolDeps {
+	/** A new cord's type, color and status. */
+	defaults: () => CordDefaults
+	/** Ports to bulk-patch from (armed from Port Properties; held by the workspace so the UI can show it). */
+	bulkFrom: { get: () => BulkFrom | null; set: (b: BulkFrom | null) => void }
+	/** The cable type for interconnects (backlog "Own cable type for new links"); '' = the cord type. */
+	linkType?: () => string
+	/** A bulk patch / link has been made (or Esc'd) — the workspace puts back the tool you had. */
+	done?: () => void
+	/** Where a bulk patch's plan is shown to OK first, and the sticky in-step / fill choice. */
+	previewHost?: PatchPreviewHost
+	/** Where the port picked first is held — the workspace, so every pane can light the free / taken ports while a cord
+	 *  is half made (User 2026-10-17); absent: the tool keeps it. */
+	firstPort?: { get: () => PortRef | null; set: (r: PortRef | null) => void }
+}
+
 export class CordTool implements Tool {
 	readonly id = 'cord'
 	readonly cursor = 'crosshair'
@@ -53,13 +70,17 @@ export class CordTool implements Tool {
 	/** The port the last cord went to: a bare typed number means another port of ITS device */
 	#lastTo: PortRef | null = null
 
-	/** `bulk`: ports to bulk-patch from (armed from Port Properties; held by the workspace so the UI can show it). */
-	/** `linkType` = the cable type for interconnects (backlog "Own cable type for new links"); '' = the cord type. */
-	/** `done`: a bulk patch / link has been made (or Esc'd) — the workspace puts back the tool you had. */
-	/** `firstPort`: where the port picked first is held — the workspace, so every pane can light the free / taken ports
-	 *  while a cord is half made (User 2026-10-17); absent: the tool keeps it. */
-	constructor(private defaults: () => CordDefaults, private bulkFrom: { get: () => BulkFrom | null; set: (b: BulkFrom | null) => void }, private linkType: () => string = () => '', private done: () => void = () => {}, private previewHost?: PatchPreviewHost,
-		private firstPort?: { get: () => PortRef | null; set: (r: PortRef | null) => void }) {}
+	private readonly defaults: CordToolDeps['defaults']
+	private readonly bulkFrom: CordToolDeps['bulkFrom']
+	private readonly linkType: () => string
+	private readonly done: () => void
+	private readonly previewHost?: PatchPreviewHost
+	private readonly firstPort?: CordToolDeps['firstPort']
+	/** Named, not positional (hacky-code review #8: six positional arguments, four optional callbacks). */
+	constructor(d: CordToolDeps) {
+		this.defaults = d.defaults; this.bulkFrom = d.bulkFrom; this.linkType = d.linkType ?? (() => ''); this.done = d.done ?? (() => {})
+		this.previewHost = d.previewHost; this.firstPort = d.firstPort
+	}
 	get bulk(): BulkFrom | null { return this.bulkFrom.get() }
 	set bulk(b: BulkFrom | null) { this.bulkFrom.set(b) }
 	/** The port picked first (a cord half made). */

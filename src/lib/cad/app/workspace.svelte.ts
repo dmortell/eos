@@ -94,6 +94,41 @@ function loadGuides(): Record<string, Guide[]> {
 /** `choices`: answers also shown as buttons at the top of the drawing (R7-17: V's floors) */
 export interface Prompt { label: string; value: string; text: boolean; apply: (v: string) => void; choices?: { label: string; value: string }[] }
 
+/** What the open cad page (CadShell) does for the workspace — given ONCE with `attachShell` (hacky-code review #8: these
+ *  were ~15 `foo = () => {}` slots the shell overwrote one by one; one called before the shell mounted did nothing). */
+export interface ShellActions {
+	/** The Delete key's action (with its confirms) — for the Delete buttons. */
+	remove(): void
+	/** Align / distribute the selection in the active view (editor/align.ts). */
+	align(how: AlignHow): void
+	/** The view a new viewport shows (the Viewport tool) — the other pane's, else the last model view. */
+	viewportView(): Viewport['view'] | null
+	/** Project settings on its Sheets tab, at the title block template (Sheets › Title block…, sheet Properties). */
+	openTitleBlock(): void
+	/** The Sheets table with Release… started on the selected sheet(s) (Round 7). */
+	releaseSheets(): void
+	/** The Tables' Log tab (the design log). */
+	openLog(): void
+	/** Project settings on a tab (SettingsDialog's SettingsTab). */
+	openSettings(tab: 'floors' | 'plans' | 'usages' | 'cables' | 'lengths' | 'drawing' | 'sheets' | 'files'): void
+	/** One of the shell's windows (app/windows.svelte.ts WinId). */
+	openWindow(id: 'blocks' | 'devices' | 'layers' | 'racks' | 'navigator' | 'properties' | 'cables'): void
+	/** Properties › Renumber (outlet / rack): the Renumber tool, the selection kept as its first picks. */
+	startRenumber(): void
+	/** The Restore dialog on a stored backup (an issue's, from the Issues list). */
+	restoreBackup(backupId: string): void
+	/** Select what the active view shows like the selection (Properties → Select similar). */
+	selectSimilar(): void
+	/** A view in its own tab (the viewport chip's "Open view"). */
+	openInTab(v: { levelId?: Id; spec: ViewSpec }): void
+	/** A view in the active pane (a section's Open button). */
+	openView(s: ViewSpec): void
+	/** A level (its plan in the active pane) — from the list, a riser carrying on (W27). */
+	openLevel(id: Id): void
+	/** How the assign tool writes (the page owns the store). */
+	applyLinks(label: string, add: Link[], remove: Id[]): void
+}
+
 export class Workspace {
 	/** Each pane's level (User: 2F plan beside 3F plan, area plan 3303 beside 3307) and which pane is active.
 	 *  `levelId` is the ACTIVE pane's: whatever reads or sets "the open level" (Properties, the tools, the tables,
@@ -219,19 +254,18 @@ export class Workspace {
 	message = $state<string | null>(null)
 	#msgTimer: ReturnType<typeof setTimeout> | undefined
 	readonly rackTool = new RackTool(() => { this.toolId = 'select' })
-	/** Set by the app: the Delete key's action (with its confirms) — for the Delete buttons. */
-	remove: () => void = () => {}
-	/** Set by the app: align / distribute the selection in the active view (editor/align.ts). */
-	align: (how: AlignHow) => void = () => {}
-	/** Set by the app: the view a new viewport shows (the Viewport tool) — the other pane's, else the last model view. */
-	viewportView: () => Viewport['view'] | null = () => null
-	/** Set by the app: open Project settings on its Sheets tab, with the title block template (Sheets › Title block…,
-	 *  sheet Properties). */
-	openTitleBlock: () => void = () => {}
-	/** Open the project's Settings on a tab ('usages' …: SettingsDialog SettingsTab); set by the shell. */
-	/** The Sheets table with Release… started on the selected sheet(s); set by the shell (Round 7: Release was only in the
-	 *  Sheets table's bar and the Drawings menu). */
-	releaseSheets: () => void = () => {}
+	// the shell's actions (ShellActions): forwarded, so callers keep `ws.remove()`, `onclick={ws.openLog}` …
+	#shell: ShellActions | null = null
+	/** The open cad page gives its actions once; the returned function takes them back (only its own). */
+	attachShell(a: ShellActions): () => void { this.#shell = a; return () => { if (this.#shell === a) this.#shell = null } }
+	/** An action with no page attached is a bug, said — not a click that silently does nothing. */
+	#act(): ShellActions { if (!this.#shell) throw new Error('cad: no page is attached to the workspace (attachShell)'); return this.#shell }
+	readonly remove = (): void => this.#act().remove()
+	readonly align = (how: AlignHow): void => this.#act().align(how)
+	/** (a query: none without a page) */
+	readonly viewportView = (): Viewport['view'] | null => this.#shell?.viewportView() ?? null
+	readonly openTitleBlock = (): void => this.#act().openTitleBlock()
+	readonly releaseSheets = (): void => this.#act().releaseSheets()
 	/** The release form opens with minor versions (A → A.1) for its changed sheets: Bump version (design log step 3) —
 	 *  taken once by the form. */
 	releaseMinor = $state(false)
@@ -239,19 +273,13 @@ export class Workspace {
 	workingOn = $state<Id | null>(null)
 	/** Bump version: these sheets selected, the release form opened on them with their next minor version. */
 	bumpVersion(sheetIds: Id[]): void { this.select(sheetIds); this.releaseMinor = true; this.releaseSheets() }
-	/** Opens the Tables' Log tab (the design log). */
-	openLog: () => void = () => {}
-	openSettings: (tab: 'floors' | 'plans' | 'usages' | 'cables' | 'lengths' | 'drawing' | 'sheets' | 'files') => void = () => {}
-	/** Open one of the shell's windows ('blocks', 'devices' …: app/windows.svelte.ts WinId); set by the shell. */
-	openWindow: (id: 'blocks' | 'devices' | 'layers' | 'racks' | 'navigator' | 'properties' | 'cables') => void = () => {}
-	/** Properties › Renumber (outlet / rack): the Renumber tool, the selection kept as its first picks (CadShell). */
-	startRenumber: () => void = () => {}
-	/** Open the Restore dialog on a stored backup (an issue's, from the Issues list); set by the shell. */
-	restoreBackup: (backupId: string) => void = () => {}
-	/** Set by the app: select what the active view shows like the selection (Properties → Select similar). */
-	selectSimilar: () => void = () => {}
-	/** Set by the app: open a view in its own tab (the viewport chip's "Open view"). */
-	openInTab: (v: { levelId?: Id; spec: ViewSpec }) => void = () => {}
+	readonly openLog = (): void => this.#act().openLog()
+	readonly openSettings = (tab: Parameters<ShellActions['openSettings']>[0]): void => this.#act().openSettings(tab)
+	readonly openWindow = (id: Parameters<ShellActions['openWindow']>[0]): void => this.#act().openWindow(id)
+	readonly startRenumber = (): void => this.#act().startRenumber()
+	readonly restoreBackup = (backupId: string): void => this.#act().restoreBackup(backupId)
+	readonly selectSimilar = (): void => this.#act().selectSimilar()
+	readonly openInTab = (v: { levelId?: Id; spec: ViewSpec }): void => this.#act().openInTab(v)
 	/** Open a linked symbol's target (double-click): a sheet in a tab, a web page in a new browser tab (no opener). */
 	openLink = (link: InsertLink): void => {
 		if (link.kind === 'sheet') { this.openInTab({ spec: { kind: 'sheet', sheetId: link.sheetId } }); return }
@@ -259,15 +287,12 @@ export class Workspace {
 		if (url && typeof window !== 'undefined') window.open(url, '_blank', 'noopener,noreferrer')
 		else this.say('That link isn’t a web address we open — edit it in Properties')
 	}
-	/** Set by the app: show a view in the active pane (a section's Open button). */
-	openView: (s: ViewSpec) => void = () => {}
-	/** Set by the app: show a level (its plan in the active pane) — a level from the list, a riser carrying on (W27). */
-	openLevel: (id: Id) => void = () => {}
+	readonly openView = (s: ViewSpec): void => this.#act().openView(s)
+	readonly openLevel = (id: Id): void => this.#act().openLevel(id)
 	/** A point (view mm) the active view centres on once it shows (W27: the riser's top on the other floor), keeping
 	 *  its zoom; the view clears it. */
 	centreOn = $state.raw<{ x: number; y: number } | null>(null)
-	/** Set by the app (it owns the store): how the assign tool writes. */
-	applyLinks: (label: string, add: Link[], remove: Id[]) => void = () => {}
+	readonly applyLinks = (label: string, add: Link[], remove: Id[]): void => this.#act().applyLinks(label, add, remove)
 	readonly assignTool = new AssignTool(() => { this.toolId = 'select' }, (l, a, r) => this.applyLinks(l, a, r))
 	/** Sticky cord defaults: the last type / color chosen stays for the next cord (the Patching tool's habit). */
 	cordDefaults = $state<CordDefaults>({ cableType: 'cat6a', colour: '#3b82f6' })
@@ -297,9 +322,14 @@ export class Workspace {
 	patchFirst = $state.raw<PortRef | null>(null)
 	/** The port under the pointer in a rack view (any pane): every rack view lights the far ends of its cords and cable. */
 	hoverPort = $state.raw<PortRef | null>(null)
-	readonly cordTool = new CordTool(() => ({ ...this.cordDefaults, status: this.newCordStatus }), { get: () => this.bulkFrom, set: (b) => { this.bulkFrom = b } }, () => this.linkType, () => this.bulkDone(),
-		{ show: (p) => { this.patchPreview = p }, fill: () => this.patchFill, setFill: (on) => { this.patchFill = on } },
-		{ get: () => this.patchFirst, set: (r) => { this.patchFirst = r } })
+	readonly cordTool = new CordTool({
+		defaults: () => ({ ...this.cordDefaults, status: this.newCordStatus }),
+		bulkFrom: { get: () => this.bulkFrom, set: (b) => { this.bulkFrom = b } },
+		linkType: () => this.linkType,
+		done: () => this.bulkDone(),
+		previewHost: { show: (p) => { this.patchPreview = p }, fill: () => this.patchFill, setFill: (on) => { this.patchFill = on } },
+		firstPort: { get: () => this.patchFirst, set: (r) => { this.patchFirst = r } },
+	})
 	/** The Calibrate tool's floorplan and step (Project settings › Plans & floorplans › Origin / Scale / Crop); the app
 	 *  sets how it reads a page's calibration and writes it (its file, not the store). */
 	calibTarget = $state.raw<CalibTarget | null>(null)
