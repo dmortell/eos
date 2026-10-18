@@ -22,12 +22,11 @@ export interface ClipboardDeps {
 	inRow(): boolean
 	/** The pointer in the active pane, in the paste target's own points (plan / paper mm); null = not over it. */
 	cursor?(): Pt | null
-	/** A dialog is open (default: a [role=dialog] in the page). */
-	dialogOpen?(): boolean
+	/** A cad dialog is open (ui/modals): a paste is its own. */
+	dialogOpen(): boolean
 }
 
 const typing = (t: EventTarget | null) => typeof Element !== 'undefined' && t instanceof Element && !!t.closest('input, select, textarea, [contenteditable]')
-const anyDialog = () => typeof document !== 'undefined' && !!document.querySelector('[role=dialog]')
 const items = (n: number) => `${n} item${n === 1 ? '' : 's'}`
 
 /** Cut never asks (User): Undo brings it all back; the message says what a paste won't (links, cords). */
@@ -56,7 +55,7 @@ export function fromText(text: string): ReturnType<typeof parseClip> {
 	return s && text.trim() && same(s.words, text) ? parseClip(s.json) : null
 }
 
-export function clipboardEvents({ project, ws, target, inRow, image, note, cursor, dialogOpen = anyDialog }: ClipboardDeps) {
+export function clipboardEvents({ project, ws, target, inRow, image, note, cursor, dialogOpen }: ClipboardDeps) {
 	// Ctrl+Shift+V (backlog "Paste at the cursor"): the paste event doesn't say Shift, so the key down before it does
 	let atCursorUntil = 0
 	function key(e: KeyboardEvent): void {

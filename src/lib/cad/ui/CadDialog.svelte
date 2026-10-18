@@ -1,6 +1,6 @@
 <!-- The ONE modal dialog shell every cad dialog uses: a backdrop (a click that starts and ends on it closes), the dialog
-     focused when it opens (its keys work at once; the drawing behind gets none, shellKeys skips while a
-     [role=dialog] is open), Tab kept inside it, Esc closes, a header with the title and ✕, a scrolling body, an
+     focused when it opens (its keys work at once; the drawing behind gets none, shellKeys skips while one
+     is open — counted in ui/modals), Tab kept inside it, Esc closes, a header with the title and ✕, a scrolling body, an
      optional bar between the two and a footer under it, one z-index (above the menu bar and floating windows, under
      the right-click menu).
      It moves itself to cad's root: inside a floating window (its backdrop-filter) `position: fixed` would be relative
@@ -9,7 +9,8 @@
      (Project settings while a floorplan is calibrated). `locked` (a job running) ignores ✕ / Esc / backdrop;
      `outside={false}` ignores the backdrop only; `onescape` answers Esc instead of closing (step back first). -->
 <script lang="ts">
-	import type { Snippet } from 'svelte'
+	import { untrack, type Snippet } from 'svelte'
+	import { modalsOf } from './modals.svelte'
 	import { backdropClose, dialogFocus } from './backdrop'
 	import { composing } from './keyGuards'
 
@@ -25,6 +26,14 @@
 		head?: Snippet; bar?: Snippet; footer?: Snippet; children?: Snippet
 		el?: HTMLElement
 	} = $props()
+
+	// counted open while shown (not `hidden`): the drawing's keys and pastes wait, the AskBox leaves the focus (ui/modals)
+	const modals = modalsOf()
+	$effect(() => {
+		if (hidden || !modals) return
+		untrack(() => modals.open++)
+		return () => untrack(() => modals.open--)
+	})
 
 	const close = () => { if (!locked) onclose() }
 	/** Its own keys only — not those of a dialog opened from it. */

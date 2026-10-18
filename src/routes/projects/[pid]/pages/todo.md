@@ -6,8 +6,8 @@ state, no Firestore). This file tracks what's left to reach a real tool.
 
 > **Doc map (R11):** `README.md` = the file map + coordinate reference · `review.md` = the standing code
 > review (§0a = done tracker) · `CHANGELOG.md` = curated milestones · `model-plan.md` = the
-> 3D-engine port. This file keeps **open** items + decisions; the long done-log below is historical — the
-> real changelog is `git log`.
+> 3D-engine port. This file keeps **open** items + decisions only; done items move to `CHANGELOG.md`
+> (the old done-log is there under "Earlier work") — the full record is `git log`.
 
 Legend: `[ ]` todo · `[~]` partial · `[x]` done · **(P1)** near-term · **(P2)**
 after UX settles · **(P3)** later / needs design. `◧ decide` = needs your pick.
@@ -17,92 +17,184 @@ Kestrel code is in M:\dev\KestrelCad2
 ---
 
 ## 0. Bugs / quick wins  (P1)
+### Reported 2026-09-27 (User)
+- [ ] **REMINDER — finish importing the other tools' drawings into Pages** (Sheets sheets, register drawings, Outlets /
+  Racks / Risers / Frames / Patching views → Pages sheets / models), so those tools can be DECOMMISSIONED and their
+  leaves removed from the tree (see `tree-views-plan.md` §6). Today: Phase 8 imports exist per leaf (Import into Pages,
+  risers into the building model); list what's left per tool, bulk-import, then hide the old leaves. (M)
+- [ ] **Look at ConduitCAD** — https://wieslawsoltes.github.io/ConduitCAD/ — its 3D view and its MOBILE mode (touch
+  UI) for ideas (like the OpenCad scan: note what's worth taking). (S)
+- [ ] **Tree views follow-ups** (phases 1–3 DONE → CHANGELOG round 21): folder colours; tags on MODELS; offer the
+  suggested kind / tags when a sheet is CREATED (today only in Properties); plan §6 "Show legacy tool drawings" toggle
+  (old-tool drawings show only in By place). Test data left on Test Project: view "Test view" (folders), "Elevations"
+  typed elevation + tag high-level, "4F floorplan" typed plan. (S–M)
+- [ ] **DXF export in LibreCAD** (User tested): (a) the background image draws OVER the other layers (LibreCAD ignores
+  entity order — try a SORTENTSTABLE / put images on a layer that sorts first); (b) outlet labels (block ATTRIBs) don't
+  show — LibreCAD doesn't display attributes; option: also write the values as TEXT on a hidden-by-default layer.
+  TrueView shows both fine. (S–M)
+- [ ] **Editing-merge follow-ups** (phases 0–4 + multi-frame props / clipboard + mixed props DONE → CHANGELOG rounds
+  15–18, `editing-merge-plan.md`): Ctrl-drag copy of a conduit keeps attachments only between copied items. Phase 5
+  (paper annotations) optional. (S)
+- [ ] **Live preview (ghost) for MOVE / COPY on paper** — the paper command target returns frame rects from `preview`,
+  but nothing draws them: PaperPage should draw a pick's ghost like a viewport does. (S)
+- [ ] **Change a viewport's MODEL** (User 2026-09-27) — Properties › VIEWPORT › Source: pick another model (another
+  floor / zone / the building) for an existing frame, keeping its frame, scale and view direction (re-fit optional).
+  NOTE: a basic Source select ALREADY exists (FrameProps, shown when the project has 2+ models) — what's open is
+  checking it keeps the view sensibly (re-fit?), and the versions question below.
+  Question: should this tie into VERSIONS / REVISIONS — a viewport showing a model at a saved version (frozen), vs the
+  live model? Proposal: Source = model + "Live / Version ▾" (a frozen snapshot for issued sheets). (M)
+- [ ] **DXF import** (User: "similar for dxf files") — nothing reads DXF today (export only; `src/lib/dev/dxfVerify.ts`
+  wants `dxf-parser`, not installed). Plan: (1) Uploads accepts `.dxf` (stores the file + a `files` doc); (2) Insert ›
+  From Uploads… lists it; (3) parse (dxf-parser) → a BLOCK-like group of Pages shapes (lines / polylines / arcs /
+  circles / text / inserts, layers mapped or prefixed "DXF-"), units from $INSUNITS → mm, placed at the origin or by a
+  picked base point; or (3b) an XREF-style reference shape that renders the DXF live (re-reads on change) — Replace…
+  then works like a PDF. Decide 3 vs 3b. (M–L)
+- [ ] **PEN (penetrations) doesn't work** (User) — the tool button + the command-list entry are removed; the script
+  (`cmdScripts.ts` pen) and the penetration block stay. Fix and bring back, or delete the code. (S)
+
+### OpenCad picks (User 2026-09-26) — from `opencad-diff.md` (OpenCad = `M:\dev\autocad`)
+**Import / export**
+- [ ] (LOW) **O13 DXF import** — LINE / LWPOLYLINE / POLYLINE / CIRCLE / ARC / ELLIPSE / SPLINE / TEXT / MTEXT / INSERT, unit-aware
+  ($INSUNITS), blocks exploded or kept; OpenCad `src/lib/dxfImport.ts` (dxf-parser). Into a model as shapes on their DXF
+  layers, or as an underlay. (L)
+- [ ] **O14 Whole-project export / import as a file** (a portable JSON: models, sheets, places, blocks) — backup /
+  migration / sharing outside Firestore; OpenCad `.opencad.json`. (M)
+- [ ] **DXF export leftovers** (O15 / O16 / O17 done — CHANGELOG round 17): export shape colours; greyscale images
+  ignored by older Safari; not yet opened in AutoCAD itself (checked with ezdxf).
+**Takeoff / data**
+- [ ] (LOW) **O18 Cable takeoff + pull schedule** — symbol counts by kind, route lengths by service / containment (+ drops
+  and slack), penetration counts, rack counts, and each outlet → rack cable with its length; live panel + CSV
+  (OpenCad `src/lib/takeoff.ts` `takeoffCsv`). (L)
+- [ ] (LOW) **O20 Periodic local snapshots** (User 2026-09-27: "that may be enough" instead of the op-based history
+  below) — every ≥ 5 min keep a snapshot of the model (last ~12) in the browser, restorable from a list,
+  independent of undo (OpenCad `src/lib/snapshots.ts`). NOT implemented yet: today every edit saves to Firestore
+  (debounced ~0.5 s, `store/saver.ts`), so a refresh keeps the drawing but LOSES the undo history (it is memory only). (M)
+- [ ] **Incremental (op-based) history** instead of full copies — undo steps store the change (the edited objects'
+  before / after, or an op) rather than a whole-model snapshot; pairs with the backend item in §12. (M–L)
+  Consider what happens on a PAGE REFRESH: the history is in memory only (lost on reload) — decide whether undo
+  should survive a refresh (persist the recent steps per doc, e.g. IndexedDB) or whether O20's snapshots are enough.
+**Drawing / editing**
+- [ ] **O5 STRAIGHTEN** — square selected walls / lines to horizontal / vertical and re-weld their corners and T
+  junctions (OpenCad `editor.svelte.ts straightenSelection`); a clean-up after tracing an underlay / DXF. (S–M)
+- [ ] (LOW) **O10 Underlay dark-pixel snap** — snap to the nearest dark pixel of a PDF / image underlay within a radius
+  (OpenCad `src/lib/underlaySnap.ts`), a toggle next to OSNAP; for tracing floorplans. (M)
+- [ ] **O12 Named views saved in the model** (not localStorage), so they follow the drawing to other devices /
+  people. (S)
+- [ ] **HIGH — Named shape GROUPS in a library** (vs blocks; User 2026-09-27: HIGH) — think it through: a saved group that is COPIED into the drawing
+  as ordinary shapes / objects (resize and edit freely after placing — custom racks, openings, furniture), vs a block
+  (an instance of a shared definition). Library UI, naming, thumbnails, 2D + 3D content, per-project vs global. (M)
+- [ ] **O1b + test**: EOS openings are free boxes (User prefers that). Test an opening drawn THINNER than the wall, or
+  off-centre, or partly outside it, in plan / elevation / 3D, and compare with OpenCad's on-wall openings; fix what
+  doesn't read as a hole. Maybe add OpenCad's click-a-wall placement + slide-along-the-wall grip as an option. (S–M)
+- [ ] **Vertical (top-bottom) holes/openings** (User 2026-09-27) — today an opening cuts a box along one horizontal
+  axis (front-back or left-right); support a vertical opening too, cutting top-to-bottom (e.g. a floor/ceiling
+  penetration through a box/slab), same panel-split approach as the existing horizontal cut. Needs: an axis field
+  on the opening (or auto-pick from its own orientation/rotation), the panel-cut logic extended to split along Z,
+  and correct read in plan (a vertical hole shows as an outline, not a cut edge) / elevation / 3D. (S–M)
+**Rendering**
+- [~] **Racks like OpenCad** (2D + 3D) — 2D DONE 2026-09-27 (X + front line 40 mm out, CHANGELOG round 17); [ ] the
+  3D rack look (OpenCad `scene/builders.ts` 'rack'). (S–M)
+- [ ] **Section follow-ups** (sections at any angle + elevation tool, phases 1–6 DONE → CHANGELOG rounds 17–19): a
+  wall CROSSING the cut line is kept whole (the part in front of the cut also hides things — cut it at the line);
+  drawing walls / trunks / guides in an angled view is still off; plan views keep the old painted hidden-line render;
+  with Hidden lines = Hide an elevation doesn't draw the racks' / objects' LABELS (R311 …) that Show draws. (S–M)
+- [ ] **HIGH — Edit objects + shapes IN the 3D view** (User 2026-09-27: a callout to a ceiling-mounted TV, added in the
+  floorplan, points its leader at the floor in 3D). Select + move / grip-edit 3D objects and 2D shapes in iso /
+  perspective, incl. callout leaders — drag a leader tip onto a 3D face and it takes that point's height. First step
+  DONE (round 18): plan shapes have a height `Ent.z` (Properties › Z; drag up / down in an elevation) and 3D draws a
+  callout at it. Open: picking a 3D point (face hit → x, y, z) for the leader tip; the tip's own z (the box may sit
+  elsewhere); moving / grips in 3D; notes / plain text still use the old iso path (first line, fixed size — one line
+  in `isoFacing`). (M–L)
+- [ ] (LOW, User 2026-09-27) **Better hidden-line / draw order in 3D** — EOS sorts faces by their centre depth, which sometimes paints the
+  wrong one on top (OpenCad uses a real depth buffer, Three.js). Options: split faces that straddle, BSP / pairwise
+  overlap tests, or a canvas / WebGL depth pass for the iso view. (M–L)
+**Navigation / keys**
+- [ ] **More function keys** — only ones browsers leave alone (not F1 in some, F3 find, F5 reload, F6 address bar,
+  F7 caret browsing in Chrome, F11 fullscreen, F12 devtools). DONE so far: F1 help, F8 ORTHO, F9 SNAP, F10 POLAR (Help lists
+  them). Candidates: F2 (e.g. the command history), Shift / Alt + F-keys for OSNAP / GRID / LWT. (S)
+**Grid**
+**Printing**
+- [ ] **Check printing in User's older apps (e.g. inv2026)** — paper size + orientation worked there; compare and fix
+  Pages' print (@page size / landscape). (S)
+**Low priority**
+- [ ] (LOW) **O6 Isolate selection** + Show all. (S)
+- [ ] (LOW) **O7 Legend by symbol / block kind** (how many data vs power outlets), besides by layer. (S)
+- [ ] (LOW) **O8 Perpendicular snap** while drawing. (S)
+- [ ] (LOW) **O11 Quad view** — plan + 3D + front + side at once, framed on the selection. (M)
+- [ ] (LOW) **Nudge by the grid step** — arrow keys move by the SNAP step (not 1 mm); Shift × 10 (OpenCad). (S)
+- [ ] (LOW) **Ctrl+drag in 3D moves vertically** (height only) — OpenCad. (S–M)
+- [ ] (LOW) **Alt+click picks one shape inside a group; repeated Alt+clicks cycle overlapping shapes** — OpenCad. (S–M)
+- [ ] (LOW) **OpenCad letter aliases** where free (Q = PEN, G = MATCHPROP, X = SECTION, B = box, N = window, O = door) — flag clashes with AutoCAD aliases. (S)
 ### Command line — commands NOT yet built (pick list, 2026-09-25)
 Built so far: see CHANGELOG.md "Command line" and "Command line, round 2" (the ticked items moved there).
 Tick the ones you want. Size: S = under half a day, M = one to two days, L = multi-day. [K] = in Kestrel's list.
 **Interaction upgrades to what exists**
-- [ ] **POLAR tracking / F10** — snap the rubber band to 15° / 30° / 45° increments with a tracking line. [K] (M)
-- [ ] **Command-line prompts per step** — "Specify next point or [Close / Undo]:" in the command line (today the
-  viewport's status line shows the prompt). (S)
-- [ ] **Command options as clickable [brackets]** in the prompt. [K] (S)
-- [ ] **Keypad coordinate entry** — accept `100..200` as `100,200`, since the number pad has no comma, so points
+- [ ] (LOW) **Keypad coordinate entry** — accept `100..200` as `100,200`, since the number pad has no comma, so points
   can be typed on the keypad alone. Parse `..` as the X/Y separator in `parseCoord` (ui/commands.ts); a single `.`
   is still a decimal point (`100.5..200` = 100.5,200). Also allow the keypad `+` / `-` without zooming while the
   command line has text. Consider a keypad-friendly prefix for relative input in place of `@` (e.g. a leading `*`
   or `/`). (S)
 **Draw**
-- [ ] **SPLINE** — a new entity. [K] (M)
-- [ ] **POINT** — a point marker. [K] (S)
-- [ ] **HATCH** — fill a closed boundary with a pattern (a pattern library, and DXF HATCH). [K] (L)
-- [ ] **DIMANGULAR / DIMRADIUS / DIMDIAMETER / DIMCONTINUE / DIMBASELINE** — more dimension types. (M each)
-- [ ] **TABLE** — a grid of text cells on a sheet. (L)
-- [ ] **REVCLOUD** — a revision cloud around a region. (S–M)
+- [ ] (LOW) **SPLINE** — a new entity. [K] (M)
+- [ ] (LOW) **POINT** — a point marker. [K] (S)
+- [~] PARTLY DONE 2026-09-26 (CHANGELOG round 10: 2D line patterns) — **HATCH** — fill a closed boundary with a pattern (a pattern library, and DXF HATCH). [K] (L)
+- [ ] (LOW) **Viewport zoom ↔ scale** (User 2026-09-25): zooming inside a sheet viewport should change its SCALE (the label
+  shown = what prints), not a hidden content zoom. Concerns: (1) scales are usually standard (1:50 / 1:100 …) — snap
+  to them, or allow any 1:N while zooming and round on release? (2) text / dims / symbols are annotative (paper-sized),
+  so they stay the same size while the geometry scales — correct CAD behaviour but a visible change from today;
+  (3) existing frames with view.zoom ≠ 1 need a one-time fold into their scale; (4) model-space tabs have no paper
+  scale, so there zoom stays a plain view zoom. (M)
+- [ ] **Outlet → rack link in Properties** (User 2026-09-26): an outlet's Properties can pick the rack it's cabled to
+  (a rack id — any rack object in the project), shown on the outlet, carried to schedules / the E8 allocation. (S–M)
+- [ ] (LOW) **Outlet / rack / trunk LISTS** (E10) — wanted once there are frame + patching viewports. (M)
+- [ ] **Faster PDF rendering** (User 2026-09-26): floorplan PDFs render noticeably slower than they used to.
+  Profile first (pdf.js worker running? the page re-rendered on every pan / zoom or view switch? cached bitmaps
+  thrown away? several viewports each rendering the same page? a big render scale?). Likely fixes: a per-file,
+  per-page bitmap cache shared by viewports and tabs; render at stepped scales and reuse the nearest one while
+  zooming; cancel stale render tasks; check `git log` on the PdfState / underlay code for the change that slowed it. (M)
+- [ ] (LOW) **TABLE** (a full table editor) — a grid of text cells on a sheet. (L) Open question: a NOTE's markdown table already covers
+  simple schedules (Excel paste → cells). A real TABLE would add: cell grid editing (Tab / arrows), column widths
+  and row heights by drag, merged cells, per-cell alignment / bold, and fields linked to data (e.g. a live outlet
+  schedule). Lean: build it only when a live schedule is wanted; until then the markdown table is enough.
 **Modify**
-- [ ] **MIRROR** — about a two-point line, keeping or deleting the source. [K] (S–M)
-- [ ] **FILLET / CHAMFER** — two lines to a corner / radius / bevel (radius 0 = a clean corner). [K] (M)
-- [ ] **ARRAY** — rectangular (rows × cols × spacing) and polar (count about a centre); useful for outlets and
-  desks. [K] (M)
-- [ ] **JOIN** — end-to-end lines → one polyline. [K] (S–M)
-- [ ] **EXPLODE** — a block insert / polyline / group → its parts. [K] (S–M)
-- [ ] **STRETCH** — move the vertices inside a crossing window. (M)
-- [ ] **MATCHPROP** — copy the style / layer from one shape to others. [K] (S)
-- [ ] **ALIGN / DISTRIBUTE** — also reported by Dave; see "Reported 2026-09-25". (S–M)
-- [ ] **TRIM / EXTEND / BREAK on arcs, rects and ellipses** — today these (and TRIM's cutting target) work on lines /
+- [ ] (LOW) **TRIM / EXTEND / BREAK on arcs, rects and ellipses** — today these (and TRIM's cutting target) work on lines /
   polylines only; OFFSET and LENGTHEN already handle arcs. (M)
 **Inquiry**
-- [ ] **AREA** — the area and perimeter of picked points or a closed shape. [K] (S)
-- [ ] **ID** — the coordinates of a point. (S)
-- [ ] **LIST** — the properties of the selection as text. (S)
+- [ ] (LOW) **ID** — the coordinates of a point. (S)
+- [ ] (LOW) **LIST** — the properties of the selection as text. (S)
 **Layers / selection**
-- [ ] **LAYON / LAYOFF / LAYFRZ / LAYISO / LAYUNISO** — layer actions by picking a shape. [K] (S each)
-- [ ] **PURGE** — delete unused layers and blocks. [K] (S–M)
-- [ ] **FILTER / QSELECT** — select by type / layer / colour / property. [K] (M)
-- [ ] **SELECTSIMILAR** — the same type and layer as the selection. (S)
+- [ ] (LOW) **PURGE / AUDIT for LAYERS** — PURGE unused layers; AUDIT dangling layer ids. (S)
 **View / display**
 - [ ] **WIREFRAME / SHADED / SHADEDGES / XRAY** — visual styles for the 3D viewport. [K] (M)
-- [ ] **PERSPECTIVE** — a perspective 3D camera. [K] (M)
-- [ ] **REGEN**, and **THEME** (light / dark). [K] (S)
-- [ ] **NAMED VIEWS** (VIEW). (M)
+- [ ] (LOW) **REGEN**, and **THEME** (light / dark). [K] (S) — "not needed" (User 2026-09-26)
 **3D (Kestrel solids — only if Pages needs them)**
 - [ ] **BOX / CYLINDER / SPHERE / CONE / TORUS / EXTRUDE / REVOLVE / UNION / SUBTRACT / INTERSECT / TRANSFORM3D**
   — generic solids. Pages has typed model objects (walls, boxes, conduits) instead; probably skip. [K] (L)
 **File / project**
-- [ ] **SVGOUT / PNGOUT of a whole SHEET** (paper + title block + every viewport). Today they export the active
+- [ ] (LOW) **SVGOUT / PNGOUT of a whole SHEET** (paper + title block + every viewport). Today they export the active
   viewport; a sheet goes to PDF through print. Images that aren't data: URLs come out blank in the PNG. (M)
 - [ ] **DWGOUT** — Kestrel has a DWG codec. [K] (L)
-- [ ] **UNITS** — display units (mm / m) and precision. [K] (S–M)
-- [ ] **AUDIT** — check the model for broken references (dangling block ids, graph nodes, layer ids). [K] (M)
-- [ ] **XREF / ATTACH** — attach another model or DXF as an underlay. (L)
+- [ ] (LOW) **UNITS** — display units (mm / m) and precision. [K] (S–M)
+- [ ] (LATER) **XREF / ATTACH** — attach another model or DXF as an underlay. (L)
 
 ### Parity pick-list — every item NOT yet built (from parity-review.md, 2026-09-25)
-Size: S = under half a day, M = one to two days, L = multi-day. Dave's notes in quotes.
-- [ ] **A3** Checked / Approved / Client per-sheet fields in the title block (S).
-- [ ] **B4** Viewport numbering in reading order (rows, then left → right), renumbered on move; Pages numbers by
-  creation order (S).
-- [ ] **B9** A Tools menu linking to the other project tools (S).
+Size: S = under half a day, M = one to two days, L = multi-day. User's notes in quotes.
+- [ ] (LOW) **A3** Checked / Approved / Client per-sheet fields in the title block (S).
+- [ ] (LOW) **B9** A Tools menu linking to the other project tools (S).
 - [ ] **D11** Single-key tool hotkeys (T text, L line, R rect …) (S). "no — conflicts with the command line; maybe
   Alt+key." → covered by command-line aliases (below).
-- [ ] **D12** Right-click context menu (group, ungroup, duplicate, copy, paste, delete, auto-number, conduit items)
+- [ ] (LOW) **D12** Right-click context menu (group, ungroup, duplicate, copy, paste, delete, auto-number, conduit items)
   (M). "low priority".
-- [ ] **E4** Real outlet fields (M):
+- [ ] **E4** Real outlet fields (M) — "low priority" (User 2026-09-25):
   - level (low / high);
   - cable type;
   - usage as a choice list that recolours the symbol;
   - the import keeps them.
 - [ ] **E6** Single-key property shortcuts (1–9 ports, l / h level, c / s / m cable, w / f / b mount) (S). "only if no conflict with the command line".
-- [ ] **E7** Per-port labels (.A / .B), derived or edited, plus baked labels from Frames (M). "only really need
-  this for a new Frames tool".
-- [ ] **E10** Object list in the sidebar (outlets / conduits): sort, select, per-item show / hide, counts (M). "low
+- [ ] (LOW) **E10** Object list in the sidebar (outlets / conduits): sort, select, per-item show / hide, counts (M). "low
   priority".
-- [ ] **F1** Trunk spec at draw time (M):
-  - a catalogue (PF22 / PF28 / E51, MK0–5, ladder, tray …);
-  - location (under floor / ceiling plenum / tray / wall);
-  - size, Z.
-- [ ] **F2** Pipe inner vs outer diameter (M).
-- [ ] **F4 follow-ups** (segment select itself is done — CHANGELOG):
-  - split at node;
-  - disconnect node;
-  - these via the context menu (D12).
+- [ ] (LOW) **F2** Pipe inner vs outer diameter (M).
+- [ ] (LOW) **F4 follow-up**: split / disconnect a node from the context menu (D12) too — Alt-drag does it today (CHANGELOG).
 - [ ] **F7** Trunk rooms restriction (A–D) (S). "I don't understand this" — from the Outlets tool: a trunk tagged
   with the rooms (server rooms A–D) it may carry cables to; a routing filter.
 - [ ] **F11** Automatic secondary routes (outlet → nearest same-level trunk, coloured by server room) (L). "low
@@ -110,20 +202,17 @@ Size: S = under half a day, M = one to two days, L = multi-day. Dave's notes in 
 - [ ] **G1** Import rackPlacements onto floor models as linked rack objects (M). "let me rethink this".
 - [ ] **G2** Rack palette: unplaced racks by room, drag onto the plan, "New rack here", adopt the row layout
   (M–L). "rethink this".
-- [ ] **G3** Rack properties write back to the racks doc (U, W × D, type, maker, model, rotation) (M). "maybe".
-- [ ] **H1** Edit risers in Pages: rooms (kind, floor, width), ladders (from / to), cables as hops with media (L).
-  "low priority".
+- [ ] (LOW) **G3** Rack properties write back to the racks doc (U, W × D, type, maker, model, rotation) (M). "maybe".
+- [ ] **Riser cable media + counts per hop** (from H1) — a riser cable run carries its media (copper / fibre / …) and
+  cable count per hop (segment), shown in Properties and labelled on the drawing. (M)
 - [ ] **H2** Automatic cable-lane layout (M). "already implemented?" — the Risers import lays cables out in lanes;
   check whether an editable re-layout in Pages is still wanted.
 - [ ] **I3** Floating elevation preview of the plan selection (M). "don't need now that we have split tabs".
 - [ ] **J3** Outlet / trunk low vs high layers on import (S). "low priority".
-- [ ] **J4** A project-wide layer list shared across models (L, a big model change).
-- [ ] **K1** Status-bar counts (outlets / conduits / racks) (S).
-- [ ] **K3** A text / notes block (markdown subset: headings, lists, tables) for notes / schedules on sheets (M).
-  "implement as shapes, not a viewport".
+- [ ] (LOW, User 2026-09-27) **J4** A project-wide layer list shared across models (L, a big model change).
 
-### Reported 2026-09-25 (Dave) — after the L / M parity batch
-- [ ] **Title-block annotations per sheet.** The template is shared by every sheet, but some sheets need extra
+### Reported 2026-09-25 (User) — after the L / M parity batch
+- [ ] (LOW) **Title-block annotations per sheet.** The template is shared by every sheet, but some sheets need extra
   text (a note, a stamp, a "preliminary" line).
   - Options:
     - (a) per-sheet extra fields on the sheet doc, rendered after the template's;
@@ -132,130 +221,37 @@ Size: S = under half a day, M = one to two days, L = multi-day. Dave's notes in 
   - (c) could simplify things: the block becomes paper-space content, and one sheet can add shapes on top.
   - It costs a paper-space entity layer (which we don't have yet) plus print / DXF support.
   - Lean: (b) paper-space annotations, which also cover stamps and revision clouds on the paper.
-- [ ] **Align / distribute** the selected shapes: to the top-most / left-most one, centres, and even spacing
-  horizontally / vertically. This belongs in the shape Properties ARRANGE section or a toolbar.
-- [ ] **Mitering at nodes with 3+ segments** (T / cross junctions of walls / conduits): review how the swept
+- [ ] (LOW) **Mitering at nodes with 3+ segments** (T / cross junctions of walls / conduits): review how the swept
   profiles join. Today each pair is mitred, which can leave overlaps / gaps at a branch.
-- [ ] **Conduit selection: single click = the segment, double-click = the whole run?**
-  - For: per-segment edits (profile override, cables, delete one segment) without opening the segment list.
-  - Against: double-click on a segment already INSERTS A NODE; moving a whole run would need a double-click first.
-  - Against: a single click that picks less than the visible object is surprising.
-  - Alternative: click = the run (as now); Alt-click or a second click on the selected run = its segment.
-- [ ] **Help.** A ? button, a searchable help panel of the tools and features, and "how do I…" entries for:
-  - hidden lines / B&W / plan cut (Properties of a SHEET's viewport frame);
-  - connection points;
-  - tile grids (a rectangle's property);
-  - walk renumber;
-  - auto-number;
-  - Alt-detach of joined nodes;
-  - joining conduits;
-  - …
-- [ ] **Connection points:**
-  - offsets as a RATIO of W / D (0.5 = halfway), so they survive resizing;
-  - clicking on the plan to place a point, instead of typing offsets;
-  - points on other shapes (walls, conduit ends, blocks such as racks / faceplates).
-- [ ] **Logos out of the project doc.** Today they're data URLs inside `projects/{pid}.pages.titleBlock` (capped
-  at ~150 KB each).
-  - Move them to file storage (UploadThing, like Uploads) and store the URL + key.
-  - That lifts the size cap and keeps the project doc small.
+- [ ] (LOW) **Help follow-ups** (the Help dialog is done — CHANGELOG): keep its "How do I…" list (`parts/HelpDialog.svelte`)
+  current as features land; maybe context help (a ? next to a Properties section opens its entry).
 - [ ] **Test rack rows live** (G4 / E8): import a rack row, edit devices, allocate outlets to a panel. Test Project
   has no rack rows; use a copy of a real project.
-- [ ] **Image / PDF crop across views:** check whether cropping an image or PDF in one viewport changes every other
+- [ ] (LOW) **Image / PDF crop across views:** check whether cropping an image or PDF in one viewport changes every other
   view of it. Today crop is on the shape, so yes. Decide whether a per-viewport crop is needed (like VP freeze).
-- [ ] **Look at the IFC format for drawings** (Dave 2026-09-25). Candidate uses:
+- [ ] **Look at the IFC format for drawings** (User 2026-09-25). Candidate uses:
   - import / export of the building model (storeys, walls, openings, rooms, cable trays / conduits, racks as IfcFurnishing);
   - an exchange path to Revit / ArchiCAD alongside DXF (C1).
   - Check first: web-ifc (WASM) for parsing / writing in the browser; IFC4 entities for storeys (IfcBuildingStorey), cable carriers (IfcCableCarrierSegment) and outlets (IfcOutlet); what our Model / Obj shapes would need to round-trip.
-- [x] **Zoom-tools floating bar: enable the Pan and Orbit icons** (done 2026-09-25, a6340a6 + review fixes 1f7c681) (`parts/Pane.svelte:172-175`). They are placeholders with no `onclick`; today pan is right/middle-drag and orbit is a drag in the 3D view.
-  - Make each a latched tool mode: Pan = left-drag pans; Orbit = left-drag orbits (iso only).
-  - Show it as `.on` while active; Esc / right-click returns to Select.
-  - Handy on touch and trackpads.
 
 ### Code review follow-ups (see `review.md`, 2026-09-20)
-Fixed from the review:
+Still open from the review (the fixed items are in CHANGELOG, "Earlier work"):
 
-- [x] §2.1 fit off-centre (paper pinned at 0,0 — margins now equal),
-- [x] §2.4 text-editor zoom double-scale (already fixed batch-4),
-- [x] §2.5 type error (cast),
-- [x] §2.6 split-view keys (only the focused pane's viewport handles keys),
-- [x] §2.7 undo global across docs (now per-doc stacks)
-- [x] §2.8 no Delete (Delete/Backspace + Edit menu, with undo),
-- [x] §2.8 dropDoc leaked undo/proj/paper/activation,
-- [x] §2.8 dirty never set,
-- [x] §2.8 HistoryPanel prop mutation (→ onnote callback),
-- [x] §2.8 titleblock SIZE hardcoded,
-- [x] §2.8 ViewCube→layout one-way (TOP now restores Sheet),
-- [x] §2.3 partial (emit onframe(null) on unmount).
-- [x] §2.2 print honours the selected paper size/orientation (`@page` from the focused tab's paper) and prints at TRUE size — the paper is `zoom`ed by (96/25.4)/PAPER_PX_PER_MM so content + titleblock scale together (CSS zoom, vector text);
-- [x] §4.4 shared wheel-normalise/zoom-clamp + touchcancel;
-- [x] adopt list — additive select, group move, duplicate (Ctrl-D), select-all, nudge.
-- [x] §4.1 (partial) extracted pure geometry to `ui/geometry.ts` (dist/segDist/translate/textBox/boxElev/boxElevSet/boxFaces + box constants), shared with Viewport + PropertiesPanel;
-- [x] §5 added `ui/geometry.test.ts` (8 Vitest tests, `pnpm test --project=server` green).
-- [ ] §2.3 full per-doc frame state,
-- [ ] §4.1 full `DocEditor` headless class (geometry.ts done),
-- [x] §4.2 **mm world units** (2026-09-20) — model space is now real **millimetres**. Turned out NOT
-  invasive: the mapping already treats `CX,CY` as the model centre + scale pivot, so the equations are
-  unchanged — just scaled the constants (PLAN_CX/CY, GROUND, DEFAULT_BOX_H, PT) to mm, wrapped the
-  decorative backdrop in a `scale(MMPU=70)` group (→ mm, no renumbering), sized the demo box in mm,
-  set grid snap to **100 mm**, and defaulted the scale to **1:100** (fits the ~28 m demo plan). Verified:
-  plan renders at 1:100, drawn rects have mm coords (×100-snapped), selection + elevation all correct.
-- [ ] §4.3 reuse Sheets `layers.ts`,
-- [ ] §2.8 key tabs by node id (not title), frame drag threshold+undo, z0 clamp mismatch, uncontrolled Properties inputs, coalescing merges unrelated edits, outline-only rect hit,
-- [ ] §5 snap/hit perf (cache the CTM/bbox),
-- [ ] §6 nits (dead `circle` type (will be used later), unify line/polyline, uid collision, unused CSS, a11y).
-- [x] **Rotated-shape resize handles are wonky** (fixed 2026-09-22) — corner/endpoint grips on a ROTATED
-  rect / ellipse / box / line now resize along the object's LOCAL (rotated) axes about the opposite
-  corner, which stays world-fixed. A grip carries its opposite corner as `anchor` + a `resize(dragged,
-  anchor)` builder; for a rotated shape `gripsFor` computes the new centre = midpoint(anchorWorld,
-  pointer), un-rotates the pointer about it to get the dragged corner, mirrors to the opposite → the
-  anchor provably stays put (`rotatePt(F, cn, θ) == anchorWorld`). Shift-square is done in the LOCAL frame
-  (square the offset from the anchor before un-rotating), so `constrainGrip` now bypasses its old
-  WORLD-axis square for any rotated shape. **Verified in-browser (quantitative):** a 40°-rotated rect,
-  drag a corner → opposite corner moved **0 px**, corner angle stayed **90°**, opposite sides equal,
-  rotation preserved at 40°; clean console. [x] **Per-axis rotation (X/Y/Z°) for real 3D shapes**
-  (2026-09-22) — a prism (furniture / box / opening) now carries `rotX`/`rotY` tilt about the model x/y
-  axes (degrees, about the box centre) alongside the existing `rot` (Z). Properties shows a **ROTATION ·
-  degrees X/Y/Z** vecrow. `prismRings(o)` (projection.ts) builds the bot/top rings with the Z rotation
-  (via `boxFootprint`) then the x/y tilt about the box centre; `edges3d`/`faces3d`/`project` all read it,
-  so the tilt shows in plan (foreshortened footprint = hull of projected corners), elevation (leaning
-  silhouette) and iso (leaning shaded solid). Untilted prisms return the plain flat rings (byte-identical
-  output — no regression). **Verified in-browser:** a Furniture box set to X 35° leant over in the 3D view
-  (correctly shaded, others upright); X 35 + Y 30 compounded; plan footprint foreshortened; clean console.
-  **[x] Rotate HANDLE in elevation views (2026-09-22)** — a prism selected in an elevation now shows a
-  rotate handle (like the plan one): dragging it tilts the object in that view's plane — front/rear (x-z)
-  drives `rotY`, left/right (y-z) drives `rotX` (same atan2+90 math; the in-plane angle IS that tilt axis).
-  Handle sits above the silhouette centre and follows the current tilt. Resize corner grips still track the
-  untilted AABB (silhouette leans past them) — acceptable. Verified: dragging the FRONT-elevation handle set
-  Y 66° and the silhouette + 3D solid both leaned consistently; clean console.
+- [ ] (LOW) review leftovers not confirmed done (User 2026-09-27: the rest of §2.3 / §4.1 / §4.3 / §2.8 / §6 were
+  checked and closed — B11, R1, R5, B18 / B19, R4, B13): §2.8 "z0 clamp mismatch"; §6 unused CSS (a11y: its own item).
 
 Suggested order in review.md §7.
 
-- [x] **Pan-content zoom re-scales the view** (Dave, 2026-09-20) — with a viewport active + "Pan
-  content" on, wheel-zoom now folds into the DRAWING SCALE (like a CAD viewport) instead of a free
-  zoom: the scale label/dropdown update live (e.g. 1:100 → 1:84 → 1:70 zooming in) and the cursor's
-  model point stays fixed. `on.scale` callback + the dropdown tolerates computed 1:N values.
-
-### Reported 2026-09-24 (Dave) — parity reviews  ◧ decide
+### Reported 2026-09-24 (User) — parity reviews  ◧ decide
 - [ ] **Title block comparison:** compare the Pages title block (phase 5: `titleBlock.ts`, per-project
   template) with the title blocks in the other tools (Sheets, and any others that print one). List every
-  difference (fields, layout, logo, revision table, auto-filled values, editing), then Dave picks which to
+  difference (fields, layout, logo, revision table, auto-filled values, editing), then User picks which to
   implement.
 - [ ] **Sheets + Outlets functionality scan:** a detailed scan of what the Sheets tool and the Outlets tool
-  can do, listing every feature Pages lacks or does differently, then Dave picks which to implement.
+  can do, listing every feature Pages lacks or does differently, then User picks which to implement.
   (Supersedes the partial Sheets lists in §1a / §2a once done.)
 
 ### Building model / riser drawings — follow-ups (2026-09-24)
-- [x] **Fit on a riser frame with hidden floors** — fits the collapsed extent (2026-09-24).
-- [x] **Editing in a collapsed frame** — such frames are view-only for model editing (edit in the model tab).
-- [x] **Per-storey heights** — Properties › HEIGHTS on a building place (2026-09-25).
-- [x] **Riser text labels + cable colours** — free labels → front-elevation text; cables keep their colour.
-  Elevation text / shapes now follow a riser drawing's collapsed floors too (such frames are view-only).
-- [x] The riser doc's own **hiddenFloors** → an imported riser frame's floors.
-- [~] **Tall buildings (skyscrapers)**: labels are paper-sized on sheets, ≥ ~12 screen px in model space, and a
-  floor name that would overlap is skipped. Still to try on a real 33-floor building (Hibiya).
-- [~] **Riser rooms as labelled boxes**: the room name is drawn inside the box; a text-with-border style is open.
-- [~] **Imported items on the relevant layers**: riser ladders → Trunks, cables → Copper / Fiber Trunks (made
-  visible). Still open: outlets (Data / Power / Wireless by usage?) and Sheets annotations beyond Annotations.
 - [ ] **Building canvas** ◧ decide — what the canvas shows when a BUILDING place is selected (ideas, 2026-09-24):
   - **Location map**: OpenStreetMap tiles (free, no key) + Nominatim geocoding of the project address; a
     draggable pin to fix the GPS point; optional north arrow + sun path.
@@ -266,80 +262,13 @@ Suggested order in review.md §7.
   - **Riser summary**: cable runs with lengths (segment L), ladders, fill.
   - **Dashboard tiles**: floors, outlets, racks, open issues, the latest issued revision.
   - (Suggested first: stacking plan + a small location map.)
-- [x] Several risers per building — object ids are keyed by riser (`rsr-<riserId>-…`).
 
-### Reported 2026-09-22 (Dave)
+### Reported 2026-09-22 (User)
 Open:
-- [ ] **Model tabs = infinite canvas, no white page** (like AutoCAD model space). Only PAPER tabs (a sheet
-  with a titleblock) should paint the white page background; model-layout tabs (Floorplan / Elevation /
-  3D Model) should show an infinite/borderless canvas with no white "paper" rectangle. (Related: the
-  fullscreen white-paper fix at the bottom removed the paper for the `.vp-fill` Viewport — this extends
-  that so every model tab, not just fullscreen, drops the page background.)
 
-### Reported 2026-09-21 (Dave) — batch 6
-Done:
-- [x] **Guides get undo/redo + moved INTO THE MODEL** (refactored 2026-09-21) — guides now live in
-  `Model.guides` (not a separate global store), so they are model-scoped (shown across every view of the
-  model) and their **undo/redo ride the model history snapshot (`snapModels`) for free** — like
-  walls/prisms. `guides.svelte.ts` is now a thin API over `models[0].guides` (dropped the global `$state`
-  store, `snapGuides`/`setGuides`, `guideSel`, `on.guideedit`, and the `HStep.guides` field). Guide
-  **selection reuses `modelSel`**; add/move/delete record via `on.modeledit(label)` (model history);
-  **delete goes through `deleteModelSel`** (which now also filters `mdl.guides`). Verified in-browser:
-  place → renders; Ctrl+Z/Ctrl+Shift+Z remove/restore (via snapModels); drag repositions + is selected
-  (`sel` class from modelSel); Delete removes + undo restores. Field names kept Firestore-stable
-  (`{id,plane,orient,pos}`) — see the schema memory. *This is step 1 of the data-into-model migration (§5/§6).*
-- [x] **Entity schema for data-into-model — `plane` + `space` scope** (step 2a, 2026-09-21) — decided with
-  Dave: an entity carries BOTH a drawing **`plane`** (`'plan'|'front'|'rear'|'left'|'right'` — which
-  projection plane its coords live in; drives projection/view-gating) AND a **`space`** scope
-  (`'model'|'view:<frameId>'` — model-scoped shows in every view, view-scoped shows only in that frame),
-  orthogonal like DXF layer+space. Renamed the old `Ent.space` (which meant the plane) → `Ent.plane`
-  (`drawSpace`→`drawPlane`, `isPlanSpace`→`onPlanPlane`, `inThisView` now also checks `inScope`); added
-  the `space` scope (default 'model'); `Viewport` gains a `frameId` prop (from the sheet frame) so
-  view-scoped filtering works. Guides' plane field also renamed `space`→`plane` for consistency. Field
-  names locked for Firestore. Verified: entities + guides render, clean console.
-- [x] **Entities moved INTO THE MODEL** (step 2b, 2026-09-21) — the big one: `docEnts[tabId]` (per-tab) →
-  **`Model.ents`** (shared). Every view of the floor now shares its annotations, and entity undo/redo
-  **rides `snapModels`** — so `HStep.snap`/`snapDoc` are gone (entities are in `HStep.model`). All the
-  CRUD (`addEnt`/`updateEnt`/`deleteEnts`/`group`/`ungroup`/`reorder`/`copy`/`paste`) now go through
-  `mdlEnts()`/`setMdlEnts()`; `entsOf(tab)` returns the model's ents (tab arg is just the history key);
-  revisions snapshot `Model.ents` (Snap = `Ent[]`); `dropDoc` no longer clears ents (they're the
-  model's). `Model.ents: Ent[]` imports `Ent` from geometry (no cycle). **Verified in-browser:** drew a
-  rect on the 3303 Outlets sheet → it ALSO appears on the 3303 Floorplan tab (same model — cross-view
-  sharing, the whole point); Ctrl+Z removes it (model history), Ctrl+Shift+Z restores; border-select +
-  grips work. Clean console. *Known limitation (same as the model objects/guides): history is per-tab
-  while the model is shared, so undo on a different tab won't reach an edit made on another — a global
-  model history is the real fix, deferred with the model registry (§5).* **Next in §5/§6:** the multi-
-  model registry (rack/frame/riser models + a Model/Source picker per viewport), then view-scoped
-  (`space:'view:<frameId>'`) annotations, then the HIGH-PRIORITY image-import test.
-- [x] **Polyline/line pick tolerance widened to ~7px total** (~3.5px either side) — `hit()` was
-  passing the raw `hitTol(7)` (viewBox-scaled units) to edge-distance tests whose coords live in
-  UNSCALED drawing space, so at 1:25 the effective pick band shrank to ~0.3px. Now `hitTol(3.5)/dscale`
-  → a true ~3.5px half-width at any scale. Verified by bracketing: a click ~2px off the line selects,
-  ~5px off does not. (See the hit-tolerance/dscale note — this was exactly that trap in `hit()`.)
-- [x] **Unfilled closed shapes select by their OUTLINE only** (CAD-standard) — rect/ellipse/circle/
-  box-footprint with `fill:none` no longer treat the empty interior as a hitbox; a filled one still
-  picks anywhere inside (new `isFilled`/`inBox` in `hitEnt`). Verified: interior click on an unfilled
-  rect does nothing; a border click selects it. *Note:* the 3D **model prisms** (furniture boxes) are a
-  separate system (`hitModel`) and stay interior-selectable as solids — the border-only rule is for
-  drawn Pages entities, which is what "rect" referred to.
-- [x] **Right-click also REVERTS a drawing tool to Select** (Dave prefers right-click over Esc) — with a
-  drawing tool selected and NO active draft, a right-CLICK switches back to Select; a right-DRAG still
-  pans (guarded: only reverts when the pointer barely moved since right-down). Kept the tool STICKY after
-  each draw (CAD convention — repeat placement) rather than auto-reverting. *Gotcha found + fixed:* Svelte
-  delegates `pointerdown` to the root, but panzoom's own listener `stopPropagation()`s right/middle presses,
-  so the delegated `onDown` never saw them → `rDownPt` was never set → the guard always reverted (even on a
-  pan). Fix: capture `rDownPt` in the CAPTURE phase (`onpointerdowncapture`). Verified via synthetic events:
-  right-drag keeps the tool, right-click reverts.
-- [x] **Right-click ends a multi-point draw** — polyline / Wall / Trunk / Pipe now finish on
-  right-click (same as Enter / dbl-click); the browser context menu is only suppressed when a draft
-  is actually consumed, otherwise it passes through. (`onContext` on the `.vp` div.)
-- [x] **Drawing regression fixed** — after the primary-viewport removal, a pointerdown inside an
-  ACTIVE frame bubbled to the sheet and started a paper-space marquee, hijacking the draw (cursor
-  flipped to arrow, no shape/guide created). `onSheetDown` now ignores presses landing inside
-  `.vp.active` (except the Viewport tool, which needs the sheet press to place a new frame).
-- [x] **Model name at top-centre of the canvas** on model-layout tabs (e.g. "3303 Floorplan",
-  "Rack A Elevation") — screen-space, non-interactive label; sheet layout keeps its titleblock.
-- **Decision (frame schema ≈ model-shape schema):** Dave — viewport frames in a page model, though
+### Reported 2026-09-21 (User) — batch 6
+(Done items → CHANGELOG, "Earlier work".)
+- **Decision (frame schema ≈ model-shape schema):** User — viewport frames in a page model, though
   they carry special draw/content-management behaviour, "should be practically identical to shapes
   in other models in terms of schema." Fold into the **page-MODEL object** work (§2): make a frame
   just another model entity (id/layer/groupId + geometry) with a `viewport` role, rather than the
@@ -348,150 +277,13 @@ Done:
   OK to create pages with NO viewport and let the user draw one. Keep current seed-on-first-measure
   for now; revisit when the page-model object lands.
 
-### Reported 2026-09-21 (Dave) — batch 5
-Done:
-- [x] **Shift-click no longer moves the object** — a Shift body-press is selection-only (never
-  starts a move drag); it toggles on release.
-- [x] **Ctrl/⌘-drag duplicates** the selection (copies dropped on first move, then dragged); a
-  Ctrl-click still toggles. ([ ] refine: toggle the duplicate on/off if Ctrl is pressed/released
-  DURING the drag — currently decided at press time.)
-- [x] **ViewCube independent per split pane** (keyed by pane+tab) — plan in one, side in the other.
-- [x] **Status-bar coords are world units (mm)** from the active viewport (not canvas px).
-- [x] **Tool prompt + inline-edit help moved to the PANE bottom-centre** (screen space) so they stay
-  readable when zoomed in (were in the viewport badge/hint that scaled with zoom).
-- [x] **Removed the redundant Revision dropdown from History** (the revisions list covers it).
-- [x] **One history entry per drag/nudge gesture** (Viewport signals begin/end; +page snapshots
-  only the first mutation of an open gesture; nudge bursts coalesce).
-- [x] **Text property is a multiline textarea** in the Properties panel.
-- [x] **Active-viewport bar** gains a **scale dropdown** (1:20..1:500) + **Full-size** button (like
-  Sheets); the **status-bar Full-size toggle is commented out** (paper size/orientation stay).
-- [x] **Flat objects (rect/ellipse/circle) project as ground lines in elevation** (render+hit+bbox).
-- [x] **Page title uses a standard hyphen** so Save-as-PDF filenames are valid.
-
-Batch-5c done (2026-09-21):
-- [x] **WCS triad rotates WITH the 3D (iso) view** (2026-09-22, Dave asked) — the bottom-left axis
-  triad was a STATIC per-projection lookup (`TRIAD.iso` fixed dimetric); now for the iso view it
-  projects each world axis (x/y/z unit vectors) through the SAME orbit camera the model uses
-  (`isoR(axis, yaw, pitch)`), normalised to a fixed pixel length, so it reorients live as you drag-orbit
-  (an axis edge-on to the viewer → a dot). `ViewGizmos` gained `yaw`/`pitch` props (wired from the active
-  viewport's `orbitOf(...)` in `+page.svelte`); ortho views keep the fixed `TRIAD` table. Verified
-  in-browser: orbiting the Rack A 3D model swung the triad's x/y axes to match (z stays up), read straight
-  off the `.wcs` SVG line coords + a visual. (Svelte flushes the triad async, so a synchronous before/after
-  DOM read in one JS call looks unchanged — read across calls.)
-- [x] **WCS triad gizmo doubled** in size (52→104px).
-- [x] **Removed the faint vertical mock grid** in front/right elevations (kept just the ground line);
-  those lines were decorative mock, not real gridlines.
-- [x] **Bundled the ~13 viewport callbacks into one `on` object** (Viewport/PaperPage) — Dave flagged
-  the prop count creeping up again. This is a step toward the **headless editor class** Dave suggested
-  (`Part`-style `.svelte.ts` with `$state`); the full **DocEditor** (§4.1) is still the end goal and is
-  now Dave-endorsed. env + on together drop the Viewport prop list from ~30 to ~12.
-- [ ] **Print orientation**: add a **one-time in-app hint** telling the user how to get correct
+### Reported 2026-09-21 (User) — batch 5
+- [ ] **3D (iso) view:** entity flats (lines/rects) show no depth ordering vs the model.
+- [ ] (LOW) **Print orientation**: add a **one-time in-app hint** telling the user how to get correct
   orientation to PDF (Ctrl-P → More settings → Print using system dialog → orientation). See §10.
 
-Batch-7 done (2026-09-20) — object-style follow-ups:
-- [x] **Object rotation** (`rot`, degrees) — Properties gains a ROTATION · degrees row (Position / Size /
-  Rotation, per Dave's preferred layout from the old Transform mockup). Render wraps the entity in a
-  `rotate(deg, cx, cy)` about its view-bbox centre; hit-test un-rotates the point; grips rotate with it
-  (drag un-rotates the pointer). Verified: 30° rotates the rect + grips, still selectable.
-- [x] **Text vertical align** (top/middle/bottom) added alongside L/C/R; middle uses a central baseline
-  so single lines respond, block-offset handles multi-line. `valign` on the entity.
-- [x] **Delete/Backspace in a Properties field no longer deletes the selection** — the viewport's
-  onKey bails when the keystroke targets an input/textarea/select.
-- [x] **Weight now actually affects lines/rect borders** — an explicit weight always renders (was
-  zeroed to 0.5 when the LWT display toggle was off) AND is visible while selected.
-- [x] **Colour/weight visible while an object is selected** — selection is shown by grips, not by
-  recolouring/thickening the stroke (so style edits preview live).
-- [x] **Colour grid picker** — shared **`$lib/ui/ColorPicker.svelte`** (swatch grid + custom + By
-  layer/None) replacing the native colour input; used for object colour, fill, AND layer colours.
-  Palette in `pages/palette.ts` includes Kestrel-style subdued architectural tones (A-WALL … A-CLNG),
-  also added as an "Architectural" layer group.
-- [x] **Object Layer is a dropdown** (from `palette.LAYERS`); **Position/Size are 3D one-row vectors**
-  (X/Y/Z · W/D/H, model3d-panel style); **Enter / Shift-Enter moves to the next/prev prop field**;
-  the text-property **textarea auto-resizes**.
-
-Batch-6 done (2026-09-20):
-- [x] **Copy/paste + group/ungroup** (Ctrl-C/X/V, Ctrl-G / Ctrl-Shift-G) — see §2.
-- [x] **Layer lock beside the eye** on every sub-layer row — see §3.
-- [x] **Per-pane layout** — switching plan/elevation in a split no longer refits/offsets the
-  OTHER pane (layout was global; now per-pane, only the changed pane refits).
-- [x] **Split mirrors the current pane** (same active tab + layout) instead of forcing a
-  different tab.
-- [x] **Fixed dblclick-to-activate regression** — PaperPage's dblclick handlers referenced bare
-  `onactivate`/`ondeactivate` dropped in the callback-bundling refactor; added the `$derived`
-  aliases. (For an event handler, inline `on.activate?.()` would work identically — the alias is
-  just to match the file's existing pattern.)
-
-Batch-5b done:
-- [x] **Esc from a drawing tool returns to Select** first (then clears selection, then exits view).
-- [x] **Page title = active drawing name** (clean Save-as-PDF filename), reactive to tab change.
-- [x] **Status-bar zoom updates on wheel** (tracks the canvas zoom when a viewport is active but
-  Pan-content is off; was stuck showing the view zoom / 100%).
-- [x] **ViewCube hover** is a distinct amber (was ~the selected teal).
-- [x] Dropped the redundant **100%** from the pane status.
-- [x] Scale dropdown has the full **1:1 … 1:500** list.
-- [x] **Elevation flattens ALL flat objects** (lines/polylines/dims too, not just rects) to a ground
-  line — "plan lines no longer appear as plan lines in the front view" (verified with a diagonal line).
-
-New todos (design / bigger):
-- [x] **View SCALE now renders** (Dave, 2026-09-21) — a `dscale = 1/denom` scales the viewport
-  content about the plan centre, threaded through the coordinate mapping (toLocalXY / localToClient /
-  grip size / text-edit) so hit-testing still works. **1:1 is the default** (= as-drawn), so the
-  mock is unaffected until you pick a scale; e.g. at 1:10 a 1000-unit object draws 100 wide (verified
-  244px → 24px, still selectable). [ ] **Follow-up (§4.2):** put the demo content in real **mm** so a
-  realistic default like 1:100 looks right (right now 1:100 shrinks the abstract-unit demo a lot).
-- [x] **True FRONT / REAR / LEFT / RIGHT views** (2026-09-20) — real orthographic projection via an
-  `ELEV_BASIS` table in `geometry.ts` (Kestrel `camera.setView` / Sheets model3d `BASIS` convention,
-  cross-checked against `M:\dev\KestrelCad2`): **front +x · rear −x · right +y · left −y**, vertical
-  always +z. `elevU`/`elevUInv` project a footprint coord to the drawing horizontal (mirrored per dir,
-  re-centred on the plan centre); threaded through render, hit-test, grips, marquee bbox, move, and
-  coords. ViewGizmos gains a 6-view triad (computed to match drawUCS) + Rear/Left/3D buttons; a box
-  now projects its x-extent in front/rear and its y-extent in left/right (verified 137px vs 85px in
-  the browser). Tests in `geometry.test.ts` (14 total). **Forward-compat:** the BASIS is the discrete
-  form of a yaw/pitch camera, so a future free-3D orbit/walk mode drops in without changing the named
-  views (see the geometry.ts note). [x] **Iso SOLID / hidden-line render** (2026-09-20) — the iso view
-  now draws depth-sorted opaque white FACES (`faces3d` + `isoDepthR` painter's algorithm) instead of
-  wireframe, so nearer faces occlude farther ones — walls/furniture/trunks read as solid objects.
-  Openings are skipped in iso (a true 3D boolean hole is future work). Verified in-browser (the room
-  renders solid with correct occlusion). **[x] per-face shading (2026-09-22)** — iso faces now fill with a
-  two-sided Lambert shade (`faceShade`: world normal · a fixed up-front light, `abs` so it's winding-
-  independent, ambient floor) → tops read lightest, sides darker, via `style:fill` (beats the old CSS
-  `fill:#fff`). Verified: the Rack A 3D model shows a lit top + shaded sides (solid read); clean console.
-  **[x] tinted by layer colour (2026-09-22)** — `faceShade` now mixes a light tint (k=0.2) of the object's
-  layer colour (`hexRgb`) into the shade, so walls read tan / furniture green / trunks teal in iso while
-  keeping the top-light/side-dark modulation. Verified in-browser on the floor iso.
-  [ ] Still: entity flats (lines/rects) show no depth ordering vs the model.
-- [x] **Tools floating window: merge related tools into pop-out groups** (2026-09-22) — the left tool
-  strip now groups tools that share a mode into ONE button with a hover FLY-OUT (15 buttons → 11):
-  **Shapes** (Rectangle / Ellipse / Box) and **Conduits** (Wall / Trunk / Pipe — the graph tools). A
-  group button shows + re-activates the group's **last-used** tool (a corner ▟ caret marks it as a
-  group), and hovering pops out the variants to the right (a transparent `::before` bridge spans the gap
-  so the hover doesn't drop); clicking a variant selects it and becomes the new last-used. Driven by a
-  `STRIP` array (single | group) + `groupTool` state + `iconOf(name)`, replacing the flat `{#each TOOLS}`.
-  Verified in-browser: both groups render with carets, fly-outs reveal on hover, clicking Box highlighted
-  the Shapes button + swapped its icon, clean console. (Line stays standalone — there's no separate
-  Polyline tool; the Line tool draws polylines in ACAD mode.) Ties into the editing refactor (§ graph
-  tools already share code paths). [x] **Touch: tap-to-open the fly-out** (2026-09-22) — a `.grp` button now
-  sets `openGroup` on click so the fly-out stays open without hover (`.flyout.open`), a window
-  pointerdown-capture handler closes it on any press outside a `.grp`, and picking a member selects it +
-  closes. Verified in-browser (click opens + holds after the cursor leaves; member-click closes). Mouse
-  hover still works too.
-- [x] **Orbit tool icon in the zoom-tools floating window** (2026-09-22) — the real orbit camera landed
-  (a plain drag in the iso view rotates yaw/pitch), so the `navtools` window now shows an **orbit** button
-  (rotate3d icon) below Pan, only when the active view is `iso`. It's a capability indicator (drag orbits;
-  Shift = 15° snap — see below); the camera is already drag-driven. **Orbit Shift-snap (2026-09-22):**
-  holding Shift while orbit-dragging snaps yaw + pitch to 15° increments (`onOrbitMove`). Verified
-  in-browser: the orbit button appears only in 3D; a Shift-held orbit drag reoriented to a clean angle,
-  clean console.
-### 3D model editing follow-ups (Dave, 2026-09-20)
-- [x] **Select shapes in the 3D (iso) view** (Dave, 2026-09-21) — click a shape in the iso view → it
-  selects (amber) and Properties shows its props. `hitModelIso` reproduces Model3d's iso projection
-  (isoR + shared `isoBounds` centring), point-in-polygon per 3D face, frontmost by TRUE depth AT the
-  click point (affine-interpolated so a big far face can't beat a nearer small one). Model selection now
-  auto-switches the panel to Props. Geometry editing (grips) in iso stays deferred — selection only.
-- [x] **Section arrow ↔ direction dropdown mismatch** (Dave, 2026-09-21) — the arrow was 90° off; it now
-  points along the elevation's sight axis from ELEV_BASIS (front=up, rear=down, right=right, left=left),
-  matching the dropdown and the elevation shown.
-- [ ] **REFACTOR: unify editing across 2D/3D + plan/elevation, and across line/wall/trunk/pipe** (Dave,
+### 3D model editing follow-ups (User, 2026-09-20)
+- [ ] **REFACTOR: unify editing across 2D/3D + plan/elevation, and across line/wall/trunk/pipe** (User,
   2026-09-21) — big, deliberate (NOT a rushed change). Today there are ~5 near-duplicate pointer-drag
   state machines in `Viewport.svelte` (`drag` for entities, `mDrag` model-move, `mGrip` model-resize,
   `secDrag`/`secResize` sections, `orbitDrag`) each with their own add/remove-listener boilerplate, and
@@ -503,260 +295,20 @@ New todos (design / bigger):
   for line/wall/trunk/pipe. This is the `DocEditor`-class direction from review.md §4.1 — do it as a
   focused session, with the geometry already extracted to `ui/geometry.ts` as the seam. **Include:** the
   **Viewport-frame creation** (drag a rect on the paper) should reuse the SAME rect-drawing gesture as
-  the Rectangle tool (ACAD two-click / EOS press-drag) instead of PaperPage's bespoke marquee (Dave,
+  the Rectangle tool (ACAD two-click / EOS press-drag) instead of PaperPage's bespoke marquee (User,
   2026-09-21) — a paper-space rect is the same primitive.
-- [x] **Draw trunks/pipes/walls in ELEVATIONS** (Dave, 2026-09-21) — needed for vertical wall conduits.
-  Wall/Trunk/Pipe tools now work in elevation views (not just plan): each drawn point → on-axis coord
-  (`projUInv`) + z (`GROUND − y`); the off-axis DEPTH is unknown in an elevation so it defaults to the
-  plan centre (nudge in plan afterwards). Furniture/Section/Opening stay plan-only. [x] **Follow-up —
-  depth SNAP onto a wall/conduit (2026-09-22):** `elevDepthSnap(p)` finds the model wall/conduit segment
-  the drawn point is nearest **in MODEL space** (on-axis coord + z, both exact via `projUInv`/`GROUND` — so
-  no screen-projection/centring mismatch) and takes its off-axis coord as the DEPTH. Priority: a selected
-  plan guide (explicit) > wall-snap > plan centre. A live amber marker highlights the segment being snapped
-  onto (`depthSnapMark`, graph tools in elevation). Verified in-browser: a pipe point placed on the trunk
-  in a FRONT elevation landed at the trunk's y-depth in plan (coincident with the trunk), while a point in
-  empty space stayed at centre; clean console. (First cut matched in screen space and missed — model-space
-  match fixed it.)
-- [x] **Multi-direction section — arrows on all 4 sides drop onto the current sheet** (2026-09-22, revised
-  per Dave) — a section is now a **standalone plan marker** (`docClip`/`docSecDir`/`docSecName` keyed by a
-  `sec` id — NOT an elevation tab; `onSection` no longer creates a tab). The marker shows its primary
-  sight arrow always; when SELECTED all 4 arrows show, each clickable → **`sectiondropdir` drops that
-  direction's elevation as a viewport FRAME on the current sheet** (focused pane's sheet, else the first
-  sheet), then focuses the sheet + selects the frame. No new tabs per direction (Dave preferred "same
-  sheet"). Toolbar = drop-primary + primary-direction dropdown + delete. Arrows interactive only in Select
-  mode; `onDown`/`onClick` bail on a `.section-arrow.pick` target (Svelte delegates the SVG pointerdown so
-  its `stopPropagation` alone didn't stop the section-draw/deselect — same gotcha as rDownPt). Verified
-  in-browser: draw a section on the plan → NO tab created; clicking the front arrow switched to 3303
-  Outlets and made a "Front 1:25" viewport frame (Source 33F / View Front); the marker also shows on the
-  sheet's plan frame to drop more directions; clean console.
-- [x] **Insert nodes in ELEVATION views** (2026-09-20) — node-insert (dbl-click a wall/conduit segment)
-  now works in elevations too, not just plan: the new node takes its on-axis coord from `projUInv(p[0])`
-  and z from `GROUND − p[1]`, keeping the off-axis coord of its neighbour. `onDblclick` gate widened
-  `isPlan`→`modelEditable`.
-- [x] **Branch a node with 2+ segments** (2026-09-20) — **Alt-drag a wall/conduit node** sprouts a NEW
-  segment + node (a junction/tee) and drags the new node out; a plain drag still moves the node. Built
-  as `branchNode()` + the Alt path in `onDown`'s grip handler; a no-drag Alt-press cleans up its stray
-  zero-length segment. `graph.ts` handles the junction in its sweep. Verified in-browser (2-node trunk →
-  Alt-drag → 3 nodes, new branch follows the cursor; the tee renders correctly). **Gotcha:** the pushed
-  node must be re-read from the `$state` store (deep-proxied) — mutating the raw literal via the drag
-  closure is a silent no-op. [[svelte-state-proxy]]
-- [x] **Trunk/pipe node SNAP + DISCONNECT** (2026-09-20) — snap done (2026-09-20); DISCONNECT now works:
-  `snapNode` takes the drag `origin` and skips any candidate within a break radius of it, so a node that
-  starts coincident with a partner can be pulled cleanly off it instead of re-snapping forever. (This is
-  also what lets a fresh Alt-branch node separate from the node it sprang from.)
-- [x] **Select + DELETE graph nodes** (2026-09-22) — a single wall/conduit NODE can now be selected (click
-  its grip without dragging → teal filled highlight; `nodeSel`, cleared on any fresh press, valid only
-  while its object is selected) and DELETED, with incident segments handled by DEGREE per spec:
-  **1 → delete that segment**; **2 → join into one** (connect the two far ends); **3+ → keep the first two
-  joined, delete the rest**. `deleteGraphNode` rebuilds the segment list, prunes any node left with no
-  segments (the deleted one + orphaned far ends), and removes the whole object if nothing remains (clears
-  selection). One undo step (beginedit/modeledit/endedit, rides snapModels). Delete key checks `nodeSel`
-  before whole-object `deleteModelSel`. **Verified in-browser** on a 4-node/3-seg wall: delete mid node →
-  SEGMENTS 3→2 merged + still connected; delete end node → 2→1; delete last → object removed + selection
-  cleared; clean console. Branch-from-node is Ctrl-drag (done earlier).
-- [x] **Audit + minimise Alt-key functions** (audited 2026-09-22; Dave rarely uses Alt) — grepped
-  `altKey`/`e.alt` across all of `pages/`. **Result: exactly ONE Alt binding remains** — `ui/panzoom.ts`
-  `Alt+wheel = zoom` (in the `zoom = ... || e.ctrlKey || e.altKey || e.metaKey || right-btn` modifier
-  chain). It is **fully redundant**: Ctrl+wheel, Meta+wheel AND right-button+wheel already zoom, so no
-  capability is Alt-only. (The old Alt-drag node-BRANCH is already Ctrl-drag — see the graph-node grip at
-  `Viewport.svelte` ~1289.) So there is nothing that *needs* relocating. **Resolved 2026-09-22 (Dave):
-  dropped `e.altKey`** from the panzoom wheel-zoom OR-chain → **Pages is now fully Alt-free**. Ctrl / Meta
-  / right-button+wheel still force zoom, so no capability was lost.
-- [x] **Touch: Guide tool button pop-out for H/V** (2026-09-22) — the Guide strip button is now a group
-  whose fly-out picks **Horizontal / Vertical** (↔ / ↕). A `guideVert` base ($state, in `env`) sets the
-  orientation; the Viewport's `guideIsVert(shift) = guideVert !== shift` uses it, so on a mouse **Shift
-  still flips** it and on touch the pop-out picks it. The group button + tool hint show the current
-  orientation. Verified in-browser: picking Vertical placed vertical guides (added `moveHorizontal`/
-  `moveVertical` to the Icon map). Reuses the tap-to-open fly-out machinery.
-- [x] **Live spacing readout: distance from the selected guide to the new one** (2026-09-22) — while
-  dropping a Guide, if a guide of the SAME orientation in this view is selected, the tool prompt now
-  appends `· Δ <n> mm` = the perpendicular distance from it to the drop preview (`guideCur`), so you can
-  place guides an exact distance apart. Computed live in the `Guide` prompt branch (reactive on
-  `guideCur`/`modelSel`/`guides`). **Verified in-browser** (see below). [ ] Generalise later: a live
-  spacing/delta readout while drawing OTHER shapes too — distance from the drag start (or a selected
-  reference object/edge) to the cursor.
-- [ ] **Stable per-DRAWING id for tab dedup + persistence** (Dave, 2026-09-21) — tab ids are an ephemeral
-  session counter (`'t'+seq`; the 4 seeded tabs are hardcoded t1–t4, dynamic ones get t5+ by OPEN ORDER),
-  and `openDrawing` dedupes by TITLE. So the per-tab localStorage canvas view (and any future per-tab
-  persisted setting) only recovers reliably for the seeded tabs — a drawing opened as t5 this session may
-  be t7 next session, and same-title drawings collide (review §2.8). Fix: carry a **stable drawingId**
-  (the navigator node id / real document id) on each Tab, dedupe + key persistence by it, not the
-  ephemeral tab id. (Split-pane keys use `paneId` — p1 stable, p2+ depends on split history; the canvas
-  view is really per-drawing, so persist by drawingId and keep paneId only for live split independence.)
-- [x] **ViewCube: don't fullscreen a sheet; re-orient in place** (2026-09-20) — `ViewGizmos onset` no
-  longer flips a sheet to fullscreen model layout; it just sets `docProj`, so the cube re-orients the
-  view's content in place, INCLUDING a paper sheet's viewport (PaperPage now threads `kind/clip/yaw/
-  pitch` into its Viewport). Full-size button still does fullscreen. Verified in-browser (clicking 3D on
-  the Trunk Routes sheet re-oriented the paper viewport to iso; paper + titleblock stayed).
-- [x] **Fullscreen (model layout) shows an ugly white paper + titleblock** (2026-09-20) — resolved by the
-  ViewCube change above: a sheet only reaches `layout='model'` via the explicit Full-size button, which
-  renders the clean `.vp-fill` Viewport (no paper, no titleblock) — the cube no longer forces it.
-- [ ] **Maintain focus across view switches (full)** — the elevation-centring fix (below) keeps content
-  on-screen, but a PANNED focal point doesn't fully carry between projections. Track a 3D focal point and
-  re-project it into each view's pan on switch (incl. shifting left↔right so the same point stays centred).
-- [ ] **Structural slabs / floors / ceilings in ELEVATIONS** (Dave, 2026-09-20) — draw the building
-  fabric in elevation (and section) views: **raised floors** (access floor void above the structural
-  slab), the **floor slab** and **ceiling slab**, and **ceiling tiles** (suspended grid below the
-  ceiling slab). `mdl.levels` already carries `ceilingTile` / `ceilingSlab` heights (used for trunk/pipe
-  default z + section z-extent); extend it with floor-slab / raised-floor / structural levels and render
-  the horizontal bands in elevations + sections. Ties into the room/level model.
-- [ ] **Kestrel command line** — implement a command line (enter offsets while drawing, and other
-  useful Kestrel cmd-line commands). (Was P3 "optional"; Dave now wants it.)
-- [ ] **Models: one model per floor**, with **separate stores** for detail views (rack elevations,
-  frames, patching). Ties into the model-registry design (§5).
-- [x] **Object props parity + defaults** (2026-09-20) — entities gained `color / fill / weight /
-  fontPt / align` (mirrors the Sheets annotation model); the Properties panel STYLE section edits them
-  across the whole selection: Colour (+ ByLayer reset), Weight, Fill (checkbox + colour) for shapes;
-  Font (pt) + L/C/R Align for text. Renderer honours all of them (stroke/fill/lineweight, `fontPt·PT`
-  text with `text-anchor` from align); the inline text editor + `textBox` hit-box size with the font.
-  Unset falls back to `STYLE_DEFAULTS` = **Sheets' defaults** (8pt, left, weight 1.2, fill none), so a
-  new object matches Sheets. Verified in-browser (stroke/fill/weight round-trip; 16pt→22u, centre→
-  text-anchor middle). [ ] Later: real ByLayer colour resolution + mm lineweights (§3/§4.2).
-- [x] **Callout toggle** (2026-09-22) — a text box can become a **callout** (boxed text + a leader line to
-  a target). `Ent` gains `callout?: boolean` + `leader?: Pt` (Firestore-stable). Properties (TEXT section)
-  has a **Callout checkbox** that seeds the leader tip below-left on enable and keeps it across off/on. The
-  text render draws a rounded box around `textBox(e)` (padded) + a leader from the box side nearest the tip
-  to `leader`, with a dot at the tip; a leader-tip GRIP (added to the text grips when callout) drags the
-  target. Verified in-browser: toggling on drew the box + leader + tip; dragging the tip grip moved the
-  leader to the target; clean console. (Leader is a single segment for now; a shoulder/arrowhead could come
-  later.)
-- [x] **Change-log UX** (2026-09-20) — refactored undo from two stacks to a **per-doc linear timeline
-  with a pointer** (`docHist`; steps snapshot state AFTER each edit, gesture folds into one step). The
-  History change log lists every step newest-first, highlights the **current** one, **fades future
-  (undone)** steps (strikethrough), and **click any row to jump** (undo or redo to that exact point).
-  Verified: 2 rects → jump back to 1 (top step faded) → click it to redo to 2.
-- [x] **Group / ungroup** selected shapes (Ctrl-G / Ctrl-Shift-G) — `groupId` on entities;
-  `expandGroup()` so a group selects, marquees, and moves as one. Verified in-browser.
-- [x] **Copy / paste / cut** (Ctrl-C/X/V) — clipboard of entities; paste drops offset copies
-  (group ids remapped so a pasted group stays its own group). Verified in-browser.
-- [ ] **System-clipboard copy/paste — items, views & whole pages** (Dave, 2026-09-20) — today the
-  clipboard is an in-memory JS array (one tab, this session only). Back it with the real OS clipboard
-  so you can paste into **another page, another browser tab, or another window** (and survive a
-  reload). Approach: on copy write a JSON payload (with a mime tag, e.g. `web application/eos-pages+json`
-  via the async Clipboard API `ClipboardItem`) AND a plain-text fallback; on paste, read the clipboard,
-  detect our payload, remap ids/groups, and place. Scope grows by unit: **entities** (selection) →
-  **views** (a viewport + its source/scale/crop) → **whole pages** (sheet + viewports + annotations).
-  Watch-outs: clipboard permission prompts, only readable on a user gesture, size limits for big
-  selections, and versioning the payload. Also wire the browser Edit-menu copy/paste, not just Ctrl-C/V.
-- [ ] **Print orientation bug** — printing **landscape** to **PrimoPDF** yields a **portrait PDF
-  rotated 90° CCW** even though the print preview is landscape. Dave's workaround (2026-09-21): Ctrl-P
+- [~] **Structural slabs / floors / ceilings in ELEVATIONS** (User, 2026-09-20) — first pass done 2026-09-25
+  (CHANGELOG round 6: slab bands + raised-floor lines on A-FLOR, ceiling lines on A-CLNG, from the storeys).
+  [ ] Still open: plan cut / sections through them, ceiling-void hatching.
+- [ ] (LOW) **Print orientation bug** — printing **landscape** to **PrimoPDF** yields a **portrait PDF
+  rotated 90° CCW** even though the print preview is landscape. User's workaround (2026-09-21): Ctrl-P
   → **More settings** → **Print using system dialog** → set the orientation there. Fix ideas: try a
   named `@page size` (e.g. `A3 landscape`) instead of explicit mm, or detect and show a **one-time
   in-app hint** telling the user to use the system dialog for correct orientation. (Related to the
   Chrome/@page vs virtual-printer interaction; the in-app print CSS is already correct in preview.)
 
-### Reported 2026-09-20 (Dave) — batch 4
-- [x] **Inline editor floated off the text + ballooned when zoomed in** — it was positioned in
-  SCREEN px inside the CSS-zoomed canvas, so the zoom double-applied. Now positioned + sized in
-  `.vp`-LOCAL px, so the canvas transform scales it exactly like the SVG text (verified: left
-  aligned to 0px, no ballooning).
-- [x] **Text annotations use a monospaced font** (Consolas/mono) like the Sheets tool — render + editor.
-- [x] **Inline-edit usage hint** — a pinned "Enter = new line · Ctrl/⌘+Enter = commit · Esc = cancel"
-  banner shows while editing.
-- [x] **Paper size/orientation is per-tab** (`docPaper` keyed by tab id) and **no longer jumps the
-  view** — the paper rect just resizes in place; only split/unsplit/layout refit. Verified the
-  canvas transform is unchanged across orientation + size changes.
-- [x] **Revisions store + show a date** (dd Mon yyyy) in the History list, and the **titleblock**
-  now shows REV + DATE + the real paper SIZE (e.g. "A3 L").
-- Re: **paper only on the sheet tab** — that's by design: only *sheet*-kind tabs render the paper;
-  plan/elevation/model tabs are model views (no paper). Use **Full-size** to drop the paper on a
-  sheet. (The "resizes with browser" was the tab being in Full-size — confirmed.)
-
-### Reported 2026-09-20 (Dave) — batch 3
-- [x] **Where do package/version/revision belong?** DECIDED: **Package + Version** are drawing-SET
-  context (apply to everything) → stay in the titlebar. The per-drawing **Revision** letter is a
-  property of the drawing → moved to the **History panel** header (revisions' natural home).
-- [x] **Couldn't type newlines in the text editor** — the `.vp`'s own Enter handler was
-  `preventDefault`-ing Enter before the textarea saw it; the editor now `stopPropagation`s keydown.
-  Enter = newline, Ctrl/⌘-Enter or blur commits.
-- [x] **Editor text unreadable / only last line shown / bad overlay** — the editor is now an opaque
-  dark-on-white box that **auto-sizes to its content** (width + height from the value), positioned
-  on the text baseline; SVG text uses the same Inter font for alignment.
-- [x] **Could only double-click the first ~4 chars to edit text** — the text hit-box is now the
-  real text extent (per line width × line count), so a click anywhere on it opens the editor.
-- [x] **Dragging a box vertically in plan moved it in elevation** — see batch-2 `z0`. (Confirmed
-  the elevation face stays put through a plan vertical drag.)
-- [x] **Revision restore reverted ALL docs** — now restores only the **current tab's** doc.
-- [x] **ViewCube state now per tab** (`docProj` keyed by tab id) — remembered per view and shared
-  across split panes; the WCS triad also follows the per-tab projection.
-- [x] **Split-mode paper looked portrait / mis-fit** — `fitPane(idx)` fits each pane's sheet with
-  correct centring from the real paper dims; refit on split/unsplit and on paper change.
-- [x] **Full-size button did nothing** — works (Sheet ↔ full viewport); a status-bar class-name
-  collision (`.paper`) had only fooled testing — renamed to `.paper-sel`.
-- [x] **Paper size + orientation** — status bar now has an A4/A3/A2 selector and a portrait/
-  landscape toggle; the sheet resizes (px from mm) and all panes refit.
-
-### Reported 2026-09-20 (Dave) — batch 2
-- [x] **Box line thickness changed with zoom** — like the handles, entity strokes now divide by
-  `canvasZoom` (with `non-scaling-stroke`) so lineweights stay constant on canvas zoom.
-- [x] **Dragging a box vertically in plan moved it in elevation** — box gained a `z0` (base
-  elevation); elevation position is z0/height only, independent of the plan footprint depth (y).
-  Elevation grips edit width + height + base; plan/model keep footprint grips.
-- [x] **Polyline double-click added a zero-length segment** — the dbl-click's two clicks made a
-  duplicate vertex; now deduped on add and the zero-length tail is trimmed on finish.
-- [x] **Inline text editor hid the object text** — the on-canvas text now stays visible and shows
-  the LIVE editor value; the textarea is transparent (caret only) over it. Multi-line works
-  (Enter = newline, rendered as tspans; Ctrl/⌘-Enter or blur commits).
-- [x] **ViewCube 3D-button label unreadable on white paper** — solid panel chip now, readable on
-  any backdrop.
-- [x] **Active view + selection lost on tab switch** — viewport activation is tracked per tab id
-  (`activeVps`), selection was already per-doc; both restore when you return to a view.
-- [x] **Viewport props / ViewCube polish** — ViewCube redesigned (TOP/FRONT/RIGHT faces + a 3D
-  button beneath, shaded darker faces, rotated FRONT/RIGHT labels, no click outline, no panel
-  background); WCS triad also background-free. Old commented-out in-viewport cube deleted.
-- [x] **Border 'none' now shows a faint, non-printing dotted border** so an invisible-bordered
-  viewport is still selectable (`print:!border-transparent`, and the print CSS already drops it).
-- [x] **Prop bloat** — Viewport/PaperPage drafting flags (acad/navContent/grid/lwt/osnap/canvasZoom)
-  collapsed into a single `env` object prop.
-
-### Reported 2026-09-20 (Dave)
-- [x] **Hit-test radius was huge** — `hit()` used an `8`-*model-unit* tolerance (enormous at scale);
-  now a ~7px screen tolerance converted to model units via `hitTol()`.
-- [x] **Handle border thickness changed with zoom** — `non-scaling-stroke` cancels SVG-internal
-  transforms but not the ancestor CSS canvas zoom; handles now pass `strokeWidth = 1.2/canvasZoom`
-  (and the paper frame grips also divide their size by canvasZoom).
-- [x] **Elevation box didn't move/resize vertically** — grips sat on the footprint (depth), not the
-  front face. Box grips are now **view-aware**: in elevation they sit on the face corners and edit
-  **width + height** (top grips change height, bottom grips move the baseline); hit-test + marquee
-  bbox use the face too. The face is anchored to the footprint front edge so body-drag moves it too.
-  Shift-constrain works in elevation too (square face about the opposite face corner).
-- [x] **WCS cube scaled with zoom** — it lived inside the zoomed canvas. Replaced with fixed-size
-  PANE-level gizmos (`parts/ViewGizmos.svelte`): a **top-right ViewCube** (TOP/FRONT/3D faces →
-  switch the pane's projection) and a **bottom-left x/y/z axis triad** (Kestrel `drawUCS` style,
-  oriented per view). Old in-viewport cube left commented in `Viewport.svelte`.
-- [x] **Marquee vs disabled-cursor bug** — after a double-click, dragging a marquee showed a
-  `not-allowed` cursor and left the marquee stuck. Cause: a native text/element-selection drag
-  starting on the dblclick. Fix applied: `user-select:none` on `.canvas` / `.vp` / `.sheet-area`,
-  `preventDefault` + pointer-capture on the paper marquee start (`.text-edit` keeps `user-select`).
-  Intermittent — confirm it's gone in real use on the iPad/desktop.
-
-
-- [x] **Closing the last page tab no longer spawns "Untitled"** — panes fall to a "No page
-  open" empty state (with an icon + New-page button); open a drawing from the sidebar.
-- [x] `navFit` now uses a **bound per-pane canvas ref** (`canvasEls[pi]`) instead of
-  `querySelectorAll('.canvas')[focused]`. (Print still targets `.pane.focused .paper` —
-  class-based, reliable.)
-- [x] Shared constants extracted to **`pages/constants.ts`** (`BASE`, `HANDLE_PX`,
-  `PAPER_W/H`); Viewport/PaperPage/+page import them (paper size now inline-styled).
-
 ## 1. Interaction parity with the Sheets tool  (P1)
-- [x] ◧ **decide** — Mouse/touch model: choose whether Pages matches Sheets or keeps its
-  current model. **Comparison table below** — mark the column you want per row.
-- [x] **Shift-key constraints** while drawing: 15° ortho for lines/dims, square for
-  rectangles/ellipses; applied live the instant Shift is pressed/released (not only on the
-  next mouse-move). Also adopted for **moving** (ortho axis-lock), **resizing / handle-drag**
-  (square about opposite corner), and **line-endpoint drag** (15° increments).
-- [x] **Object snap (osnap)** — Kestrel-style: entities expose snap points (endpoints, midpoints,
-  centres, quadrants; polyline vertices/segment-midpoints); while drawing or dragging a grip the
-  nearest within ~10px wins and the point locks to it, with a marker (□ end · △ mid · ○ centre ·
-  ◇ quad). Gated by the **OSNAP** status-bar toggle.
-- [x] **Grid snap** (completed 2026-09-22) — round to a spacing (SNAP_STEP = 100 mm), driven by the SNAP
-  status-bar toggle. Was already wired for DRAWING (`drawPoint`→`snapToGrid`) and MODEL objects (`rndSnap`);
-  added the missing ENTITY paths: a grip-resize snaps the (constrained) pointer to grid, and a body/group
-  move snaps via `snapDelta` (rounds the delta so the entity's defining point — a / centre / first vertex —
-  lands on grid, keeping shape; a group snaps rigidly by its first member). Verified in-browser with SNAP
-  on: after a corner-drag the rect read x/y/w/h all exact 100 mm multiples (23600 / −1200 / 6100 / 14100),
-  and a select-move snapped x/y to grid; clean console. Object-snap (OSNAP) was already done.
+(all done — see CHANGELOG; the decision table stays below for reference)
 
 ### 1a. Mouse / touch: Pages vs Sheets  ◧ decide
 > From a review of the Sheets tool. Tick the version you want for Pages per row
@@ -798,156 +350,35 @@ marquee and constant-lineweight draw, but no additive select / duplicate / move-
 > multi-direction sections, rect-trunk UX, vertical-run editing). Borrow from model3d, NOT edit3d.
 - [ ] ◧ **decide** — pick which Sheets insertable-object + annotation types to implement in
   Pages (**checklist below**).
-- [x] **Ellipses** — Ellipse tool (Shift = circle); render/hit/grips/Properties.
-- [x] **Polylines** — the Line tool draws a **polyline** in ACAD mode (keep clicking to add
-  segments; Enter / double-click to finish, Esc cancels); EOS press-drag still makes a single
-  segment. New `polyline` entity with per-vertex grips, per-segment hit-test, and snap points.
-- [x] **Edit-in-place text** — double-click a text object opens an inline editor.
-- [ ] **Real drawing scale (mm)** — DECIDED: model units are **millimetres, integers**, scaled
-  the same way as Sheets floorplans. The viewport is still abstract viewBox units (mock plan
-  0..400 × 0..250), so "width 100" reads huge and the "1:100" titleblock text is cosmetic. To
-  make it real: treat model space as mm, apply the plan's mm-per-unit scale, show/accept
-  integer mm in Properties, and render true lineweights. (Implementation pending.)
-- [ ] **Blocks + block library** — define, instance, place; a browsable library panel (P2).
-- [~] **Trunks & conduits** — node/segment graph with handle editing (drag node, dbl-click segment to add a
-  point, Ctrl-drag to branch, Shift = 15° — all done). **Per-segment WIDTH: done** (the model3d `CondSeg`
-  carries `w?/h?/edges?`, `conduitRuns` renders per-segment profiles, and Properties has per-segment w/h
-  inputs). **[x] Per-corner BEND RADIUS (2026-09-22):** added `bend?` to `GNode` + a `bend?` default on
-  `Conduit`; `roundPath` inserts a short quadratic-bezier fillet at each interior node with a radius (trims
-  both segments, curves through the corner) so the swept tube rounds in EVERY view; a "Bend r" input in the
-  conduit Properties sets the default (a node's own `bend` overrides). Verified in-browser: an S-shaped
-  trunk's two sharp corners rounded smoothly when Bend r was set; clean console. **[ ] Still:** DRAG
-  HANDLES for width (segment midpoint) and per-node bend (today both are Properties number inputs).
-- [ ] **Edit-in-place for text** objects (inline editing, not a dialog) (P1).
-- [x] **3D cuboid (`box`) + per-view projection** — a Box tool draws a footprint (a,b) + height
-  (mm); it renders per view kind: **plan** = footprint rect, **elevation** = front face standing
-  on the ground line, **model** = oblique (cabinet) cuboid. Grips edit the footprint; Height edits
-  in Properties. A demo box is seeded into the plan/sheet/elevation/model starter tabs to test the
-  views. (Mock oblique projection — not a real 3D engine.)
-- [x] Kestrel **WCS orientation cube** — an oblique reference cube with an x/y/z triad in each
-  viewport's top-right corner; the face matching the view (plan → top, elevation → front) is
-  highlighted. (Static per view kind; no interactive re-orientation yet.)
 - [ ] Section / elevation views generated from floorplans → richer **3D data** (true extrusion,
   cuts) beyond the mock box (P3).
-- [x] **Draw shapes + annotations directly ON elevations — v1** (2026-09-20) — objects drawn in an
-  elevation view carry `space = that ElevDir` (a wall/rack label, leader, dimension); they render
-  natively there (not collapsed to the ground line), are hit/grip-editable there, and are hidden in
-  other views. Floor/plan objects keep `space` = undefined/'plan' and still project to the ground line
-  in elevations. This matches how the Sheets tool stores annotations **per-viewport** (ref:
-  `sheets/…` sheet with plan + elevation annotes). Verified: a rect drawn in FRONT shows in FRONT,
-  hidden in RIGHT/plan, reappears in FRONT.
-- [ ] **v2 — true 3D construction-plane annotations** (Dave, 2026-09-20) — upgrade v1 so a 2D shape is
+- [ ] **v2 — true 3D construction-plane annotations** (User, 2026-09-20) — upgrade v1 so a 2D shape is
   positioned in 3D (**x/y/z** + size **w/h/d**, with the unused plane dimension = 0) and oriented on a
   construction plane by rotating about x/y/z. Then each view PROJECTS it: face-on in its own plane's
   elevation (readable), edge-on (a line) elsewhere, foreshortened in iso — instead of hidden. The
   projector generalises the current floor→ground-line projection (a `to3`/`proj3` pair: plan-local
   (u,v) → world → view drawing coords). Scope: render + hit + grips per view; ellipse/circle
   foreshortening + iso are the hard parts.
-  - [~] **plan 2D shapes appeared AS-IS (unprojected) in the 3D iso viewport** (Dave, 2026-09-22) — a
-    rect/line/text drawn on the plan floated at its raw plan (x,y) coords in iso. **HIDDEN for now
-    (2026-09-22):** `inThisView` returns false for plan-plane non-`box` entities when `kind==='iso'` (box
-    is a real 3D cuboid and still projects). This gates render + hit + grips + marquee (all use
-    `inThisView`/`pickable`). Verified: a plan rect vanished in the iso view and reappeared in plan (hidden,
-    not deleted). **[x] Proper fix — PROJECT onto the ground (2026-09-22):** plan-plane 2D shapes now render
-    in iso projected onto the ground plane (z=0) via `isoGround` (isoR + the same bounds-centring the model
-    uses), foreshortened, instead of hidden. `groundInIso(e)` gates it; `drawnGround` projects each type's
-    outline points (rect→quad, ellipse/circle→32-gon, line/dim/polyline→poly, text→placed at its projected
-    anchor; `e.rot` applied first). They render but aren't interactive in iso (edit in plan/elevation), so
-    `pickable`/grips still exclude them. Verified in-browser: a plan rect lay flat on the room floor in 3D,
-    correctly foreshortened; clean console.
-- [x] **Ellipse draw origin** (2026-09-22) — a **CEN** status-bar toggle draws rectangles + ellipses
-  **centre-out** (first click = centre; drag = a bbox corner) vs the default corner-to-corner. `env.cen` →
-  `centerDraw`; `place()` and the draw `preview` remap the corners via `centerCorners(c, p) = [2c−p, p]` for
-  Rectangle/Ellipse (other tools unaffected). Also gave every status-bar toggle a tooltip (TOGGLE_TITLES).
-  Verified in-browser: with CEN on, an ellipse's centre mapped exactly to the first click, not the midpoint;
-  clean console. (Shift = square about opposite corner still applies.)
-- [ ] **Titleblock editing** — edit the titleblock **style** (template/layout) and its
-  **contents** (project/sheet fields, logo, revision table) per sheet / per package (P2).
 - [ ] More Kestrel tools, surfaced through the **menubar** first; move to a **ribbon** only
   if menus get unwieldy (P2).
-- [ ] Optional **Kestrel command line** for AutoCAD users (low priority — Dave doesn't use it) (P3).
 
 ### 2a. Insertable objects & annotation types from Sheets  ◧ decide
-> The full Sheets set — tick the ones to bring into Pages. (Pages already has
-> line, rect, circle, dimension, text.)
+> The full Sheets set. (Audited 2026-09-27: Pages now has every annotation kind and symbol below except a
+> standalone table object — see CHANGELOG.)
 
 **Annotation kinds** (Sheets stores these _per-viewport_):
 Annotes are identical to model objects, just stored in view instead of model, and can be moved between model and view to make them global or per view.
 Symbols are identical to annotes.
-- [ ] text
-- [ ] line
-- [x] arrow (2026-09-22) — a line carries `arrow?: 'none'|'start'|'end'|'both'`; the render draws a filled
-  arrowhead triangle (constant screen size via `gripSize`, so it stays an arrow at any zoom) at the chosen
-  end(s). Properties gains a LINE section with an Arrows dropdown. The shared `arrowPts()` helper also
-  replaced the callout leader's dot with a proper arrowhead. Verified in-browser: Arrows=Both drew heads at
-  both ends; clean console.
-- [ ] rect
-- [ ] **ellipse**
-- [x] **cloud** (revision cloud) (2026-09-22) — a rect carries `cloud?: boolean`; when set the render
-  draws a scalloped outline (outward semicircle bumps along each edge, CW winding + **sweep-flag 1** —
-  matching the proven Sheets `cloudPath` in `sheets/annotations/geometry.ts`; bump size ~constant on screen
-  via `gripSize`) via `cloudPath()`. Reuses the Rectangle tool's draw/hit/grips — just a Properties (RECT
-  section) "Revision cloud" checkbox. Verified in-browser: outward bumps on all edges; clean console.
-  (First cut used sweep-flag 0 → bumps drew inward; Dave caught it, fixed to match Sheets.)
-- [ ] callout (leader + text box)
-- [x] dimension — real measured DIMENSION (2026-09-22): the Dimension tool now renders a proper dim —
-  dim line + outward ARROWHEADS (shared `arrowPts`) + perpendicular EXTENSION TICKS at each end + the
-  measured length (mm) set above the line, aligned to it (flips when upside-down), at a constant on-screen
-  size (`gripSize`-based, not the old tiny 9-unit text). Verified in-browser. [ ] Later: aligned vs H/V
-  dims, a settable text offset, unit formatting.
-- [ ] image (raster)
-- [ ] **grid** (floor-tile, origin-aligned)
-- [ ] **legend** (auto-lists layers w/ swatches + counts)
-- [ ] table (see Kestrel)
-- [ ] symbol (see below)
+- [~] table — markdown tables inside a TEXT / NOTE (R8, Excel / Word paste); no standalone Kestrel table object
 
 **Symbols** (the `symbol` kind, from the registry):
-- [~] section marker (linkable to a drawing) — **first pass done 2026-09-20**: a section cut drawn on
-  the plan now leaves a persistent MARKER on the plan (dashed teal box + a direction arrow + the
-  elevation's label), rendered by the Viewport from a `sections` prop (all `docClip` entries, shown only
-  in a plan view). Clicking a marker border opens (re-focuses) its elevation; closing the elevation tab
-  removes the marker (dropDoc clears its clip). Verified in-browser (draw → marker renders → click opens
-  the elevation, no duplicate → close tab → marker gone). **MOVE + RE-DIRECTION done 2026-09-20:** drag
-  the marker box border → the cut translates and the linked elevation re-clips live; click the direction
-  arrow → cycles front→right→rear→left (the arrow relocates to the viewed edge and the elevation
-  re-projects via projOf's `docSecDir` fallback, unless a pane pinned a ViewCube projection). Verified
-  in-browser (drag left 120px → box moved, size kept; arrow click front→right → arrow jumps to the
-  bottom edge and the opened elevation reads RIGHT). **SELECTION + RESIZE + TOOLBAR done 2026-09-21
-  (Dave's feedback):** a section no longer jumps to its elevation when drawn — it stays on the plan and
-  SELECTS the marker (`selSection`). A selected marker shows corner RESIZE grips, a solid highlight, a
-  status/instructions line, and a floating TOOLBAR: a LINK button opens the elevation (replaces
-  click-to-open), a direction DROPDOWN re-aims the cut (clearer than clicking the arrow), and a delete
-  button (Delete key / Esc-deselect too). Verified (draw → stays on plan, selected; resize grew the box;
-  dropdown → arrow moved; link → opened the elevation). **Follow-ups:** the full symbol-registry tag form
-  (up to 4 arms). NB: a section-marker BORDER hit needs `hitTol()/dscale` (unscaled model units) — plain
-  `hitTol()` is off by the drawing scale for an edge-distance test (only area/inside tests like
-  `hitModel` get away with raw `hitTol`).
-- [x] **Multiple viewports per sheet (AutoCAD paper space)** (Dave, 2026-09-21) — a sheet now holds
-  extra viewport FRAMES besides its primary one, each a window onto the shared model with its own
-  projection + scale + border + geometry. A "Viewport" paper-space tool drags out a frame; select it →
-  Properties VIEWPORT (View plan/front/rear/left/right/3D · Scale · Border · X/Y/W/H · Delete); move by
-  the band, resize by corner grips, double-click to edit inside. Extra frames live per tab (`docFrames`)
-  with view/orbit/activation keyed by the frame id (reusing docView/docOrbit/activeVps); entity edits
-  still target the tab's shared entities. Primary viewport unchanged (tab-keyed) → no regression.
-  Verified in-browser (drag a viewport → renders the model; change View Plan→3D → solid iso; move/
-  resize/activate/delete all work). **Follow-up:** [x] **Section elevation → drop as a viewport frame**
-  (2026-09-22) — the selected section's floating toolbar gains a "drop as viewport" button (panels icon)
-  → `on.sectiondrop` → `sectionDropAsFrame`: adds a FRAME (proj = section dir, clip = the section box, a
-  copy) to a sheet — the focused pane's sheet, else the first sheet tab — then focuses that sheet + selects
-  the new frame (sized to the clip aspect) for repositioning; one page-history step. A frame already
-  carried proj + clip, so no schema change. Verified: dropping a Front section switched to 3303 Outlets
-  and made a "Front 1:25" viewport onto the 33F model (Properties: Source 33F / View Front); the sheet's
-  plan frame shows the section marker, staying in sync; clean console. **Follow-up:**
-  [ ] per-frame CROP + a real source config (drawing id) when Pages gets multiple models/drawings.
-- [~] **Unify PRIMARY viewport into the frames array + a PAGE MODEL** (Dave; core done 2026-09-21) — the
-  sheet is now ONE array of viewport frames (no special primary); the default page seeds a full-bleed
-  frame[0]. Every frame is uniform: frame-keyed view/orbit/activation/proj/scale/geometry, border-select,
-  double-click to edit inside, corner grips resize; the ViewCube re-aims the active frame; frame add/move/
-  resize/delete are on the page history. Verified in-browser. **Still to do:** (a) the true **page MODEL
-  object** (`docFrames` is still a per-tab array — wrap it as a page model that also carries the
-  titleblock + page annotations, persisted/undone as one unit); (b) label frame[0] from the drawing (it
-  reads "Plan" now); (c) minor — ViewCube TOP-face back-to-plan needs a check; (d) the full **PaperPage↔
-  Viewport merge** (below). **Also list + reconcile PaperPage vs Viewport differences** (below) as part of this.
+- [ ] **Viewport frames:** per-frame CROP + a real source config (drawing id) when Pages gets multiple models/drawings.
+- [~] **Unify PRIMARY viewport into the frames array + a PAGE MODEL** (User; core done 2026-09-21 — one array of
+  uniform frames, CHANGELOG). **Still to do:** (a) the true **page MODEL object** (`docFrames` is still a per-tab
+  array — wrap it as a page model that also carries the titleblock + page annotations, persisted/undone as one unit);
+  (b) label frame[0] from the drawing (it reads "Plan" now); (c) minor — ViewCube TOP-face back-to-plan needs a
+  check; (d) the full **PaperPage↔Viewport merge** (below). **Also list + reconcile PaperPage vs Viewport
+  differences** (below) as part of this.
   - **PaperPage vs Viewport — differences to reconcile** (for the merge): PaperPage works in **paper px**
     (screen space, `sheetEl.getBoundingClientRect`), Viewport in **model mm** (viewBox + dscale);
     PaperPage owns frame **geometry/selection/drag** (band + corner grips) while Viewport owns
@@ -956,62 +387,33 @@ Symbols are identical to annotes.
     renders the **titleblock**; both have their own **marquee** + **Handle grips** (share `Handle.svelte`
     already). A merge = one surface that hosts nested viewports, each a Viewport, with paper-space vs
     model-space just a coordinate mode.
-- [~] **Set the DEPTH PLANE via GUIDE LINES** (Dave's design; core done 2026-09-21) — guide lines
-  (`guides.svelte.ts`): a **Guide tool** drops a full-view horizontal line (Shift = vertical) in the
-  current view's space (plan or elevation); they render as magenta dashed lines, are selectable
-  (border-priority) + deletable. Drawing a Wall/Trunk/Pipe in an ELEVATION takes its off-axis **depth
-  from the selected PLAN guide** (h→y for front/rear, v→x for left/right); no guide → model centre + a
-  toast/instruction-line nudge. Verified: trunk in a Front viewport lands on the selected plan guide.
-  **Follow-ups:** [x] **DRAG a guide** to reposition (2026-09-21) — in Select mode, press near a guide to
-  grab + drag it (one history gesture 'Move guide'; hover shows the move cursor; priority below entities/
-  grips, above sections/model/marquee); [ ] fallback should be
-  **snap-to-geometry** (draw on a wall centreline → inherit its depth) rather than the model centre; [ ]
-  **vice-versa** — an ELEVATION guide fixes the z/height when drawing in the plan; [ ] use guides as a
-  general **drawing snap** (not just conduit depth). How CAD frames the same idea: AutoCAD UCS; Revit
-  work planes / pick-a-wall-face.
-- [ ] **RISERS tool** (Dave, 2026-09-21) — like an elevation but spanning **multiple floors** of the
-  building: server / IDF / EPS rooms on each floor, connected by **risers, trunks and cable routes**
-  running vertically between floors. A riser diagram is a multi-floor section: stack each floor's
-  relevant rooms at their true z, draw the vertical backbone conduits + horizontal ties, label
-  floor/room/cable counts. Builds on the model (levels/z, conduit graphs with vertical runs — already
-  supported) + the section/elevation projection; a riser is essentially a tall section clipped to the
-  riser shafts across all floors.
-- [ ] **Door swing SIDE + type parity** (Dave, 2026-09-21) — the door `flip` picks the hinge JAMB;
+- [~] **Set the DEPTH PLANE via GUIDE LINES** (User's design; core done 2026-09-21 — Guide tool, draggable guides,
+  depth from the selected plan guide, wall / conduit depth snap as the fallback; CHANGELOG). [ ] **vice-versa** — an
+  ELEVATION guide fixes the z/height when drawing in the plan; [ ] use guides as a general **drawing snap** (not just
+  conduit depth). How CAD frames the same idea: AutoCAD UCS; Revit work planes / pick-a-wall-face.
+- [ ] (LOW) **Door swing SIDE + type parity** (User, 2026-09-21) — the door `flip` picks the hinge JAMB;
   add a toggle for which SIDE of the wall the leaf swings into (in/out), and a swing-angle handle exists
   (drag the leaf tip). Windows currently draw a single glazing line — add sill/head + mullions in
   elevation. (Openings now: Type dropdown Door/Window/Hole + Swing° + Hinge in Properties; door
   leaf+arc in plan; frame+floor-swing in the 3D view — all done 2026-09-21.)
-- [ ] elevation/section tag (up to 4 arms)
-- [ ] detail marker
-- [ ] photo marker (linkable to a photo)
-- [ ] north arrow
-- [ ] outlet
-- [ ] faceplate/wall-outlet
-- [ ] door
+- [ ] **Photo marker:** pick from project photos.
 
-**Tool-objects** (placed inside a source viewport, live in the tool's own data):
-- [ ] outlet
-- [ ] trunk
-- [ ] rack
-- [ ] (racks devices / risers / model3d prisms-walls-conduits render read-only on a sheet)
+**Tool-objects** (placed inside a source viewport, live in the tool's own data): all done — see CHANGELOG.
 
 **Blocks / library:** Sheets has a **Shape Library** — built-in + custom shapes (saved
 globally in Firestore `library`), drag-to-place; it **copies geometry** (no true "block
 instance that updates all copies"). Also a separate **rack device library**.
-- [ ] Shape/annotation library (built-in + custom, drag-to-place)
-- [ ] **True blocks** (instances update together) — *beyond Sheets; your explicit ask*
+- [~] **True blocks** — inserts reference the definition by id (edits propagate); [ ] no BEDIT / redefine UI for a block yet
 
-[x] **Text editing:** Sheets edits annotation text in the **side panel** (double-click / F2
-jumps focus there), *not* in-place. Your ask = **in-place canvas text** → an improvement
-over Sheets.
-
-[ ] **Imported backgrounds:** Sheets shows **one** PDF/image page per outlets viewport
+[~] **Imported backgrounds:** (2026-09-27: multiple PDF / picture underlays, live Uploads calibration, Replace… /
+From Uploads done, R17; [ ] DXF import.) Sheets shows **one** PDF/image page per outlets viewport
 (`fileId`+`pageNum`, with origin/scale/crop from the `files/{id}` doc); model3d supports
 several **underlays** per direction. **No DXF import** (DXF is export-only). Your asks
 (multiple swappable backgrounds; DXF import; set origin/crop in-viewport) are **beyond
 Sheets** — see §3/§4.
 
-[ ] **Revisions:** Sheets has a title-block **revision table**, the **cloud** annotation, and
+[~] **Revisions:** (2026-09-27: rev table, clouds, sheet revisions + model versions done; [ ] visual diff / compare
+between revisions.) Sheets has a title-block **revision table**, the **cloud** annotation, and
 in-session **undo/redo** snapshots — but **no diff/compare between revisions**. Your ask
 (revision points you can switch between to see differences for clouding) is **beyond
 Sheets' basic version** — see §10.
@@ -1022,147 +424,43 @@ Sheets' basic version** — see §10.
 > swatches. **UI built** (`parts/LayersPanel.svelte`); wiring is the remaining work.
 - [~] Right-side **Layers panel** — nested groups, eye toggles, swatches, View-Preset picker;
   **New Layer, rename (dbl-click), colour picker, add-sub / delete** all work (mock state).
-- [x] **Layer settings dialog** — the colour swatch is now a colour+line button that opens a
-  dialog (name, colour, draw-as fill/line, line type, thickness in mm, **lock**, **delete**).
-- [x] **Lockable layers** — lock toggle on group rows, on **each sub-layer row (beside the eye)**,
-  and in the settings dialog (mock; tinted when locked).
-- [x] **Draggable layers** (2026-09-21) — layer rows in the LayersPanel are `draggable`; dropping one
-  onto another reorders the `layers` array (`moveLayer`), which now IS the draw z-order (below). Drop
-  indicator on the target row. Verified via synthetic DnD: dragging Background 2 onto Background 1 swaps
-  their order and restacks their objects.
-- [x] **Draw order** (2026-09-20) — array position = paint order (later = on top). `reorderEnts`
-  moves the selection: front/back jump to the array ends; forward/backward step past one non-selected
-  neighbour (block-safe). Wired to **Ctrl+] / Ctrl+[** (± Shift = to front/back) and a Properties
-  **ARRANGE** row (⤓ ▽ △ ⤒), recorded to history. Verified front/back and forward (A past B).
-  [x] **Paint by (layer order, then intra-layer order)** (2026-09-21) — the Viewport now sorts entities
-  by `layerOrder(e.layer)` (array position in the layers store) first, then their own array index. So a
-  layer's z-position drives its objects' draw order; `reorderEnts` still restacks within a layer. No
-  layer / unknown → paints on top (tool default). Verified: red rect (Background 1) vs blue rect
-  (Background 2) — bg-2 on top, then reordering the layers put bg-1 on top.
-- [x] **View Presets** (2026-09-20) — a preset is a named set of visible layer ids (`presets` in the
-  store). Selecting one applies it (shows exactly its layers); the ⋮ menu does Re-apply / Update /
-  Save-current-as-new / Rename / Delete; a "• modified" flag shows when visibility drifts from the
-  saved preset. Verified: applying "Trunk Routes" hid the outlet layers and showed the trunks.
 - [~] **Find / identify an object's layer** — the selected object's layer already shows in the Properties
-  **Layer** dropdown (Dave: enough for now). [ ] remaining (lower priority): highlight it in the panel +
+  **Layer** dropdown (User: enough for now). [ ] remaining (lower priority): highlight it in the panel +
   a "select all on layer" / "isolate layer" action.
-- [x] **Wire to the canvas** (2026-09-20) — shared reactive store `layers.svelte.ts` (single source of
-  truth). Objects carry `layer`; new objects take the **active layer** (clicked in the panel). The
-  Viewport hides objects on hidden layers, blocks pick/marquee/grips on locked layers, and resolves
-  **ByLayer** colour from the layer. LayersPanel rebuilt on the store (grouped eye/lock/colour, active
-  highlight, settings dialog); Properties Layer dropdown reads it. Verified in-browser (hide→vanish,
-  lock→unselectable, active-switch→new object's ByLayer colour follows). [ ] Still open: **View Preset**
-  = a saved set of layer visibilities (apply/save); per-object → highlight its layer in the panel.
-- [~] **Background layers** (2026-09-21) — a **Background** layer group (Background 1/2) sits at the top
-  of the layers array (draws first = behind everything), toggled independently of view presets. Import
-  an image onto the active layer via **Insert › Image…** (reads a data-URL; a real backend uploads +
-  stores a fileId — §4). `image` Ent type renders in its a→b rect (selectable/resizable). [ ] still:
-  PDF/DXF import, swap/compare, per-file origin/scale/crop.
-- [x] **HIGH PRIORITY — image-import → layer z-order test** (2026-09-21) — the acceptance mechanism is
-  built + verified: an `image` entity type + **Insert › Image…** (file → data-URL → image on the active
-  layer), a **Background** layer category, **paint-by-layer-order**, and **drag-to-reorder layers**.
-  Verified in-browser (using two filled rects on Background 1/2, since the native file picker + real DnD
-  can't be automation-driven): bg-2's object drew ON TOP of bg-1's, then dragging Background 2 above
-  Background 1 flipped the z-order so bg-1's object came on top. Images ride the same `paintEnts` path.
-  *Still to browser-test with a real image file + real mouse drag (both blocked in the automated
-  browser): the `<image>` render and the native picker path — both code-complete + type-clean.*
-- [x] **Layer drag-reorder direction fix** (Dave, 2026-09-21) — dropping onto a layer inserted BEFORE it,
-  so dragging a layer DOWN onto the next one was a no-op (Dave: "first onto second doesn't change order").
-  Now direction-aware: dragging down drops AFTER the target, up drops BEFORE (with a top/bottom drop line).
-- [x] **Image resize handles PRESERVE ASPECT RATIO** (2026-09-22) — `lockAspect` prop on the image ent
-  (**true by default** for imports); corner-resize keeps the source aspect, **Shift** = free stretch.
-  Verified with a real image: resizing kept W/H ratio 1.236.
-- [ ] **Plan images shouldn't appear on ELEVATIONS / 3D** (Dave, 2026-09-21 — "I'll think about this") —
-  an `image` on the plan plane currently follows the "plan projects into every view" rule, so a raster
-  background bleeds into elevations/iso nonsensically. Options: restrict an image to ONLY its own plane's
-  views (plan image → plan only; a `front` image → front only); or a per-image "show in: this view / all"
-  toggle. Decide, then gate `image` in `inThisView`.
+- [~] **Background layers** (2026-09-21) — a Background layer group + Insert › Image… onto the active layer done;
+  PDFs, the Uploads calibration and Replace… since (CHANGELOG round 17). [ ] still: DXF import, swap/compare.
 
 ## 4. Imported files / floorplans  (P1–P2)
 - [ ] Upload & manage many floorplan drawings per project — **electrical, furniture, AV,
   etc.**, with **versions / checkbacks** (we receive many revisions).
-- [~] Set **origin, scale, crop, masks** of an imported file **inside the Pages viewport** (2026-09-22) —
-  matched the **Uploads-tool model** (Dave). A **Properties → IMAGE › Calibrate** row has three modes that
-  drive Viewport interactions on the selected image:
-  - **Origin** — click a point inside the image → stored normalized on the ent (`origin{x,y}`); shown as a
-    crosshair; it's the anchor scale keeps fixed and (future) the point to align a re-imported version by.
-  - **Scale** — click 2 points across a known distance → an inline "Real distance (mm)" entry → the image
-    (a→b) is resized so that measurement is correct in model mm, scaled **about the origin/centre**.
-  - **Crop** — drag the crop **window's** corner handles (crop = a normalized sub-rect of the placement;
-    the trimmed area dims; per-viewport `clipPath` id so multi-viewport sheets clip independently). Plus
-    Crop X/Y/W/H % fields + Reset, and an **Opacity %** (for tracing).
-  **Now VERIFIED end-to-end with a real image** (2026-09-22, via a dev hook `window.__pagesAddImage(url)`
-  that injects a URL image into the running model, since the native picker can't be automation-driven):
-  the JPG renders; interactive crop trims + dims + updates the % live; **resize handles sit on the CROPPED
-  extent** (was a bug — grips were at the full placement); aspect-lock resize keeps the ratio; scale =
-  instruction line + 2 clicks + **draggable endpoints** + inline "real mm" entry → resized ×1.844 keeping
-  aspect; origin drops a crosshair anchor. [ ] still: **masks**, re-import version alignment by origin,
-  interactive origin/scale on a rotated image, and a nicer scale entry than the inline box.
+- [~] Set **origin, scale, crop, masks** of an imported file **inside the Pages viewport** — origin / scale / crop /
+  opacity done 2026-09-22 (Properties › IMAGE › Calibrate, matching the Uploads tool; CHANGELOG). [ ] still:
+  **masks**, re-import version alignment by origin, interactive origin/scale on a rotated image, and a nicer scale
+  entry than the inline box.
 - [ ] Supported inputs: **PDF, image, DXF**.
 - [ ] Produce various floorplan **views**: data-outlet locations, desk numbering, trunk
   routes, penetration & conduit requests (these are the output deliverables).
 
 ## 5. Views  (P2)
 
-- [ ] **3D button → pop-out with three render modes** (Dave, 2026-09-23). Same fly-out pattern as the tool
-  strip: **3D** = today's oblique/orbit line rendering (default); **WIRE** = wireframe (all edges, no hidden-line
-  removal, no faces); **SHADED** = a three.js rendering of the model (proposed name — CAD convention is
-  Wireframe / Hidden / Shaded / Realistic, so "Shaded" reads right next to WIRE; alternatives: RENDER, SOLID).
-  Openings in walls for the three.js path: use the simple gap-in-the-wall-segment technique we used elsewhere
-  (split the wall run at the opening and skip the segment), not CSG. Mode is per viewport (ViewState.canvas /
-  a new `render` field), persisted like proj. Keep `project()` as the single source for 3D/WIRE; SHADED gets
-  its own renderer fed by the same Model.
-- [x] **Model REGISTRY + per-viewport model reference** (2026-09-21) — `models` is now a registry of
-  coherent sources (seeded: **33F** floor + **Rack A** rack). A viewport references a model by id: a
-  sheet FRAME carries `modelId`, a model-layout TAB carries `modelId` (defaults to the floor). `Viewport`
-  gets a `modelId` prop and resolves `mdl = modelById(modelId)`; entities/guides/objects all come from
-  that model; editing targets the ACTIVE viewport's model (`modelIdOf(tabId)` — the active frame's model,
-  else the tab's). PaperPage passes each frame its model's ents via an `entsForModel` resolver. Verified:
-  the Rack A tabs render the rack; a sheet shows floor + rack in two viewports at once.
-- [x] **Wire up model selection** (2026-09-21) — a **Model/Source** dropdown in the selected viewport
-  frame's Properties (lists the registry's models) re-points its `modelId` live. Verified in-browser:
-  switching a frame's Source from 33F → Rack A re-renders it as the rack. (ViewCube still sets projection.)
-- [x] **Viewport-frame properties** — selecting a viewport frame (paper space) shows its props
-  in the Properties panel: Name, Type, X/Y/W/H (live, editable), and **border style**
-  (dashed / solid / none, applied to the frame). Most-recent selection wins over tree-node props.
+- [~] **3D button → pop-out** (User, 2026-09-23) — the pop-out with **3D** (perspective) / **ISO** / **WIRE** is DONE
+  (CHANGELOG). [ ] Still: **SHADED** = a three.js rendering of the model (openings as gaps in the wall run, not CSG;
+  its own renderer fed by the same Model; `project()` stays the source for 3D / WIRE). (M)
 - [ ] **Per-view content config** — the rest of a view's props: source model/floorplan, scale,
   crop/clip, layer-visibility preset per view. (Frame position/size/border done above.)
 - [ ] **View types like the Sheets tool** — Pages views should support the same set of view
   kinds (list to be confirmed alongside §2a).
 - [ ] Multiple views of one model at different scales/crops on a sheet (viewport frames
   already support this — needs per-view content config).
-- [~] ◧ **Per-viewport pan/zoom(scale) SAVED PER PROJECTION + multi-user** (Dave, 2026-09-21) — each
-  viewport should remember its pan/zoom (scale) **per view direction** (plan / front / rear / left /
-  right / 3D), so flipping the ViewCube restores each view's own framing. **Per-projection keying DONE
-  (2026-09-22):** content pan/zoom (`docView`) AND iso orbit (`docOrbit`) are now keyed by
-  `paneId:viewId:proj` (new `vkey` helper), threaded through `vpOn` (model-layout tabs, via
-  `projOf`/`activeProj`), `vpOnFrame` (sheet frames, via `frame.proj`), the `frameView`/`frameOrbit`
-  resolvers, and the nav zoom/fit helpers; `dropDoc` cleanup matches keys by their viewId segment.
-  Flipping a viewport's projection now leaves each direction's framing intact instead of carrying one
-  across all. Type-check clean at baseline; projection switch renders with a clean console. NB: this is
-  the **content** view (active vp + "Pan content"); the per-tab CANVAS zoom (`cvCache`, localStorage)
-  is deliberately shared across projections (the paper/canvas isn't a projection). **Still open (the
+- [~] ◧ **Per-viewport pan/zoom(scale) SAVED PER PROJECTION + multi-user** (User, 2026-09-21) — per-projection
+  keying done 2026-09-22 (content pan/zoom + orbit keyed `paneId:viewId:proj`; CHANGELOG). **Still open (the
   ◧ decision):** the **multi-user persistence model** — if framing lives in the backend and one user
   re-frames a view it moves for everyone. Options: (a) a **lock** toggle per viewport (frozen vs
   free-look), (b) a **Save view** button (otherwise pan/zoom stays local per user), (c) per-user view
-  overrides. Today `docView`/`docOrbit` are in-memory only (reset on reload) — decide before persisting.
-- [x] **Rotate handle on ALL shapes** (2026-09-22) — rects / ellipses / images / lines now get a rotate
-  HANDLE (a distinct **circle** above the bbox top-centre with a connector line, vs the square resize
-  grips), like the furniture prism's. `rot` already existed on `Ent` (render/hit/grips honour it) — this
-  exposes it as a draggable handle: `ROTATABLE` set + `canRotate()` (excludes flat-elev floor projections
-  and an image mid-CROP), `rotGripLocal()` (angle-from-centre + 90°, matching the prism/model handle), a
-  `rotate?` flag on `Grip` so `gripsFor` rotates the handle's POSITION with the shape but passes the RAW
-  pointer to its apply, and `constrainGrip` bails on a rotate grip (no square/ortho constrain).
-  **Verified in-browser:** drew a rect on the floorplan → selected → the circle handle renders above it →
-  dragging it rotated the rect ~35° about its centre with the corner grips following, clean console.
-  Pairs with the rotated-resize-handles fix (§0). **Shift = snap to 15°** (2026-09-22) — the rotate apply
-  reads live `shiftDown`, so pressing/releasing Shift re-snaps in real time via `reconstrain` (no mouse
-  move needed), like ortho/square. Verified: a free rotate drag with Shift landed on exactly 75°.
-  [x] **Added to `box`** (2026-09-22) — `canRotate` now includes `box` **in plan** (its footprint; in
-  elevation box keeps its boxElev face grips). Verified: a plan box shows the rotate handle.
+  overrides.
 
 ## 6. Annotations  (P2)
-- [ ] ◧ **decide / design** — **annotation = object model.** Dave's model: an annotation
+- [ ] ◧ **decide / design** — **annotation = object model.** User's model: an annotation
   (callout, cloud, text, dimension…) is the *same kind of thing* as a model object; the only
   difference is **where it's stored** — in a **layer/paper-space** vs in **model space**. You
   should be able to draw callouts/clouds/etc in **both** model and views, and **move them
@@ -1173,26 +471,15 @@ Sheets' basic version** — see §10.
   - So "stored in a layer" and "model vs view" are **orthogonal** in DXF too: an entity has BOTH
     a layer AND a space. Our model just needs an object to carry `{ layerId, space: 'model' |
     'view:<id>' }`; moving view→model = flipping `space` (+ reposition). No conflict.
-  - **DECIDED (Dave, 2026-09-20):** a **model-space** annotation just **appears in ALL views of
+  - **DECIDED (User, 2026-09-20):** a **model-space** annotation just **appears in ALL views of
     that model** — no "subset of views" needed; if you don't want it in a view, **turn its layer
     off**. That's exactly DXF's *model-space-shown-through-viewports*, so no conflict and simpler:
     an object is either **model space** (shown in every view, layer-gated) or **view/paper space**
     (that one view). No per-view allow-lists.
-- [x] **`space: 'model' | 'view:<frameId>'` scope on entities** (2026-09-21) — an entity carries a
-  `space` scope: model-space shows in every view of its model (layer-gated); `view:<frameId>` shows only
-  in that viewport frame. A **Scope** dropdown in the entity Properties (Model / This viewport) sets it.
-  Verified: a rect scoped "This viewport only" shows in its frame but is hidden on another view of the
-  same model. Also carries an orthogonal `plane` (which projection plane its coords live in).
 - [ ] Move an annotation / object view→model (and back) — the Scope dropdown does model↔this-viewport;
   still to do: an in-canvas "push to model / pull to this view" gesture + moving between two view scopes.
 
 ## 7. Properties panel  (P1–P2)
-- [x] **Two-way binding + multi-select editing** — `parts/PropertiesPanel.svelte` edits the
-  focused doc's selected entities (single → X/Y + rect W/H / circle radius / text; several →
-  group bbox, X/Y move the whole selection). Nothing selected → page/general props.
-- [x] **Place properties from the tree** — selecting a tree node shows editable place props
-  in this panel (replaces the old tree-label→property links). See §8.
-- [ ] Add layer / colour / line-weight editing once entities carry those props (§3 wiring).
 
 ## 8. Project tree ↔ Pages linkage  (P2)
 > Design target: the reference image's **Drawing Navigator** (left) — a location tree
@@ -1202,48 +489,26 @@ Sheets' basic version** — see §10.
 > Ctrl-K command palette.
 - [~] **Drawing Navigator UI** — done, now the Project › Building › Floor › Zone › Room ›
   Row hierarchy with drawing/view leaves that open tabs.
-- [x] Top-bar **Package / Version** selectors (mock); the per-drawing Revision moved to History.
-- [ ] **Package / Version switching should show different content** (Dave, 2026-09-20) — Package can
+- [ ] **Package / Version switching should show different content** (User, 2026-09-20) — Package can
   operate on all docs, but switching **Version** must let you check different issued packages
   (version-controlled content per drawing set). Needs versioned storage.
-- [ ] **Per-floor / per-drawing versions + revisions** (Dave, 2026-09-20) — designers send different
+- [ ] **Per-floor / per-drawing versions + revisions** (User, 2026-09-20) — designers send different
   *versions* of a floorplan per floor, each needing its own *revisions*. So version is not purely
   set-wide: a drawing may track its own source version + revision chain. Leave for now; revisit with
   the model registry (§5) and versioned storage.
-- [x] **Command palette** (Ctrl-K) — `parts/CommandPalette.svelte`, searches drawings/places.
-- [x] **Preview tabs (VSCode-style)** — single-clicking a drawing in the tree opens it in a shared
-  *italic* preview tab that the next single-click reuses; double-clicking it (or editing the doc)
-  promotes it to a kept tab. Command-palette picks open as kept tabs.
-- [x] **Folders selectable → place properties** — clicking a place (building/floor/zone/room/
-  row) shows its props in the right Properties panel (mock fields per kind); the **project
-  name is now a label above the tree** (not the tree root) and opens project props on click.
-- [ ] Wire the tree to real project data + uploaded floorplans (scope a view to a place);
-  persist the place-property edits.
 - [ ] Package **content preview** + **master drawing list** management.
 
 ## 9. Status bar wiring  (P1)
-- [x] **Model / Sheet** views now differ: Sheet = A3 paper + viewport frame; Model = drawing
-  fills the pane (no paper). **GRID** toggle shows/hides the viewport grid.
-- [x] Wire **SNAP / ORTHO / OSNAP / LWT** (2026-09-20) — **SNAP** rounds draw points to a 10-unit grid
-  (object snap still wins); **ORTHO** forces line-draw + move to H/V, with **Shift toggling** it
-  (XOR); **OSNAP** + **LWT** were already wired. `snap`/`ortho` flow through `env` from the status
-  toggles. Verified: SNAP on → coords ×10, off → raw; ORTHO → horizontal line (dy=0). Ctrl-K palette
-  now autofocuses its search input (used:action via tick, not the unreliable `autofocus` attr).
+(all done — see CHANGELOG)
 
 ## 10. Undo / redo / history / revisions  (P2)
-- [x] **Undo / redo** (Ctrl+Z / Ctrl+Y / Ctrl+Shift+Z, Edit menu) — snapshot-based, coalesces
-  a drag into one step. **Change log** + **revision snapshots** in `parts/HistoryPanel.svelte`
-  (right "History" tab): New revision, restore a revision, **editable description note per revision**.
 - [ ] **Diff between revisions** → generate revision **clouds** from the changes (the real
   payoff; Sheets has only a manual cloud annotation).
-- [ ] **Reverted revisions are read-only** (Dave, 2026-09-20) — restoring an older revision should
+- [ ] **Reverted revisions are read-only** (User, 2026-09-20) — restoring an older revision should
   NOT make it editable; only the **latest** revision is editable. To edit an old one, the user must
   **make a copy** (branch) or explicitly unlock it. Needs a revision-state model (latest vs
   historical) + a lock on the doc when viewing a historical revision.
-- [x] **Each revision saves a date** (shown in History + titleblock; see §0 batch 4).
-- [ ] **Titleblock revision TABLE** — list all revisions (letter · date · note) in the titleblock,
-  not just the current one.
-- **Undo memory** (Dave's Q, 2026-09-20): steps are full state **snapshots, not diffs**. A normal
+- **Undo memory** (User's Q, 2026-09-20): steps are full state **snapshots, not diffs**. A normal
   edit now snapshots only the ONE doc it changed (per-doc, `snapDoc`); a revision restore snapshots
   all docs. So memory ≈ (entities in the changed doc) × up to 100 steps — fine for the mock, but a
   real tool should be **command/inverse-op based** (store what changed, not the whole doc). [ ] do this.
@@ -1253,8 +518,25 @@ Sheets' basic version** — see §10.
   (as view types? embedded editors? linked pages?). Decide the integration model.
 
 ## 12. Backend  (P2, after UX settles)
-- [ ] Wire the **Firestore** backend once the mockup UX is agreed — schema for pages,
-  views, entities, layers, imported files, revisions.
+- [ ] **Investigate Turso (libSQL) as the backend database** (User 2026-09-26):
+  - **Why:** today every model change rewrites the WHOLE model doc — `shapes` / `objects` arrays — in one Firestore doc
+    (`projects/{pid}/models/{mid}`, `db.replace`). That's write-heavy, runs up against Firestore's 1 MiB doc limit on
+    big floors, and gives no per-object history or queries (e.g. "all outlets on 33F").
+  - **Idea:** a control plane (tenants / projects / users, billing) plus a **database per tenant** (Turso's
+    multi-db model), with ROWS per shape / object (`model_id, id, type, layer, data JSON, rev, updated_at`), so an edit
+    writes only the changed rows. Plus an edit log (per-change undo / audit) and sync (Turso embedded replicas or
+    change feeds) in place of Firestore's live listeners.
+  - **Check:**
+    - cost: Turso's pricing per active db / storage / row reads + writes, vs Firestore's per-document writes at our
+      edit rate (an autosave per gesture);
+    - real-time: how clients get other users' edits (no built-in listeners — polling, a websocket relay, or
+      embedded-replica sync);
+    - auth: tokens per tenant db from a server route (Vercel);
+    - offline behaviour;
+    - migration of the existing Firestore data (models, sheets, places, files metadata), and whether the other tools
+      (Outlets / Frames / Racks) move too or stay on Firestore for now.
+  - (LOW) **Nearer-term alternative, even on Firestore:** split each model into per-object docs (a subcollection) or
+    chunked docs, so an edit writes one small doc instead of the whole array. (M–L, a design spike first)
 
 ## 13. Codebase & repo health  (P1)
 - **Git history is fine** — `.git` is ~9 MiB (packed ~7), no large blobs, so history
@@ -1262,21 +544,6 @@ Sheets' basic version** — see §10.
 - [ ] Minor: a couple of stray committed files inflate the tree — `static/3PAGE.pdf` - ok to leave this
   (~2.6 MiB test PDF) and `src/routes/ui/ChatGPT Image ….png` (~700 KiB, oddly sitting in
   a **routes** dir). Remove/gitignore if they're not needed. Leave this sample UI
-- [x] **`pnpm check` OOMs** — answered by `pnpm check:pages` (also the pre-commit gate): it runs svelte-check
-  with an 8 GB heap and fails only on errors under `pages/`. Original notes: this is a **Node-heap** issue: svelte-check type-checks
-  ~5.7k files and runs out of the default heap, made worse when the dev server is also up.
-  Try:
-  - `NODE_OPTIONS=--max-old-space-size=6144 pnpm check` (raise the heap).
-  - Run `pnpm check` with the dev server **stopped**. This works.
-  - Trim `svelte-check`/`tsconfig` scope (exclude generated dirs / mockup files not meant
-    to ship) and consider `svelte-check --threshold`/incremental in CI only.
-- [ ] **VSCode slowness** — likely the TS language server over a big project; check the TS
-  server memory setting and `files.watcherExclude` for `.svelte-kit`, `node_modules`.
-- [x] **Split `+page.svelte`** — finished by R9 (`Pane`, `ToolStrip`, `TabMenu`, `printing.ts`, the `Workspace`
-  object). Earlier state: done for the shell: DrawingNavigator, LayersPanel,
-  PropertiesPanel, HistoryPanel, CommandPalette, StatusBar, Menubar are now components;
-  `+page` is ~660 lines (was ~860). The editor-area (panes/tabs/canvas) stays inline as the
-  tightly-coupled core — extract a `Pane`/`Canvas` component when it next grows.
 
 - **Dev notes** (from the retired `HANDOFF.md`):
   - IDE/LSP diagnostics lag badly after multi-edit sequences. Trust `pnpm check:pages` / `pnpm test`, not the squiggles.
@@ -1287,53 +554,19 @@ Sheets' basic version** — see §10.
 
 ---
 
-### Done this session (for context)
-- [x] Kestrel-style viewport drawing (line/rect/circle/dim/text), rubber-band preview,
-  constant lineweights, per-view tool/selection.
-- [x] Handles to move/edit shapes & points; shared `Handle.svelte` (entity + frame grips,
-  consistent size).
-- [x] Fixed-scale viewport window (resize crops, doesn't rescale); infinite canvas.
-- [x] AutoCAD-style paper/model space: double-click enter, border-select or marquee, corner
-  resize, movable off-paper; pane-level Exit; Esc ladder.
-- [x] Kestrel selection box (window/crossing).
-- [x] Touch: 2-finger navigate / 1-finger draw+edit; 2-finger aborts an entity drag; both
-  canvas & viewport zoom live by cursor position.
-- [x] Ctrl+P prints only the focused A3 sheet.
-
 ### New todos
 - [ ] Implement File > Package Manager which opens a package manager that allows pages and version to be grouped and ordered into a named package that can be printed to hardcopy or pdf for distribution
 - [ ] File > Open should allow user to open & create & delete(archive) Projects
-  - [x] OPEN done (eos-07, 2026-09-23): File › Open Project… / Ctrl+O → `parts/OpenProjectDialog.svelte` lists Firestore `projects` (trashed hidden, search, My projects, newest first, current marked) and navigates to `/projects/<id>/pages`. Still to do: create + archive (delete) from the dialog; per-project stores (B17 → X4) so the mock tree / models don't carry over.
+  - OPEN done (eos-07, 2026-09-23 — CHANGELOG "Real project data"). Still to do: create + archive (delete) from the dialog; per-project stores (B17 → X4) so the mock tree / models don't carry over.
 - [ ] File > Save should work like History save revision, allowing a version/revision point to be saved
-- [x] fix bug where the first guide is not added after a page refresh — B26, fixed c4b364c (the `(x.y ??= []).push()` $state-proxy trap; same bug hid the first section)
-- [x] **Shift doesn't constrain model-object rotate handles** (Dave 2026-09-23) — FIXED (eos-07): one `grips.handleAngle` / `snapAngle` rule for all four handles: furniture in the 33F model
-  and the devices in the Rack A elevation rotate freely with Shift held. Audit (eos-07): only ENTITIES
-  snap — `grips.rotGripLocal` rounds to 15° when `shift()`. The three MODEL handles in `grips.modelGrips`
-  each compute their own angle and never see Shift, because `MGrip.apply(p, origin?)` has no shift
-  argument: the plan prism rotate handle (`o.rot`), the elevation tilt handle (`rotX` / `rotY`) and the
-  door SWING handle (`o.swing`, 0–180°). Other rotations: iso orbit already snaps (Shift = 15°); the
-  Properties angle fields are typed numbers (no handle). **Fix:** one shared rotate-handle helper
-  (angle from centre + pointer, `+90°` handle-above convention, optional range clamp, Shift → 15°) used by
-  `rotGripLocal` and all three model handles, with `shift` passed into `MGrip.apply` like `GripOpts.shift`
-  — so every rotate handle uses the same code and constraints. Add grips tests for each.
-- [ ] **VP Freeze: "New VP Freeze" layer option** (review 2026-09-23; not critical) — AutoCAD thaws a new layer
-  in every existing viewport by default (Pages does the same: a frame stores only what you froze). Add
-  AutoCAD's per-layer "New VP Freeze" (frozen in viewports created later) / VPLAYER-Newfrz style option.
-- [ ] **Grid snap base point** (not critical) — the SNAP grid counts from 0; let a picked point be the grid
+- [ ] (LOW) **Grid snap base point** (not critical) — the SNAP grid counts from 0; let a picked point be the grid
   origin (AutoCAD SNAPBASE), e.g. a rack's first U so the 1U step lands on U boundaries. Also: the SNAP step
   is one session value — consider per drawing.
-- [ ] **33F as a full-floor model** (Dave, 2026-09-24) — trunks will run between zones 3303 and 3307, so later the
-  33F model should be the WHOLE floor (from a clean full-floor PDF, when one is found) holding just the trunks,
-  while the Zone 3303 and Zone 3307 models hold the detail (outlets etc.). Until then 33F = the 3303 items and
-  3307 stays a zone detail. Don't offset-merge the two zone plans into one model: each PDF is calibrated from
-  its own corner, so they overlap; a merge needs a real placement transform onto the building grid instead.
-- [ ] **Faster PDF rendering + tiling** (Dave, 2026-09-24) — floorplan PDFs take seconds to rasterise
+- [ ] **Faster PDF rendering + tiling** (User, 2026-09-24) — floorplan PDFs take seconds to rasterise
   (`ui/render/pdfRaster.svelte.ts` renders each page ONCE per session, whole page at scale 2, on the main
   thread). Look at: caching the raster across sessions (IndexedDB / an uploaded preview image), rendering
   in a worker (OffscreenCanvas), and TILING — render the visible area at the current zoom in tiles (like a
   map) so zooming in stays sharp instead of one fixed-resolution bitmap going blurry.
-- [ ] **DXF export** (not critical) — export a model / sheet to DXF. The Sheets 3D tool already has a DXF
-  exporter (`sheets/tools/model3d/`) to port from. `review.md` K12 only tracks DXF *import* + SVG export.
 - [ ] **Rooms / racks in the tree open their model** (not critical) — IDF1 / Row A → Rack A's model tab, the
   same way a floor opens `<floor> · Model`.
 - [ ] **"+" New page picks a model** (not critical) — a New page is a blank plan tab on 33F (FLOOR_MODEL_ID);
@@ -1348,10 +581,6 @@ Sheets' basic version** — see §10.
 
 
 layer managers? Only Sheets has a full one (sheets/layers/LayersPanel.svelte + layers.ts, 8 default layers with visibility/colour/lock). The others are partial: model3d uses per-model layers for symbols, outlets/model3d tag objects with a layerId, and Uploads only toggles a PDF's built-in OCG layers (hiddenLayers). So Pages would be the second real layer manager in the app, closest in spirit to Sheets
-
-- Read-only reverted revisions (only latest editable) — todo added.
-- Package/Version version-switching and per-floor versions+revisions — todos added.
-- Print A-size/scaling (§2.2), a DocEditor refactor (§4.1), mm world units (§4.2), reuse Sheets' layer model (§4.3), shared pan/zoom helpers (§4.4), and assorted nits.
 
 These are the ones where I think your input matters more than my guessing:
 - §4.1 full DocEditor class — the geometry is extracted; the full headless-editor refactor of Viewport/+page is large and best reviewed.
@@ -1434,42 +663,3 @@ XE1–XE42: the 3D engine, from Sheets' 3D tool, the frozen edit3d tool and Kest
   - XE38: DXF export (S)
   - XE40: glTF, OBJ or IFC export (M / L)
   - XE42: save to Firestore (M)
-
-
-
-Built
-- Pan / Orbit buttons: each is now a tool you switch on. A left-drag or one finger pans or orbits. Esc, a right-click or picking a drawing tool switches it off.
-- Title block:
-  - a company block (name, address, contact);
-  - Show toggles for logo, company and fields;
-  - an optional printed hairline border along the margin;
-  - a per-sheet "shown on this sheet" checkbox;
-  - frames snap to the drawing-area and title-block edges.
-- Sheets:
-  - Viewport labels now print, and there's a Label field in Properties.
-  - Ctrl/Shift-click sheets in the tree, then drag them as a block.
-  - PageUp/PageDown page-pan the sheet; Shift pans sideways.
-- Annotations:
-  - Lines can carry a text label at the start, middle or end.
-  - A callout's frame can be a box, an underline or none.
-  - You can type a dimension's length.
-  - The Sheets import now brings across line labels and callout frames instead of dropping them.
-- Editing:
-  - Clicking again on the same spot selects the next shape underneath.
-  - Copied outlets get the next free label (4A013 → 4A014, else "-copy").
-  - Model objects can be Ctrl/Shift-clicked into a multi-selection and dragged together, with shared Layer / Colour / Base Z / Height fields.
-  - A single model object now has its own Colour.
-- Other small items:
-  - A greyscale switch on images.
-  - The active layer can't be deleted. Deleting a layer that has items asks once, then removes the items with it.
-  - Drawing onto a hidden or locked layer is refused with a message.
-  - + / - / Home zoom.
-  - A point count while drawing a run.
-Review
-An independent review found 8 bugs, all fixed in 1f7c681. The main ones:
-- a pan drag also triggered clicks or drawing;
-- dropping a block of sheets onto the middle of a sheet row reversed their order;
-- hiding a sheet's title block also stopped the margin border printing;
-- clicking one of several selected model objects dropped the rest of the selection.
-
-One other point it raised was wrong: layer delete doesn't need to catch items that have no layer, because they don't belong to any layer.

@@ -8,7 +8,7 @@
 	import { page } from '$app/state'
 	import { Icon } from '$lib'
 	import type { Firestore } from '$lib/db.svelte'
-	import { palette } from './palette.svelte'
+	import { palette, openInCad } from './palette.svelte'
 
 	let { db }: { db: Firestore } = $props()
 
@@ -94,8 +94,7 @@
 		close()
 		// a level / sheet of the cad page that is already open goes to that page (it opens it in its tab), not just the URL
 		const u = new URL(it.url, location.origin)
-		if (onCad() && u.pathname === page.url.pathname) window.dispatchEvent(new CustomEvent('cad-open', { detail: u.search }))
-		else goto(it.url)
+		if (!(onCad() && u.pathname === page.url.pathname && openInCad(u.search))) goto(it.url)
 	}
 
 	$effect(() => {

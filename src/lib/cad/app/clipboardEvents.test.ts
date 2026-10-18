@@ -16,7 +16,7 @@ describe('paste', () => {
 	const ws = { say: (t: string) => said.push(t), selection: [] } as unknown as Workspace
 	it('a picture with no cad items: handed to the image hook (and the browser\'s own paste stopped)', () => {
 		const got: File[] = []
-		const { paste } = clipboardEvents({ project: {} as CadProject, ws, target: () => null, inRow: () => false, image: (f) => got.push(f) })
+		const { paste } = clipboardEvents({ project: {} as CadProject, ws, target: () => null, inRow: () => false, dialogOpen: () => false, image: (f) => got.push(f) })
 		const pic = new File([new Uint8Array([1, 2, 3])], 'image.png', { type: 'image/png' }), ev = pasteEvent('', [pic])
 		paste(ev.e)
 		expect(got).toEqual([pic])
@@ -24,7 +24,7 @@ describe('paste', () => {
 	})
 	it('plain text or another file: left to the browser', () => {
 		const got: File[] = []
-		const { paste } = clipboardEvents({ project: {} as CadProject, ws, target: () => null, inRow: () => false, image: (f) => got.push(f) })
+		const { paste } = clipboardEvents({ project: {} as CadProject, ws, target: () => null, inRow: () => false, dialogOpen: () => false, image: (f) => got.push(f) })
 		const ev = pasteEvent('hello', [new File(['x'], 'a.txt', { type: 'text/plain' })])
 		paste(ev.e)
 		expect(got).toEqual([])
@@ -32,7 +32,7 @@ describe('paste', () => {
 	})
 	it('text from another app: a note at the pointer; Excel cells make a markdown table; the browser’s paste stopped', () => {
 		const got: { text: string; markdown: boolean }[] = []
-		const { paste } = clipboardEvents({ project: {} as CadProject, ws, target: () => null, inRow: () => false, note: (t) => { got.push(t); return true } })
+		const { paste } = clipboardEvents({ project: {} as CadProject, ws, target: () => null, inRow: () => false, dialogOpen: () => false, note: (t) => { got.push(t); return true } })
 		const ev = pasteEvent('hello', []), ev2 = pasteEvent('A\tB\n1\t2', [])
 		paste(ev.e); paste(ev2.e)
 		expect(got).toEqual([{ text: 'hello', markdown: false }, { text: '| A | B |\n| --- | --- |\n| 1 | 2 |', markdown: true }])
@@ -40,7 +40,7 @@ describe('paste', () => {
 	})
 	it('text where notes don’t go says so; empty text is left alone', () => {
 		said.length = 0
-		const { paste } = clipboardEvents({ project: {} as CadProject, ws, target: () => null, inRow: () => false, note: () => false })
+		const { paste } = clipboardEvents({ project: {} as CadProject, ws, target: () => null, inRow: () => false, dialogOpen: () => false, note: () => false })
 		expect(paste(pasteEvent('hello', []).e)).toBeUndefined()
 		expect(said.at(-1)).toMatch(/Text pastes into a plan/)
 		const blank = pasteEvent('  ', [])

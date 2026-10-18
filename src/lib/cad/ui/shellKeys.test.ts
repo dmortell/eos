@@ -29,8 +29,7 @@ describe('AutoCAD zoom: Z, then E / W / P (User 2026-10-14)', () => {
 		const calls: string[] = [], said: string[] = []
 		const canvas = { key: () => false, takesTyping: () => false, endNudge: () => {}, cancelZoomWindow: () => false,
 			zoomExtents: () => calls.push('extents'), zoomWindow: () => calls.push('window'), zoomPrevious: () => (calls.push('previous'), false) }
-		const c = { ...(ctx as object), ws: { selection: [], portSel: null, say: (m: string) => said.push(m) }, project: { store: { busy: false }, index: { get: () => undefined } }, canvas: () => canvas } as never
-		;(globalThis as { document?: unknown }).document ??= { querySelector: () => null }
+		const c = { ...(ctx as object), ws: { selection: [], portSel: null, say: (m: string) => said.push(m) }, project: { store: { busy: false }, index: { get: () => undefined } }, canvas: () => canvas, dialogOpen: () => false } as never
 		return { press: (k: string, o: Partial<KeyboardEvent> = {}) => shellKey({ ...key(k, o), target: null, preventDefault: () => {} } as unknown as KeyboardEvent, c), calls, said }
 	}
 	it('Z asks which; the next key picks it; P with nothing to go back to says so', () => {

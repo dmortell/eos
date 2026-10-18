@@ -5,6 +5,7 @@
 <script lang="ts">
 	import type { Workspace } from '../app/workspace.svelte'
 	import { askKey, typingIn } from './keyGuards'
+	import { modalsOf } from './modals.svelte'
 
 	let { ws, onanswer }: { ws: Workspace; /** after a prompt is answered here (the drawing redraws its tool) */ onanswer?: () => void } = $props()
 	const q = $derived(ws.confirm)
@@ -14,7 +15,8 @@
 	const pq = $derived(ws.prompt)
 	let yesBtn: HTMLButtonElement | undefined = $state()
 	// an offer to put something back (ws.offerRevert) never takes the focus, and Enter doesn't answer it: only a click
-	$effect(() => { if (q && !q.revert && yesBtn && !typingIn(document.activeElement) && !document.querySelector('[role=dialog]')) yesBtn.focus() })
+	const modals = modalsOf()
+	$effect(() => { if (q && !q.revert && yesBtn && !typingIn(document.activeElement) && !modals?.any) yesBtn.focus() })
 	// take `apply` BEFORE clearing: q is derived from ws.confirm and is null once it's cleared
 	function answer(apply: () => void) { ws.confirm = null; apply() }
 	function key(e: KeyboardEvent) {

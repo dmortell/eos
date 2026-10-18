@@ -47,7 +47,11 @@ grips, plan label placement, the layer / shape style rules), 7 (027d41d5), 8 (Co
   toolDefaults.ts, clipboard.ts); `SelKind` not a discriminated union (`k.items as Outlet[]` ×7 in Properties);
   `data as unknown as Project[]` on unvalidated Firestore data (ui/OpenProjectDialog.svelte ~28); pasteText.ts ~65
   re-implements `labelOf()` through a double cast; FindDevice `r!` ×5 after a non-guard filter.
-- **DOM / Svelte**: EditHistorySettings copies SettingsPanel's scoped styles (shared form row components wanted);
+- **DOM / Svelte** — FIXED 2026-10-18 except two: CadDialog counts itself open (`ui/modals.svelte.ts`, a context the
+  shell gives) and shellKeys, the paste handler and AskBox read that count; the Ctrl+K palette hands the cad page a
+  level / sheet through `setCadOpener` / `openInCad` ($lib/palette), not a window event. LEFT: EditHistorySettings'
+  3 copied style rules (shared form-row components would restyle Settings — a pass of its own); Properties' Enter /
+  Esc microtask (works; changing it risks the "keys went into the field" gotcha). Was: EditHistorySettings copies SettingsPanel's scoped styles (shared form row components wanted);
   `document.querySelector('[role=dialog]')` decides whether keys reach the drawing (shellKeys, clipboardEvents,
   AskBox) — fix: a `ws.modalOpen` count kept by CadDialog; a window CustomEvent `'cad-open'` as a bus (CadShell ↔
   CommandPalette); Properties' delegated Enter / Esc sets `t.value` and blurs in a microtask.

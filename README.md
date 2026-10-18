@@ -165,6 +165,8 @@ gsutil cors set cors-config.json gs://sunny-jetty-180208.appspot.com
 
   --chrome --dangerously-skip-permissions -w
 
+  claude --advisor opus --subagents haiku
+
 ## Sharing Site Survey Albums
 
 * Set up a private key in Firebase console:

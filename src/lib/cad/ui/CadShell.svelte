@@ -70,6 +70,8 @@
 	import { TOOL_GROUPS } from './toolGroups'
 	import StatusBar from './StatusBar.svelte'
 	import AskBox from './AskBox.svelte'
+	import { provideModals } from './modals.svelte'
+	import { setCadOpener } from '$lib/palette/palette.svelte'
 	import PatchPreview from './PatchPreview.svelte'
 	import { addBuilding, buildingsOf, type GroupedProject } from '$lib/projectGroups'
 	import { fromDoc, type StoredDoc } from '../persist/docs'
@@ -83,6 +85,8 @@
 	const project = new CadProject(pid, firestore, user, () => ({ name: projectName, ownerId, userName, details }))
 	// image shapes' pictures, resolved for every canvas (ui/Prims.svelte)
 	setContext('cad-picture', (ref: string) => project.pdf.picture(ref))
+	// the open dialogs (CadDialog counts itself): the drawing's keys and pastes wait while any is open
+	const modals = provideModals()
 	// ── project groups (User 2026-10-16): this project's other buildings — open one, add one, copy one's settings ──
 	type ProjDoc = GroupedProject & ProjectDetails
 	let buildings = $state<{ id: string; label: string; current: boolean }[]>([])
@@ -194,11 +198,7 @@
 		const st = readViewState(new URLSearchParams(search)), spec = st.panes?.[0]
 		if (spec) ws.openInTab({ levelId: st.levelId ?? undefined, spec })
 	}
-	onMount(() => {
-		const h = (e: Event) => openFromPalette(String((e as CustomEvent<string>).detail ?? ''))
-		window.addEventListener('cad-open', h)
-		return () => window.removeEventListener('cad-open', h)
-	})
+	onMount(() => setCadOpener(openFromPalette))
 	onDestroy(() => project.destroy())
 
 	// the view state comes back from the URL on a refresh (User): each pane's level and view, the active pane — read
@@ -666,7 +666,7 @@
 	function groupKey(ungroup: boolean) { groupKeyOf(project, ws, ungroup) }
 	/** The keys (ui/shellKeys.ts). */
 	const onKey = (e: KeyboardEvent) => shellKey(e, {
-		project, ws, layout, panels, tabs, canvas: () => canvas, activePane: () => activePane, typePoint, showHistory, groupKey, orderKey,
+		project, ws, layout, panels, tabs, canvas: () => canvas, activePane: () => activePane, dialogOpen: () => modals.any, typePoint, showHistory, groupKey, orderKey,
 		repeatDeviceEdit: () => repeatDeviceEdit(project, ws), help: (keys) => (helpOpen = keys ? 'keys' : 'help'),
 		closeTab, showTab: (id) => showTab(id), navPane, toggleDrafting, deleteSelected, setTool, zoomSel, openProject: () => (openProjectOpen = true), print: printPdf, turn90,
 		flipFace: () => {
@@ -782,7 +782,7 @@
 			r.done.catch((e) => { project.error = `Couldn't upload the pasted picture “${r.fileId}”: ${(e as Error).message} — any you placed show only here; Undo removes them` })
 		} catch (e) { project.error = `Couldn't paste the picture: ${(e as Error).message}` }
 	}
-	const clipboard = clipboardEvents({ project, ws, target: () => canvas?.pasteTarget(), inRow: () => activeKind === 'row', image: (f) => void pastePicture(f), note: (t) => !!canvas?.pasteNote(t), cursor: () => canvas?.pasteCursor() ?? null })
+	const clipboard = clipboardEvents({ project, ws, target: () => canvas?.pasteTarget(), inRow: () => activeKind === 'row', image: (f) => void pastePicture(f), note: (t) => !!canvas?.pasteNote(t), cursor: () => canvas?.pasteCursor() ?? null, dialogOpen: () => modals.any })
 
 
 </script>

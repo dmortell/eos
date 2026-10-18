@@ -19,6 +19,8 @@ export interface ShellKeyCtx {
 	project: CadProject; ws: Workspace; layout: WindowLayout; panels: Panels; tabs: Tabs
 	canvas: () => ViewCanvas | undefined
 	activePane: () => number
+	/** A cad dialog is open (ui/modals): its keys are its own. */
+	dialogOpen(): boolean
 	typePoint(first: string): void
 	showHistory(ids: string[]): void
 	groupKey(ungroup: boolean): void
@@ -135,7 +137,7 @@ let zoomPending = 0
 export function shellKey(e: KeyboardEvent, c: ShellKeyCtx): void {
 	if (composing(e) || typingIn(e.target)) return
 	// a dialog open: its keys are its own (Esc closes it); the drawing behind it gets none (Delete, Ctrl+Z, arrows …)
-	if (document.querySelector('[role=dialog]')) return
+	if (c.dialogOpen()) return
 	const { project } = c, canvas = c.canvas()
 	const mod = e.ctrlKey || e.metaKey
 	if (zoomPending && !['Shift', 'Control', 'Alt', 'Meta'].includes(e.key)) {
