@@ -222,7 +222,9 @@ export class EntityStore {
 		const ops: Op[] = []
 		for (const [id, before] of base) {
 			const after = this.#map.get(id) ?? null
-			if (before !== after) ops.push({ id, before, after })
+			// put back with the same values (a click on a device that didn't drag it): no change — no undo step, no save,
+			// no "Move device" in the edit history (User 2026-10-18)
+			if (before !== after && !(before && after && same(before, after))) ops.push({ id, before, after })
 		}
 		return ops
 	}

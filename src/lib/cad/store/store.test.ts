@@ -245,3 +245,19 @@ describe('derive: what follows from an edit, in the same step (User 2026-10-18)'
 		expect(nameOf('SW1')).toBe('Q3+')
 	})
 })
+
+describe('a put with the same values is no change (User 2026-10-18: a click on a device recorded "Move device")', () => {
+	it('records nothing — no step, no change event; a real change still does', () => {
+		const store = new EntityStore(), seen: Change[] = []
+		store.load(demoProject())
+		store.subscribe((c) => seen.push(c))
+		const sw = store.get('SW1')
+		if (sw?.type !== 'device') throw new Error('fixture')
+		expect(store.transact('Move device', (tx) => tx.put({ ...sw }))).toBeNull()
+		const g = store.begin('Move device')
+		g.update((tx) => tx.put({ ...sw }))
+		expect(g.commit()).toBeNull()
+		expect(seen.filter((c) => c.final && c.source === 'local')).toEqual([])
+		expect(store.transact('Rename', (tx) => tx.put({ ...sw, name: 'SW9' }))?.ops).toHaveLength(1)
+	})
+})
