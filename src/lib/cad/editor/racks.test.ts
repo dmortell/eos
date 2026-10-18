@@ -235,6 +235,16 @@ describe('devices in the rack row', () => {
 		expect(tool.typedText('Panel 1:2', h.ctx())).toBeNull()
 		expect(tool.typedText('Switch 1:999', h.ctx())).toMatch(/no port 999/)
 	})
+	it('Enter on a refused next pair: Enter again skips to the pair after it (Round 11: it repeated the refusal)', () => {
+		const h = harness(ROW, [{ type: 'cord', id: 'K9', kind: 'patch', a: { on: 'SW1', port: 10, face: 'front' }, b: { on: 'SW1', port: 20, face: 'front' }, cableType: 'cat6a', colour: '#000', lengthM: 1, lengthLocked: false, status: 'add' } as Cord])
+		const ix = new ProjectIndex(h.store.all()), l = rackLayout(ix, { spaceId: 'SR-A', face: 'front' })[0]
+		const base = (rackHeight(l.rack) - l.rack.heightU * RU_MM) / 2, mid = l.x0 + l.rack.widthMm / 2
+		const portOf = (id: string, n: number) => { const d = h.store.get(id) as Device; const c = portCell(d, n, mid, base + (d.u - 1) * RU_MM)!; return at(c.x + c.w / 2, c.y + c.h / 2) }
+		const tool = new CordTool({ defaults: () => ({ cableType: 'cat6a', colour: '#ef4444' }), bulkFrom: { get: () => null, set: () => {} } })
+		tool.down(portOf('P1', 3), h.ctx()); tool.down(portOf('SW1', 9), h.ctx())   // P1:3 → SW1:9; next: P1:4 → SW1:10 (taken)
+		tool.key({ key: 'Enter' } as KeyboardEvent, h.ctx())
+		expect(h.said.at(-1)).toMatch(/already patched.*Enter: skip to .*Panel 1 : 5.*Switch 1 : 11/)
+	})
 	it('lit ports: free / taken while patching, the far ends of the hovered port’s cords', () => {
 		const h = harness(ROW, [{ type: 'cord', id: 'K1', a: { on: 'P1', port: 3, face: 'front' }, b: { on: 'SW1', port: 5, face: 'front' }, cableType: 'cat6a', colour: '#000', lengthM: 1, status: 'add' } as Cord])
 		const ix = new ProjectIndex(h.store.all()), prims = rackRowDisplayList(ix, { spaceId: 'SR-A', face: 'front' })

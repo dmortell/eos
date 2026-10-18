@@ -206,8 +206,14 @@ export class CordTool implements Tool {
 		if (e.key === 'Escape') this.#next = null
 		if (e.key === 'Enter' && c && !this.first && !this.bulk && this.#next) {
 			const n = this.#next
-			if (!this.#pickFirst(n.a, c)) this.#patchTo(n.b, c)
+			const why = this.#pickFirst(n.a, c) ?? this.#patchTo(n.b, c)
 			if (this.first) this.#setFirst(null)   // the second end refused: nothing half made
+			// refused (a port taken …): Enter again skips to the pair after it — it repeated the refusal (Round 11)
+			if (why) {
+				const skip = { a: { ...n.a, port: n.a.port + 1 }, b: { ...n.b, port: n.b.port + 1 } }
+				this.#next = noPort(c, skip.a) || noPort(c, skip.b) ? null : skip
+				if (this.#next) c.say?.(`${why} · Enter: skip to ${c.index.portPlace(skip.a)} → ${c.index.portPlace(skip.b)}`)
+			}
 			return true
 		}
 		return false
