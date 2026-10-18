@@ -2,7 +2,7 @@
 // levels, sheets, tabs and projects. A paste is AS-IS (User): same coordinates, same labels — the user sorts out
 // overlaps and duplicates. It gets new ids (references inside the copy follow), keeps each item's layer (bringing the
 // project layers it uses) and drops references the target can't honour. Ctrl-drag copy is the same paste, moved.
-import type { Id, Pt, Rack, Device, Space, Level } from './types'
+import type { Id, Pt, Device, Space } from './types'
 import { outletZ } from './floors'
 import type { Entity, Layer, Sheet, Group, Viewport } from './drawing'
 import { moveGeometry, outlineOf, type Shape } from './shapes'
@@ -171,7 +171,7 @@ export function pasteClip(clip: Clip, t: PasteTarget): Pasted {
 	const roomFor = (old: Id): Id => {
 		if (onLevel(old)) return old
 		if (!rooms.has(old)) {
-			const name = (ix.get(old) as Space | undefined)?.name ?? 'Server room'
+			const name = ix.getOf('space', old)?.name ?? 'Server room'
 			let room = ix.spaces.find((s) => s.levelId === to.id && s.kind === 'server room' && s.name === name) ?? made.find((s) => s.name === name)
 			if (!room) { room = { ...newServerRoom(ix, to.id, name), code: String.fromCharCode(65 + ix.spaces.filter((s) => s.levelId === to.id && s.kind === 'server room').length + made.length), order: ix.spaces.filter((s) => s.levelId === to.id).length + made.length + 1 }; made.push(room) }
 			rooms.set(old, room.id)
@@ -191,18 +191,19 @@ export function pasteClip(clip: Clip, t: PasteTarget): Pasted {
 			}
 		}
 		if (e.type === 'rack') {
-			const r = e as Rack, spaceId = roomFor(r.spaceId)
+			const r = e, spaceId = roomFor(r.spaceId)
 			const { rowId, ...rest } = r
 			return { ...rest, levelId: to.id, spaceId, ...layer(r), ...(ok(rowId) && spaceId === r.spaceId ? { rowId } : {}),
 				order: ix.racks.filter((x) => x.spaceId === spaceId).length + r.order, ...(r.at ? { at: move(r.at) } : {}) }
 		}
 		if (e.type === 'device') {
-			const dv = fresh(e as Device)
+			const dv = fresh(e)
 			if (!dv.panel?.serverRoomId || ok(dv.panel.serverRoomId)) return dv
 			const { serverRoomId, ...panel } = dv.panel, room = rooms.get(serverRoomId)
 			return { ...dv, panel: { ...panel, ...(room ? { serverRoomId: room } : {}) } }
 		}
-		const s = e as Shape
+		if (e.type !== 'shape') return e   // (`fits` kept only outlets, racks, devices and shapes)
+		const s = e
 		// on an elevation's plane its points are (u, z): a plan move goes along the plane, and up (as moveBy)
 		const along = s.plane?.kind === 'vertical' && s.geom.kind !== 'path' ? s.plane.frame.t : null
 		// a note tied to a copied viewport is in that viewport's view mm: it moves with the viewport, not by `d`

@@ -10,7 +10,6 @@
 //  - a line / rectangle / circle … → the project's drawing style (Settings › Drawing, `shapeStyle`).
 import type { ProjectSettings, Rack, Outlet } from './types'
 import type { Entity } from './drawing'
-import type { Shape } from './shapes'
 
 /** What a tool starts with, per tool. Fields left out keep the tool's own behaviour (e.g. a rack like the last one). */
 export interface ToolDefaults {
@@ -43,12 +42,12 @@ export function useAsDefault(e: Entity | undefined): { what: string; tool?: keyo
 		return { what: 'new racks', tool: 'rack' as const, apply: put({ rack }) }
 	}
 	if (e.type === 'outlet') {
-		const o = e as Outlet
+		const o = e
 		return { what: 'new outlets (usage, mount, ports, cable type)', tool: 'outlet' as const, apply: put({ outlet: { ...(o.usage ? { usage: o.usage } : {}), ...(o.mount ? { mount: o.mount } : {}), ports: o.ports?.length || 1, ...(o.ports?.[0]?.cableType ? { cableType: o.ports[0].cableType } : {}) } }) }
 	}
 	if (e.type === 'section') return { what: 'new sections (their depth)', tool: 'section' as const, apply: put({ section: { depth: e.depth } }) }
 	if (e.type !== 'shape') return null
-	const s = e as Shape, role = s.role, g = s.geom
+	const s = e, role = s.role, g = s.geom
 	if (role?.kind === 'containment' && s.section) {
 		if (role.form === 'conduit') return { what: 'new conduits', tool: 'conduit' as const, apply: put({ conduit: { w: s.section.w } }) }
 		return { what: 'new trunks', tool: 'trunk' as const, apply: put({ trunk: { w: s.section.w, h: s.section.h, ...(role.form !== 'trunk' ? { form: role.form } : {}) } }) }

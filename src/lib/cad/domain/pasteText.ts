@@ -1,6 +1,7 @@
 // TEXT TO AND FROM OFFICE APPS (backlog "Text to and from office apps"): what Ctrl+V does with text copied in another
 // app (Word, Excel, a browser) and what Ctrl+C leaves for them. Pure.
 import type { Entity } from './drawing'
+import { labelOf } from './labelEdit'
 
 /** What a paste of foreign text becomes: a note, as markdown when it was a table. */
 export interface PastedText { text: string; markdown: boolean }
@@ -62,9 +63,10 @@ export function pastedNote(text: string, html = ''): PastedText | null {
 export function readableClip(items: Entity[]): string {
 	const out: string[] = []
 	for (const e of items) {
-		const x = e as unknown as Record<string, unknown> & { geom?: { kind?: string; text?: string } }
-		const t = x.type === 'shape' ? (x.geom?.kind === 'text' || x.geom?.kind === 'leader' ? x.geom.text : (x.label as string | undefined)) : ((x.label ?? x.name) as string | undefined)
-		if (typeof t === 'string' && t.trim()) out.push(t.trim())
+		// a shape, outlet or rack: its words as labelOf has them; anything else (a device, a room): its label, else name
+		const t = e.type === 'shape' || e.type === 'outlet' || e.type === 'rack' ? labelOf(e)
+			: 'label' in e && typeof e.label === 'string' ? e.label : 'name' in e && typeof e.name === 'string' ? e.name : ''
+		if (t.trim()) out.push(t.trim())
 	}
 	return out.join('\n')
 }

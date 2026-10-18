@@ -16,9 +16,9 @@
 		const s = q.trim().toLowerCase()
 		if (!s) return []
 		return project.index.devices
-			.map((d) => ({ d, r: project.index.getOf('rack', d.rackId) }))
-			.filter(({ d, r }) => r?.type === 'rack' && `${d.name} ${d.kind} ${d.model ?? ''} ${r.name}`.toLowerCase().includes(s))
-			.sort((a, b) => naturalCompare(`${a.r!.name} ${a.d.name}`, `${b.r!.name} ${b.d.name}`))
+			.flatMap((d) => { const r = project.index.getOf('rack', d.rackId); return r ? [{ d, r }] : [] })   // a device whose rack is gone: none
+			.filter(({ d, r }) => `${d.name} ${d.kind} ${d.model ?? ''} ${r.name}`.toLowerCase().includes(s))
+			.sort((a, b) => naturalCompare(`${a.r.name} ${a.d.name}`, `${b.r.name} ${b.d.name}`))
 			.slice(0, 10)
 	})
 	function open(d: Device, r: Rack) {
@@ -34,7 +34,7 @@
 		if (composing(e)) return   // the IME's ↑ / ↓ / Enter / Esc (picking, committing a conversion)
 		if (e.key === 'ArrowDown') { e.preventDefault(); at = Math.min(at + 1, hits.length - 1) }
 		else if (e.key === 'ArrowUp') { e.preventDefault(); at = Math.max(at - 1, 0) }
-		else if (e.key === 'Enter' && hits[at]) { e.preventDefault(); open(hits[at].d, hits[at].r!) }
+		else if (e.key === 'Enter' && hits[at]) { e.preventDefault(); open(hits[at].d, hits[at].r) }
 		else if (e.key === 'Escape') q = ''
 	}
 </script>
@@ -44,8 +44,8 @@
 	{#if q.trim()}
 		<div class="list">
 			{#each hits as h, i (h.d.id)}
-				<button class:on={i === at} onclick={() => open(h.d, h.r!)}>
-					<span class="nm">{h.d.name.trim() || `${h.d.kind}${h.d.model ? ` · ${h.d.model}` : ''}`}</span><span class="meta">{h.r!.name} · U{h.d.u} · {project.index.nameOf(h.r!.levelId)}</span>
+				<button class:on={i === at} onclick={() => open(h.d, h.r)}>
+					<span class="nm">{h.d.name.trim() || `${h.d.kind}${h.d.model ? ` · ${h.d.model}` : ''}`}</span><span class="meta">{h.r.name} · U{h.d.u} · {project.index.nameOf(h.r.levelId)}</span>
 				</button>
 			{:else}
 				<p class="none">No device matches</p>

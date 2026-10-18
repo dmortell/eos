@@ -1,7 +1,9 @@
 // The Properties FIELD KIT: one meaning of "the value several items share", one MIXED word, one undo step per edit,
 // and the parsers every field uses. The field components (ui/fields/) and the per-kind Props components use these
 // instead of their own copies. Pure; tested in propsKit.test.ts.
-import type { Entity } from '../domain/drawing'
+import type { Entity, Sheet } from '../domain/drawing'
+import type { Outlet, Rack, Device, Cord } from '../domain/types'
+import type { Shape } from '../domain/shapes'
 import type { Txn } from '../store/store'
 
 /** What a field shows when the selected items disagree (placeholder, or a disabled select option). */
@@ -22,8 +24,11 @@ export function countsText(counts: readonly (readonly [number, string, string?])
 	return counts.filter(([n]) => n > 0).map(([n, one, many]) => `${n} ${n === 1 ? one : (many ?? `${one}s`)}`).join(' · ')
 }
 
-/** One kind of thing in a selection, for Properties (a group each) and its header ("3 racks · 5 outlets"). */
-export interface SelKind { key: 'outlet' | 'rack' | 'device' | 'cord' | 'sheet' | 'run' | 'shape' | 'other'; one: string; many: string; items: Entity[] }
+/** What each kind's items are. */
+interface SelItems { outlet: Outlet; rack: Rack; device: Device; cord: Cord; sheet: Sheet; run: Shape; shape: Shape; other: Entity }
+/** One kind of thing in a selection, for Properties (a group each) and its header ("3 racks · 5 outlets"); `key`
+ *  narrows `items` (a rack kind's items are Racks). */
+export type SelKind = { [K in keyof SelItems]: { key: K; one: string; many: string; items: SelItems[K][] } }[keyof SelItems]
 
 /** The selection split by kind, in a fixed order. Runs and lines (paths) are one kind, the other drawn shapes another
  *  (named "blocks" / "texts" when they are all that). */
@@ -41,7 +46,8 @@ export function selectionKinds(items: readonly Entity[]): SelKind[] {
 		const [one, many] = key === 'run' ? (shapes.every((s) => !s.role) ? ['line', 'lines'] : shapes.every((s) => s.role?.kind === 'wall') ? ['wall', 'walls'] : ['run', 'runs'])
 			: key === 'shape' ? (shapes.every((s) => s.geom.kind === 'insert') ? ['block', 'blocks'] : shapes.every((s) => s.geom.kind === 'text') ? ['text', 'texts'] : ['shape', 'shapes'])
 			: key === 'cord' ? ['patch cord', 'patch cords'] : key === 'other' ? ['item', 'items'] : [key, `${key}s`]
-		return { key, one, many, items: list }
+		// the one cast: `key` was worked out from each item's type above, so the list holds that kind
+		return { key, one, many, items: list } as SelKind
 	})
 }
 

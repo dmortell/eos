@@ -1,7 +1,7 @@
 // The project's outlet USAGES (backlog "Editable usage list", User 2026-10-05): desk, AP, printer … — what uses one
 // (so it can't be deleted from under them), a new one's id, and the codes an import meets that the list doesn't have
 // yet (the legacy import wrote a fixed 5, so RS / FR / WC / LK showed as raw codes). Pure.
-import type { ProjectSettings, Outlet, Device } from './types'
+import type { ProjectSettings } from './types'
 import { settingsOf } from './settings'
 import type { Entity } from './drawing'
 import { naturalCompare } from './labels'
@@ -18,9 +18,9 @@ const MORE = ['#0ea5e9', '#84cc16', '#a855f7', '#f43f5e', '#14b8a6', '#f59e0b', 
 export function usageCodes(all: Iterable<Entity>): Set<string> {
 	const out = new Set<string>()
 	for (const e of all) {
-		if (e.type === 'outlet' && (e as Outlet).usage) out.add((e as Outlet).usage!)
+		if (e.type === 'outlet' && e.usage) out.add(e.usage)
 		if (e.type === 'device') {
-			const p = (e as Device).panel
+			const p = e.panel
 			for (const u of p?.usages ?? []) out.add(u)
 			for (const r of p?.reservations ?? []) out.add(r.usage)
 		}
@@ -43,8 +43,8 @@ export function withUsagesMet(list: Usage[], codes: Iterable<string>): Usage[] {
 export function usageUses(all: Iterable<Entity>, id: string): { outlets: number; panels: number } {
 	let outlets = 0, panels = 0
 	for (const e of all) {
-		if (e.type === 'outlet' && (e as Outlet).usage === id) outlets++
-		if (e.type === 'device') { const p = (e as Device).panel; if (p?.usages?.includes(id) || p?.reservations?.some((r) => r.usage === id)) panels++ }
+		if (e.type === 'outlet' && e.usage === id) outlets++
+		if (e.type === 'device') { const p = e.panel; if (p?.usages?.includes(id) || p?.reservations?.some((r) => r.usage === id)) panels++ }
 	}
 	return { outlets, panels }
 }

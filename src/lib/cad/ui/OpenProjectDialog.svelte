@@ -9,9 +9,14 @@
 	import { Icon, type Firestore, type Session } from '$lib'
 	import { formatDate } from '$lib/utils/date'
 	import CadDialog from './CadDialog.svelte'
+	import type { DocWithId } from '$lib/db.svelte'
 
 	type Project = { id: string; name?: string; clientCode?: string; projectCode?: string; client?: string; description?: string;
 		ownerId?: string; deleted?: boolean; updatedAt?: unknown; createdAt?: unknown }
+	const str = (v: unknown) => (typeof v === 'string' ? v : undefined)
+	/** A `projects` doc as a Project: only the fields used here, each checked (other tools write these docs too). */
+	const toProject = (d: DocWithId): Project => ({ id: d.id, name: str(d.name), clientCode: str(d.clientCode), projectCode: str(d.projectCode),
+		client: str(d.client), description: str(d.description), ownerId: str(d.ownerId), deleted: d.deleted === true, updatedAt: d.updatedAt, createdAt: d.createdAt })
 	let { currentId = '', onpick, onclose }: { currentId?: string; onpick?: (id: string) => void; onclose?: () => void } = $props()
 
 	const db = getContext('db') as Firestore
@@ -25,7 +30,7 @@
 	let mine = $state(false)
 	let sel = $state(0)
 	$effect(() => {
-		const unsub = db.subscribeMany('projects', (data) => { projects = data as unknown as Project[]; loading = false }, (e) => { loadError = `Could not load the projects: ${(e as Error)?.message ?? e}`; loading = false })
+		const unsub = db.subscribeMany('projects', (data) => { projects = data.map(toProject); loading = false }, (e) => { loadError = `Could not load the projects: ${(e as Error)?.message ?? e}`; loading = false })
 		return () => { unsub?.() }
 	})
 

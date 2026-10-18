@@ -43,7 +43,10 @@ grips, plan label placement, the layer / shape style rules), 7 (027d41d5), 8 (Co
   `ws.newCordStatus`, project name / owner by effects (~224, 614, 86); an effect reads + writes `ws.levelId` /
   `paneLevels` (~435-440); an effect on `project.rev` runs `setPane()` / `tabs.prune()` on every edit (~335-343); an
   async `buildingsOf()` in an effect without cancellation (~90-94).
-- **Type escapes**: casts right after a discriminant check that already narrows (domain/labelEdit.ts, usages.ts,
+- **Type escapes** — FIXED 2026-10-18: the narrowed casts gone (labelEdit, usages, toolDefaults, clipboard — its
+  shapes behind a `type` guard, the room name via `getOf`); `SelKind` keyed by kind (one cast where it's built, none
+  in Properties); OpenProjectDialog maps each doc field by field (`toProject`); `readableClip` uses `labelOf`;
+  FindDevice drops devices with no rack up front (no `r!`). Was: casts right after a discriminant check that already narrows (domain/labelEdit.ts, usages.ts,
   toolDefaults.ts, clipboard.ts); `SelKind` not a discriminated union (`k.items as Outlet[]` ×7 in Properties);
   `data as unknown as Project[]` on unvalidated Firestore data (ui/OpenProjectDialog.svelte ~28); pasteText.ts ~65
   re-implements `labelOf()` through a double cast; FindDevice `r!` ×5 after a non-guard filter.

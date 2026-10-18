@@ -6,8 +6,7 @@
 	import { KEYS } from './shellKeys'
 	import type { CadProject } from '../app/project.svelte'
 	import type { Workspace } from '../app/workspace.svelte'
-	import type { Entity, Sheet } from '../domain/drawing'
-	import type { Outlet, Rack, Device, Cord } from '../domain/types'
+	import type { Entity } from '../domain/drawing'
 	import type { Shape } from '../domain/shapes'
 	import { groupSelection, ungroupSelection } from '../editor/commands'
 	import { renumberable } from '../domain/renumber'
@@ -72,13 +71,13 @@
 </script>
 
 {#snippet many(k: SelKind)}
-	{#if k.key === 'outlet'}<OutletProps {project} {ws} outlets={k.items as Outlet[]} />
-	{:else if k.key === 'rack'}<RackProps {project} {ws} racks={k.items as Rack[]} />
-	{:else if k.key === 'device'}<DeviceProps {project} {ws} devices={k.items as Device[]} />
-	{:else if k.key === 'cord'}<PropGroup kind="cord" title="Install"><CordActions {project} {ws} cords={k.items as Cord[]} column /></PropGroup>
-	{:else if k.key === 'sheet'}<SheetMultiProps {project} {ws} sheets={k.items as Sheet[]} />
-	{:else if k.key === 'run'}<RunsMultiProps {project} runs={k.items as Shape[]} />
-	{:else if k.key === 'shape'}<ShapesMultiProps {project} shapes={k.items as Shape[]} />
+	{#if k.key === 'outlet'}<OutletProps {project} {ws} outlets={k.items} />
+	{:else if k.key === 'rack'}<RackProps {project} {ws} racks={k.items} />
+	{:else if k.key === 'device'}<DeviceProps {project} {ws} devices={k.items} />
+	{:else if k.key === 'cord'}<PropGroup kind="cord" title="Install"><CordActions {project} {ws} cords={k.items} column /></PropGroup>
+	{:else if k.key === 'sheet'}<SheetMultiProps {project} {ws} sheets={k.items} />
+	{:else if k.key === 'run'}<RunsMultiProps {project} runs={k.items} />
+	{:else if k.key === 'shape'}<ShapesMultiProps {project} shapes={k.items} />
 	{:else}<p class="muted">{k.items.map((e) => project.index.nameOf(e.id) || e.type).join(', ')}</p>
 	{/if}
 {/snippet}
