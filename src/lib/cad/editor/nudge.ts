@@ -24,7 +24,7 @@ export class Nudge {
 		const sum = { x: this.#sum.x + d.x, y: this.#sum.y + d.y }
 		if (row) {
 			this.#dev ??= startDeviceDrag(items.filter((e): e is Device => e.type === 'device'))
-			const r = dragDevices(this.#dev, Math.round(-sum.y), undefined, false, store.ofType('device'), (id) => store.get(id) as Rack | undefined)
+			const r = dragDevices(this.#dev, Math.round(-sum.y), { others: store.ofType('device'), rackOf: (id) => store.get(id) as Rack | undefined })
 			if ('problem' in r) return r.problem
 			this.#g ??= store.begin('Nudge')
 			this.#g.update((tx) => { for (const n of r.put) tx.put(n) })

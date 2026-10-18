@@ -58,7 +58,9 @@ grips, plan label placement, the layer / shape style rules), 7 (027d41d5), 8 (Co
   `document.querySelector('[role=dialog]')` decides whether keys reach the drawing (shellKeys, clipboardEvents,
   AskBox) — fix: a `ws.modalOpen` count kept by CadDialog; a window CustomEvent `'cad-open'` as a bus (CadShell ↔
   CommandPalette); Properties' delegated Enter / Esc sets `t.value` and blurs in a microtask.
-- **Parameters**: `makeBox(levelId, centre, w, d, z, h, rot)`, `dimGrips(prims, id, a, b, a2, b2)`,
+- **Parameters** — FIXED 2026-10-18: `makeBox(levelId, centre, { w, d, h, z?, rot? })` (tests only); `dimGrips(prims,
+  id, { a, b, a2, b2 })`; `dragDevices(g, dU, { others, rackOf }, { target, copy, side })`; `setTool(id,
+  { keepSelection })`; `groupKey(…, 'group' | 'ungroup')`; `tabs.open(i, view, 'preview' | 'keep', rev)`. Was: `makeBox(levelId, centre, w, d, z, h, rot)`, `dimGrips(prims, id, a, b, a2, b2)`,
   `dragDevices(…, copy: boolean, …)`, `setTool(id, keep)`, `groupKey(ungroup)`, `tabs.open(i, view, keep, rev)`.
 - **Drift / copies** — FIXED 2026-10-18: `deviceMatches` / `deviceFace` (domain/devices.ts) for Find a device and Ctrl+K
   (Ctrl+K now also finds a device by its kind and its rack's name, as Find a device did); `PATH_KINDS` (editor/

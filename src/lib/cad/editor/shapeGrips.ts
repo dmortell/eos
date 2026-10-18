@@ -126,8 +126,9 @@ export function dragRegionGrip(s: Shape, i: number, q: Pt, shift: boolean): Shap
 
 /** A selected dimension's extra grips, in VIEW points (after its a, b and line-middle grips: indices 3, 4, 5): its text,
  *  and each extension line's start — found in the view's prims, since their sizes are paper mm (backlog "Dimension
- *  grips"). An extension line too short to draw: its grip sits on the dimension line's end. */
-export function dimGrips(prims: Prim[], id: string, a: Pt, b: Pt, a2: Pt, b2: Pt): Pt[] {
+ *  grips"). An extension line too short to draw: its grip sits on the dimension line's end. `a`, `b`: the measured
+ *  points; `a2`, `b2`: the dimension line's ends (as `dimLine` names them). */
+export function dimGrips(prims: Prim[], id: string, { a, b, a2, b2 }: { a: Pt; b: Pt; a2: Pt; b2: Pt }): Pt[] {
 	const text = prims.find((p) => p.src === id && p.k === 'text' && p.cls === 'dim-text')
 	const start = (p: Pt, p2: Pt): Pt => {
 		const L = Math.hypot(p2.x - p.x, p2.y - p.y)

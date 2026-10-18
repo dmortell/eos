@@ -23,9 +23,9 @@ export function makeRect(owner: Owner, centre: Pt, size: { x: number; y: number 
 	return { type: 'shape', id: newId(), ...owner, geom: { kind: 'rect', centre, size, ...(rot ? { rot } : {}) }, ...extra } as Shape
 }
 
-/** A box: a plan rectangle at z, extended up by h. */
-export function makeBox(levelId: Id, centre: Pt, w: number, d: number, z: number, h: number, rot = 0): Shape {
-	return makeRect({ levelId }, centre, { x: w, y: d }, { plane: { kind: 'plan', z }, extent: h, rot })
+/** A box: a plan rectangle w × d at z (default 0), extended up by h. */
+export function makeBox(levelId: Id, centre: Pt, s: { w: number; d: number; h: number; z?: number; rot?: number }): Shape {
+	return makeRect({ levelId }, centre, { x: s.w, y: s.d }, { plane: { kind: 'plan', z: s.z ?? 0 }, extent: s.h, rot: s.rot ?? 0 })
 }
 
 export function makeText(owner: Owner, at: Pt, text: string, sizeMm = 2.5, extra: Extra = {}): Shape {

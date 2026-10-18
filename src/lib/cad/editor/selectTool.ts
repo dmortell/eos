@@ -139,7 +139,7 @@ export class SelectTool implements Tool {
 		if (!space) return null
 		const at = pts.map(space.to)
 		// a dimension: + its text and its extension lines' starts, where this view draws them (their size is paper mm)
-		return { s, space, at: s.geom.kind === 'dimension' ? [...at, ...dimGrips(c.prims(), s.id, at[0], at[1], space.to(dimLine(s.geom).a2), space.to(dimLine(s.geom).b2))] : at }
+		return { s, space, at: s.geom.kind === 'dimension' ? [...at, ...dimGrips(c.prims(), s.id, { a: at[0], b: at[1], a2: space.to(dimLine(s.geom).a2), b2: space.to(dimLine(s.geom).b2) })] : at }
 	}
 
 	/** The cursor for what's under the pointer: a grip → crosshair, something that moves → move, else pointer / arrow. */
@@ -535,7 +535,8 @@ export class SelectTool implements Tool {
 			if (!this.#gesture && Math.hypot(d.x, d.y) < c.tol()) return
 			this.#dev ??= startDeviceDrag(this.#ids.map((id) => c.store.get(id)).filter((x): x is Device => x?.type === 'device'))
 			const face = c.space.spec.kind === 'row' ? c.space.spec.face : 'front'
-			const r = dragDevices(this.#dev, Math.round(-d.y / RU_MM), c.rowHit(e.p)?.rack, e.ctrl, c.store.ofType('device'), (id) => c.store.get(id) as Rack | undefined, { dx: d.x, face })
+			const r = dragDevices(this.#dev, Math.round(-d.y / RU_MM), { others: c.store.ofType('device'), rackOf: (id) => c.store.get(id) as Rack | undefined },
+				{ target: c.rowHit(e.p)?.rack, copy: e.ctrl, side: { dx: d.x, face } })
 			if ('problem' in r) { c.say?.(r.problem); return }
 			this.#gesture ??= c.store.begin(e.ctrl ? 'Copy devices' : 'Move device')
 			this.#gesture.update((tx) => { for (const n of r.put) tx.put(n) })

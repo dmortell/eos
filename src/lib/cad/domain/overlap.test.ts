@@ -27,11 +27,11 @@ describe('0U PDUs (User, 2026-10-05)', () => {
 	it('dragged across the rack it goes to the other side; a small drag keeps its side', async () => {
 		const pdu = dev('P', 1, 30, { kind: 'pdu', face: 'none' })
 		const g = startDeviceDrag([pdu]), rackOf = () => rack
-		const across = dragDevices(g, 0, undefined, false, [pdu], rackOf, { dx: 400, face: 'front' })
+		const across = dragDevices(g, 0, { others: [pdu], rackOf }, { side: { dx: 400, face: 'front' } })
 		expect('put' in across && across.put[0].pduSide).toBe('right')
-		const nudge = dragDevices(g, 2, undefined, false, [pdu], rackOf, { dx: 50, face: 'front' })
+		const nudge = dragDevices(g, 2, { others: [pdu], rackOf }, { side: { dx: 50, face: 'front' } })
 		expect('put' in nudge && [nudge.put[0].pduSide, nudge.put[0].u]).toEqual([undefined, 3])
-		const fromRear = dragDevices(g, 0, undefined, false, [pdu], rackOf, { dx: -400, face: 'rear' })   // mirrored from the rear
+		const fromRear = dragDevices(g, 0, { others: [pdu], rackOf }, { side: { dx: -400, face: 'rear' } })   // mirrored from the rear
 		expect('put' in fromRear && fromRear.put[0].pduSide).toBe('right')
 	})
 })

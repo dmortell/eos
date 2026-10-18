@@ -245,7 +245,7 @@
 		ws.vpEdit = null   // another view: no longer editing inside a viewport
 		const view: TabView = { levelId: ws.paneLevels[i] ?? undefined, spec: $state.snapshot(s) as ViewSpec }
 		if (how === 'go') tabs.go(i, view)
-		else if (how === 'open' || how === 'keep') tabs.open(i, view, how === 'keep', project.rev)
+		else if (how === 'open' || how === 'keep') tabs.open(i, view, how === 'keep' ? 'keep' : 'preview', project.rev)
 		panes[i] = s
 		void tick().then(() => {
 			// a server room or a row picked in the Navigator / Racks window has Properties but isn't drawn: it stays
@@ -402,7 +402,7 @@
 		remove: () => deleteSelected(), align: (how) => canvas?.align(how), selectSimilar: () => canvas?.selectSimilar(), viewportView,
 		openTitleBlock, openSettings: (t) => openSettings(t), openLog: () => openTable('log'), openWindow: (id) => layout.open(id),
 		releaseSheets: () => { openTable('sheets'); ws.sheetsAsk = 'release' },
-		startRenumber: () => { if (ws.toolId !== 'renumber') pickTool('renumber', true) },
+		startRenumber: () => { if (ws.toolId !== 'renumber') pickTool('renumber', { keepSelection: true }) },
 		restoreBackup: (id) => void restoreBackup(id),
 		applyLinks: (label, add, remove) => project.applyLinks(label, add, remove),
 		openView: (s) => setPane(activePane, s), openLevel: (id) => openLevel(id), openInTab,
@@ -579,7 +579,7 @@
 		buildings, addBuilding: addBuildingCmd, openBuilding: (id) => { window.location.href = `/projects/${id}/cad` }, copySettingsFrom: (id) => void copySettingsFrom(id),
 		remove: deleteSelected, turn90, hasSelection: ws.selection.length > 0 || !!ws.portSel || !!ws.openingSel,
 		selectAll: () => canvas?.selectAll(), selectSimilar: () => canvas?.selectSimilar(),
-		group: () => groupKey(false), ungroup: () => groupKey(true), order: orderKey,
+		group: () => groupKey('group'), ungroup: () => groupKey('ungroup'), order: orderKey,
 		find: () => { layout.open('navigator'); ws.navSearch++ }, fit: () => canvas?.zoomExtents(), zoomSel, split: panes.length === 2, toggleSplit,
 		tables: tablesShown, toggleTables: () => panels.toggle('bottom'), hideAll: layout.allHidden, toggleHideAll: () => (layout.allHidden = !layout.allHidden),
 		back: () => navPane(activePane, -1), forward: () => navPane(activePane, 1), canBack: (tabs.of(activePane)?.back.length ?? 0) > 0, canFwd: (tabs.of(activePane)?.fwd.length ?? 0) > 0,
@@ -637,19 +637,19 @@
 		if (variant && id === 'section') ws.sectionMode = variant === 'room' ? 'room' : 'line'
 		if (ws.toolId !== id) pickTool(id)
 	}
-	function pickTool(id: ToolId, keep = false) {
-		if (toolWorksIn(id, activeKind, !!vpEditKind)) { setTool(id, keep); return }
+	function pickTool(id: ToolId, o: { keepSelection?: boolean } = {}) {
+		if (toolWorksIn(id, activeKind, !!vpEditKind)) { setTool(id, o); return }
 		const n = toolNameOf(id)
 		if (level && TOOL_VIEWS[id].includes('plan')) {
 			setPane(activePane, PLAN)
-			void tick().then(() => { setTool(id, keep); ws.say(`${n}: on the ${level.name} plan (it doesn’t work in that view)`) })
+			void tick().then(() => { setTool(id, o); ws.say(`${n}: on the ${level.name} plan (it doesn’t work in that view)`) })
 			return
 		}
 		ws.say(`The ${n} tool works in ${TOOL_VIEWS[id].join(', ')} views — open one to use it`)
 	}
-	function setTool(id: ToolId, keep = false) {
+	function setTool(id: ToolId, { keepSelection = false }: { keepSelection?: boolean } = {}) {
 		canvas?.cancel()
-		if (id === 'renumber' && !keep) ws.select([])   // a fresh pick: the click order is the numbering order (Properties › Renumber keeps the selection as the first picks)
+		if (id === 'renumber' && !keepSelection) ws.select([])   // a fresh pick: the click order is the numbering order (Properties › Renumber keeps the selection as the first picks)
 		if (id === 'match') { const one = ws.selection.length === 1 ? project.index.get(ws.selection[0]) : undefined; ws.matchTool.source = one?.type === 'shape' ? one.id : null }
 		if (id === 'rack') { ws.rackTool.target = null; ws.rackTool.product = null }   // the Rack button draws new racks (like the last); Place in the list sets a target, the catalogue a product
 		if (id === 'device' && !ws.deviceTemplate) ws.deviceTemplate = project.deviceTemplates[0] ?? null
@@ -667,7 +667,7 @@
 
 	function deleteSelected() { deleteSelectedOf(project, ws) }
 	function orderKey(how: 'forward' | 'backward' | 'front' | 'back') { orderKeyOf(project, ws, how) }
-	function groupKey(ungroup: boolean) { groupKeyOf(project, ws, ungroup) }
+	function groupKey(how: 'group' | 'ungroup') { groupKeyOf(project, ws, how) }
 	/** The keys (ui/shellKeys.ts). */
 	const onKey = (e: KeyboardEvent) => shellKey(e, {
 		project, ws, layout, panels, tabs, canvas: () => canvas, activePane: () => activePane, dialogOpen: () => modals.any, typePoint, showHistory, groupKey, orderKey,

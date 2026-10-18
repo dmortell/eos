@@ -254,7 +254,7 @@ export function buildMenus(c: MenuCtx): Menu[] {
 
 /** The right-click menu on the selection (UX21): its commands, with their keys. */
 export function selectionMenu(sel: (Entity | undefined)[], c: {
-	editLabel(id: string): void; remove(): void; similar(): void; group(ungroup: boolean): void; match(): void
+	editLabel(id: string): void; remove(): void; similar(): void; group(how: 'group' | 'ungroup'): void; match(): void
 	turn90?: (dir: 1 | -1) => void
 	order(how: 'forward' | 'backward' | 'front' | 'back'): void; properties(): void
 	/** Outlets and desks (blocks) selected: copy the outlets on one desk onto the others (W13). */
@@ -279,8 +279,8 @@ export function selectionMenu(sel: (Entity | undefined)[], c: {
 			? [{ label: 'Copy outlets onto the other desks', title: 'The outlets on one desk, onto every other selected desk of the same block (the desk they sit on needn’t be selected) — turned with each desk, numbered on', run: c.desks } as MenuItem] : []),
 		...(one?.type === 'shape' ? [{ label: 'Format painter…', title: 'Click other shapes to give them this one’s layer and look', run: c.match } as MenuItem] : []),
 		...(shapes.length ? ['-' as const,
-			...(shapes.length >= 2 ? [{ label: 'Group', key: KEYS.group, run: () => c.group(false) } as MenuItem] : []),
-			...(shapes.some((x) => x?.type === 'shape' && x.groupId) ? [{ label: 'Ungroup', key: KEYS.ungroup, run: () => c.group(true) } as MenuItem] : []),
+			...(shapes.length >= 2 ? [{ label: 'Group', key: KEYS.group, run: () => c.group('group') } as MenuItem] : []),
+			...(shapes.some((x) => x?.type === 'shape' && x.groupId) ? [{ label: 'Ungroup', key: KEYS.ungroup, run: () => c.group('ungroup') } as MenuItem] : []),
 			{ label: 'Bring to front', key: KEYS.toFront, run: () => c.order('front') } as MenuItem,
 			{ label: 'Send to back', key: KEYS.toBack, run: () => c.order('back') } as MenuItem] : []),
 		'-',

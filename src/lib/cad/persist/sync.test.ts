@@ -8,7 +8,7 @@ import { makeBox, makeText } from '../domain/make'
 import type { Shape } from '../domain/shapes'
 
 const tick = () => new Promise((r) => setTimeout(r, 0))
-const box = (id: string, x = 0): Shape => ({ ...makeBox('L1', { x, y: 0 }, 600, 600, 0, 720), id })
+const box = (id: string, x = 0): Shape => ({ ...makeBox('L1', { x, y: 0 }, { w: 600, d: 600, h: 720 }), id })
 const moved = (e: Shape, x: number): Shape => (e.geom.kind === 'rect' ? { ...e, geom: { ...e.geom, centre: { ...e.geom.centre, x } } } : e)
 const xOf = (s: EntityStore, id: string) => { const e = s.get(id) as Shape | undefined; return e?.geom.kind === 'rect' ? e.geom.centre.x : undefined }
 
@@ -152,7 +152,7 @@ describe('a write that fails (review R16)', () => {
 		server.write = async () => { throw new Error('permission denied') }
 		const store = new EntityStore(), errors: unknown[] = []
 		const sync = new Sync(store, server, { user: 'u', onError: (e) => errors.push(e) })
-		store.transact('Add', (tx) => tx.put(makeBox('L', { x: 0, y: 0 }, 600, 600, 0, 720)))
+		store.transact('Add', (tx) => tx.put(makeBox('L', { x: 0, y: 0 }, { w: 600, d: 600, h: 720 })))
 		expect(sync.pending).toBe(1)
 		await sync.flush()
 		expect(sync.pending).toBe(0)

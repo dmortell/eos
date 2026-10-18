@@ -4,7 +4,7 @@ import { makeBox, makeText } from '../domain/make'
 import { demoProject } from '../domain/fixtures'
 import type { Shape } from '../domain/shapes'
 
-const box = (id: string, x = 0): Shape => ({ ...makeBox('L', { x, y: 0 }, 600, 600, 0, 720), id })
+const box = (id: string, x = 0): Shape => ({ ...makeBox('L', { x, y: 0 }, { w: 600, d: 600, h: 720 }), id })
 const xOf = (s: EntityStore, id: string) => {
 	const e = s.get(id) as Shape | undefined
 	return e?.geom.kind === 'rect' ? e.geom.centre.x : undefined

@@ -109,8 +109,9 @@ export class Tabs {
 		return to
 	}
 	/** Open `view` in pane `i` (the Navigator, a search, a link): its tab if one is open; else the preview tab
-	 *  (reused unless the other pane shows it), else a new one. `keep` = a double-click: a kept tab. */
-	open(i: number, view: TabView, keep: boolean, rev: number): Tab {
+	 *  (reused unless the other pane shows it), else a new one. `'keep'` = a double-click: a kept tab. */
+	open(i: number, view: TabView, how: 'preview' | 'keep', rev: number): Tab {
+		const keep = how === 'keep'
 		let t = this.list.find((x) => viewKey(x.view) === viewKey(view))
 		if (!t && !keep) {
 			const pv = this.list.find((x) => x.preview && !this.paneTab.some((p, k) => k !== i && p === x.id))

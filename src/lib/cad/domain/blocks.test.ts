@@ -90,7 +90,7 @@ describe('make block from shapes on a sheet', () => {
 
 describe('make block / explode', () => {
 	it('shapes become a block around their middle, and one insert takes their place', () => {
-		const a = makeBox('L', { x: 1000, y: 1000 }, 600, 400, 0, 720)
+		const a = makeBox('L', { x: 1000, y: 1000 }, { w: 600, d: 400, h: 720 })
 		const b = makePath({ levelId: 'L' }, [{ x: 800, y: 1200 }, { x: 1200, y: 1200 }])
 		const { block, insert } = blockFromShapes([a, b], 'Desk')
 		expect(insert.geom).toMatchObject({ kind: 'insert', blockId: block.id, at: { x: 1000, y: 1000 } })
@@ -98,13 +98,13 @@ describe('make block / explode', () => {
 		expect(validateShape(insert)).toEqual([])
 	})
 	it('shapes drawn on an elevation’s plane can’t become a block (it would put them on the plan)', () => {
-		const plan = makeBox('L', { x: 1000, y: 1000 }, 600, 400, 0, 720)
-		const onWall = { ...makeBox('L', { x: 200, y: 1200 }, 70, 115, 0, 0), plane: { kind: 'vertical', frame: { o: { x: 0, y: 0 }, t: { x: 1, y: 0 }, n: { x: 0, y: 1 } }, depth: 0 } } as Shape
+		const plan = makeBox('L', { x: 1000, y: 1000 }, { w: 600, d: 400, h: 720 })
+		const onWall = { ...makeBox('L', { x: 200, y: 1200 }, { w: 70, d: 115, h: 0 }), plane: { kind: 'vertical', frame: { o: { x: 0, y: 0 }, t: { x: 1, y: 0 }, n: { x: 0, y: 1 } }, depth: 0 } } as Shape
 		expect(blockProblem([plan])).toBeNull()
 		expect(blockProblem([plan, onWall])).toMatch(/elevation/)
 	})
 	it('exploding puts the same shapes back where they were (new ids, same geometry)', () => {
-		const a = makeBox('L', { x: 1000, y: 1000 }, 600, 400, 0, 720)
+		const a = makeBox('L', { x: 1000, y: 1000 }, { w: 600, d: 400, h: 720 })
 		const { block, insert } = blockFromShapes([a], 'Desk')
 		const [back] = explodeInsert(insert, block) as Shape[]
 		expect(back.geom).toEqual(a.geom)
@@ -112,7 +112,7 @@ describe('make block / explode', () => {
 		expect(back.extent).toBe(720)
 	})
 	it('exploding a turned, scaled insert on a sheet keeps its turn, size, owner and layer', () => {
-		const a = makeBox('L', { x: 0, y: 0 }, 600, 400, 0, 720)
+		const a = makeBox('L', { x: 0, y: 0 }, { w: 600, d: 400, h: 720 })
 		const { block } = blockFromShapes([a], 'Desk')
 		const ins = { type: 'shape', id: 'i', sheetId: 'S', vpId: 'V', layerId: 'Y', geom: { kind: 'insert', blockId: block.id, at: { x: 100, y: 50 }, rot: 90, scale: 2 } } as Shape
 		const [back] = explodeInsert(ins, block) as Shape[]

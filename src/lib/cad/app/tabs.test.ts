@@ -10,14 +10,14 @@ describe('drawing tabs', () => {
 	it('a single-click open reuses the preview tab; a double-click keeps a tab; an open view is reused', () => {
 		const t = new Tabs('p')
 		t.ensure(0, plan('L1'))
-		const a = t.open(0, sheet('S1'), false, 0)
-		const b = t.open(0, sheet('S2'), false, 0)
+		const a = t.open(0, sheet('S1'), 'preview', 0)
+		const b = t.open(0, sheet('S2'), 'preview', 0)
 		expect(b.id).toBe(a.id)                 // the preview tab, reused
 		expect(t.list).toHaveLength(2)
-		const c = t.open(0, sheet('S3'), true, 0)
+		const c = t.open(0, sheet('S3'), 'keep', 0)
 		expect(c.preview).toBeFalsy()
 		expect(t.list).toHaveLength(3)
-		expect(t.open(0, plan('L1'), false, 0).id).toBe(t.list[0].id)   // already open: that tab
+		expect(t.open(0, plan('L1'), 'preview', 0).id).toBe(t.list[0].id)   // already open: that tab
 	})
 	it('each tab has its own back / forward', () => {
 		const t = new Tabs('p')
@@ -30,7 +30,7 @@ describe('drawing tabs', () => {
 	it('closing a tab shows the one beside it; close others / to the right', () => {
 		const t = new Tabs('p')
 		t.ensure(0, plan('L1'))
-		const s1 = t.open(0, sheet('S1'), true, 0), s2 = t.open(0, sheet('S2'), true, 0)
+		const s1 = t.open(0, sheet('S1'), 'keep', 0), s2 = t.open(0, sheet('S2'), 'keep', 0)
 		t.close(s2.id)
 		expect(t.paneTab[0]).toBe(s1.id)
 		t.closeOthers(s1.id)
@@ -51,16 +51,16 @@ describe('drawing tabs', () => {
 	it('the preview tab shown in the other pane is not taken over', () => {
 		const t = new Tabs('p')
 		t.ensure(0, plan('L1')); t.ensure(1, plan('L2'))
-		const a = t.open(1, sheet('S1'), false, 0)
-		const b = t.open(0, sheet('S2'), false, 0)
+		const a = t.open(1, sheet('S1'), 'preview', 0)
+		const b = t.open(0, sheet('S2'), 'preview', 0)
 		expect(b.id).not.toBe(a.id)
 	})
 	it('switching a tab to a view another tab has open shows that tab — no duplicate (User); old duplicates merge on load', () => {
 		const t = new Tabs('dup')
 		t.ensure(0, plan('L1'))
-		const s1 = t.open(0, sheet('S1'), true, 0)
+		const s1 = t.open(0, sheet('S1'), 'keep', 0)
 		const front: TabView = { levelId: 'L1', spec: { kind: 'elevation', dir: 'front' } }
-		const fr = t.open(0, front, true, 0)
+		const fr = t.open(0, front, 'keep', 0)
 		t.go(0, plan('L1'))                       // the Plan button in the front elevation's tab
 		expect(t.list).toHaveLength(3)
 		expect(t.of(0)?.view).toEqual(plan('L1'))
@@ -95,7 +95,7 @@ describe('drawing tabs', () => {
 	it('a dragged tab goes before / after another; the pane keeps showing its tab', () => {
 		const t = new Tabs('p')
 		t.ensure(0, plan('L1'))
-		for (const s of ['S1', 'S2', 'S3']) t.open(0, sheet(s), true, 0)
+		for (const s of ['S1', 'S2', 'S3']) t.open(0, sheet(s), 'keep', 0)
 		const names = () => t.list.map((x) => (x.view.spec.kind === 'sheet' ? x.view.spec.sheetId : 'plan'))
 		expect(names()).toEqual(['plan', 'S1', 'S2', 'S3'])
 		const shown = t.paneTab[0], [p, s1, , s3] = t.list.map((x) => x.id)

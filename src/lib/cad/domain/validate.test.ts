@@ -11,7 +11,7 @@ describe('shapes made by the constructors are valid', () => {
 		const line = makePath({ levelId: 'L' }, [{ x: 0, y: 0 }, { x: 1000, y: 0 }, { x: 1000, y: 800 }])
 		const wall = makeWall('L', [{ x: 0, y: 0 }, { x: 5000, y: 0 }])
 		const run = makeRun('L', [{ x: 0, y: 0 }, { x: 0, y: 0, z: 2900 }], { w: 100, h: 50 }, { tier: 'high' }, 300)
-		const box = makeBox('L', { x: 500, y: 500 }, 1200, 600, 0, 720)
+		const box = makeBox('L', { x: 500, y: 500 }, { w: 1200, d: 600, h: 720 })
 		const note = makeText({ sheetId: 'S' }, { x: 10, y: 10 }, 'Hello')
 		for (const s of [line, wall, run, box, note]) expect(validateShape(s)).toEqual([])
 	})
@@ -35,7 +35,7 @@ describe('conversion keeps geometry', () => {
 		expect(toLine(wall)).toEqual(line)
 	})
 	it('a rectangle cannot become a wall', () => {
-		expect(() => toWall(makeBox('L', { x: 0, y: 0 }, 1, 1, 0, 1), 100, 100)).toThrow()
+		expect(() => toWall(makeBox('L', { x: 0, y: 0 }, { w: 1, d: 1, h: 1 }), 100, 100)).toThrow()
 	})
 })
 
@@ -44,7 +44,7 @@ describe('validateShape catches broken records', () => {
 		const line = makePath({ levelId: 'L' }, [{ x: 0, y: 0 }, { x: 1, y: 0 }])
 		expect(codes(validateShape({ ...line, viewId: 'V' } as unknown as Shape))).toContain('owner')
 		expect(codes(validateShape({ ...line, plane: { kind: 'plan', z: 0 } }))).toContain('plane-on-path')
-		const box = makeBox('L', { x: 0, y: 0 }, 1, 1, 0, 1)
+		const box = makeBox('L', { x: 0, y: 0 }, { w: 1, d: 1, h: 1 })
 		expect(codes(validateShape({ ...box, section: { w: 1, h: 1 } }))).toContain('section-on-region')
 		const paperWall = toWall(makePath({ sheetId: 'S' }, [{ x: 0, y: 0 }, { x: 1, y: 0 }]), 100, 100)
 		expect(codes(validateShape(paperWall))).toContain('role-owner')

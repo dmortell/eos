@@ -126,8 +126,8 @@ export function orderKey(project: CadProject, ws: Workspace, how: 'forward' | 'b
 	project.store.transact(word, (tx) => { for (const s of moved) tx.put(s) })
 }
 /** Ctrl+G groups the selected shapes, Ctrl+Shift+G ungroups them (backlog "Group / ungroup"). */
-export function groupKey(project: CadProject, ws: Workspace, ungroup: boolean): void {
-	if (ungroup) { const n = ungroupSelection(project.store, ws.selection); ws.say(n ? `Ungrouped ${n} shapes` : 'Nothing selected is in a group'); return }
+export function groupKey(project: CadProject, ws: Workspace, how: 'group' | 'ungroup'): void {
+	if (how === 'ungroup') { const n = ungroupSelection(project.store, ws.selection); ws.say(n ? `Ungrouped ${n} shapes` : 'Nothing selected is in a group'); return }
 	const r = groupSelection(project.store, ws.selection)
 	ws.say('problem' in r ? r.problem : `Grouped ${r.n} shapes · a click on one selects them all · Ctrl+Shift+G ungroups`)
 }

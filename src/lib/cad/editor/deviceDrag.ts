@@ -16,10 +16,11 @@ export const startDeviceDrag = (base: Device[]): DeviceDrag => ({ base, copyIds:
 
 /**
  * The devices moved by `dU` (whole U), into `target` when given — only when they all come from ONE rack (devices from
- * several racks just change U). `copy` = new devices instead (the originals stay). `others` = every device in the
- * project (the originals included). Returns what to write, or why not.
+ * several racks just change U). `copy` = new devices instead (the originals stay). `side` = sideways in their rack.
+ * `others` = every device in the project (the originals included). Returns what to write, or why not.
  */
-export function dragDevices(g: DeviceDrag, dU: number, target: Rack | undefined, copy: boolean, others: Device[], rackOf: (id: Id) => Rack | undefined, side?: { dx: number; face: 'front' | 'rear' }): { put: Device[] } | { problem: string } {
+export function dragDevices(g: DeviceDrag, dU: number, { others, rackOf }: { others: Device[]; rackOf: (id: Id) => Rack | undefined },
+	{ target, copy = false, side }: { target?: Rack; copy?: boolean; side?: { dx: number; face: 'front' | 'rear' } } = {}): { put: Device[] } | { problem: string } {
 	const oneRack = new Set(g.base.map((d) => d.rackId)).size === 1
 	const put = g.base.map((b): Device => {
 		const rackId = target && oneRack ? target.id : b.rackId

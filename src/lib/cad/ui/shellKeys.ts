@@ -23,7 +23,7 @@ export interface ShellKeyCtx {
 	dialogOpen(): boolean
 	typePoint(first: string): void
 	showHistory(ids: string[]): void
-	groupKey(ungroup: boolean): void
+	groupKey(how: 'group' | 'ungroup'): void
 	orderKey(how: 'forward' | 'backward' | 'front' | 'back'): void
 	repeatDeviceEdit(): void
 	help(keys: boolean): void
@@ -84,7 +84,7 @@ export const KEY_COMMANDS: KeyCommand[] = [
 	{ label: 'Redo', keys: `${KEYS.redo} · ${KEYS.redoAlt}`, group: 'Edit', when: (e, _c, k, mod) => mod && (k === 'y' || (k === 'z' && e.shiftKey)), run: (e, c) => { pd(e); c.showHistory(c.project.redo()) } },
 	{ label: 'Select all in this view', keys: KEYS.selectAll, group: 'Edit', when: (_e, _c, k, mod) => mod && k === 'a', run: (e, c) => { pd(e); c.canvas()?.selectAll() } },
 	{ label: 'Duplicate the picked viewports (with their views and notes)', keys: KEYS.duplicate, group: 'Edit', when: (_e, c, k, mod) => mod && k === 'd' && c.ws.pickedViewports.length > 0, run: (e, c) => { pd(e); duplicateViewports(c.project, c.ws) } },
-	{ label: 'Group / Ungroup', keys: `${KEYS.group} / ${KEYS.ungroup}`, group: 'Edit', when: (_e, _c, k, mod) => mod && k === 'g', run: (e, c) => { pd(e); c.groupKey(e.shiftKey) } },
+	{ label: 'Group / Ungroup', keys: `${KEYS.group} / ${KEYS.ungroup}`, group: 'Edit', when: (_e, _c, k, mod) => mod && k === 'g', run: (e, c) => { pd(e); c.groupKey(e.shiftKey ? 'ungroup' : 'group') } },
 	// F2: edit the selected thing's words in place (a text, a leader, an outlet's label, a rack's name, a run's label)
 	{ label: 'Edit the selected label in place (Tab / Shift+Tab: save, then the next / previous)', keys: `${KEYS.editLabel} · double-click`, group: 'Function keys', when: (e, c) => e.key === 'F2' && c.ws.selection.length === 1,
 		run: (e, c) => { if (labelKind(c.project.index.get(c.ws.selection[0]))) { pd(e); c.ws.editText(c.ws.selection[0]) } } },
