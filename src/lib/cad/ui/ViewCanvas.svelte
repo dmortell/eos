@@ -205,7 +205,7 @@
 		untrack(() => {
 			const was = riserCompact
 			riserCompact = h
-			if (h !== undefined && was !== undefined && h !== was) queueMicrotask(() => zoomExtents())
+			if (h !== undefined && was !== undefined && h !== was) zoomExtents()   // `prims` is derived: already this view's
 		})
 	})
 	const guidePrims = $derived.by((): Prim[] => {

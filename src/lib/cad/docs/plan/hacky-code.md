@@ -66,7 +66,12 @@ grips, plan label placement, the layer / shape style rules), 7 (027d41d5), 8 (Co
   take `SettingsTab` / `WinId` (details, company, members and walkthrough, tips now too). Was: Find matching differs between FindDevice and Ctrl+K (navTree), the rear-face rule copied in both;
   the path-tool id list (`line / trunk / conduit / wall`) in 3–4 places; the tool display-name expression ×4;
   `SettingsTab` / window-id unions restated in workspace.svelte.ts (already missing details / company / members).
-- **Timers / polling**: a double `tick()` before scrolling Settings to the title block (CadShell ~176); 100 ms / 250 ms
+- **Timers / polling** — FIXED 2026-10-18 except the polls: Title block… asks Settings to show the section (a
+  `scrollTo` request; the heading's action scrolls after one `tick()` — the dialog moves itself to the shell's root as
+  it opens), not two shell `tick()`s and a `getElementById`; the riser view refits in its effect (`prims` is derived —
+  no microtask). KEPT: backups' 100 ms and the restore countdown's 250 ms polls — they wait on a clock or several
+  unrelated states, only while a backup / restore runs; a reactive wait would hang on any one that isn't reactive.
+  **Global state** — FIXED: Z's chord time is `ws.zoomChordAt` (per shell), not a shellKeys module variable. Was: a double `tick()` before scrolling Settings to the title block (CadShell ~176); 100 ms / 250 ms
   polls in app/backups.ts and restoreNotice; `queueMicrotask(zoomExtents)` in a ViewCanvas effect (~208).
 - **Global state**: shellKeys' `zoomPending` chord state at module level.
 - **Strings parsed for structure** — FIXED 2026-10-18: `pageKey` / `parsePageKey` (app/pdf.svelte.ts) build and read

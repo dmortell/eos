@@ -181,7 +181,8 @@
 	function setToolsFloat(on: boolean) { toolsFloat = on; try { localStorage.setItem(TOOLS_FLOAT_KEY, on ? 'float' : 'bar') } catch { /* storage blocked */ } }
 	// Title block…: the Sheets tab, scrolled to its Title block section (Round 8: it opened on the categories, the block
 	// below the fold)
-	function openTitleBlock() { openSettings('sheets'); void tick().then(() => tick()).then(() => document.getElementById('settings-title-block')?.scrollIntoView({ block: 'start' })) }
+	let scrollAsks = 0
+	function openTitleBlock() { openSettings('sheets'); settingsScroll = { what: 'title-block', n: ++scrollAsks } }
 	async function restoreBackup(id: string) {
 		try {
 			const head = (await getDoc(doc(backupsCol(project), id))).data() as BackupHead | undefined
@@ -471,7 +472,9 @@
 	let settingsOpen = $state(false), settingsTab = $state<SettingsTab>('floors'), calibrating = $state(false)
 	/** Cabling › Product catalogue… */
 	let catalogueOpen = $state(false)
-	function openSettings(t: SettingsTab) { settingsTab = t; settingsOpen = true }
+	/** A section of it to show (Sheets › Title block…); another tab opened from a menu asks for none. */
+	let settingsScroll = $state<{ what: 'title-block'; n: number } | undefined>()
+	function openSettings(t: SettingsTab) { settingsTab = t; settingsOpen = true; settingsScroll = undefined }
 	$effect(() => { if (calibrating && ws.toolId !== 'calibrate') calibrating = false })
 	// an offer to put something back (ws.offerRevert, backlog W1) belongs to where it was made: it closes when the view,
 	// the level or the dialog changes (it once stayed over other views and a later Enter reverted a crop)
@@ -904,7 +907,7 @@
 	</main>
 
 	{#if catalogueOpen}<CatalogueDialog {project} onclose={() => (catalogueOpen = false)} ondraw={(p, name) => { catalogueOpen = false; if (panes[activePane].kind !== 'plan') setPane(activePane, PLAN); ws.drawProduct(p); ws.say(`Rack tool: each click on the plan draws a ${name} — Esc stops`) }} />{/if}
-	{#if settingsOpen}<SettingsDialog {project} {ws} bind:tab={settingsTab} hidden={calibrating} onclose={() => { settingsOpen = false; calibrating = false }} {oncalibrate} onsetupfloors={setupFloors} {projectDetails} {detailsTabs} />{/if}
+	{#if settingsOpen}<SettingsDialog {project} {ws} bind:tab={settingsTab} scrollTo={settingsScroll} hidden={calibrating} onclose={() => { settingsOpen = false; calibrating = false }} {oncalibrate} onsetupfloors={setupFloors} {projectDetails} {detailsTabs} />{/if}
 	{#if imagePickOpen}<ImagePickDialog {project} onclose={() => (imagePickOpen = false)} onpick={(p) => { imagePickOpen = false; ws.imagePick = p; void measurePick(p.fileId, p.page); setTool('image'); ws.say(`${p.name}: drag its box on the ${activeKind === 'sheet' ? 'sheet' : 'plan'}`) }} />{/if}
 	{#if uploadsOpen}<UploadsDialog {pid} projectName={project.name} onclose={() => (uploadsOpen = false)} />{/if}
 	{#if openProjectOpen}<OpenProjectDialog currentId={pid} onpick={(id) => { if (id !== pid) void goto(`/projects/${id}/cad`) }} onclose={() => (openProjectOpen = false)} />{/if}

@@ -125,14 +125,11 @@ export const KEY_COMMANDS: KeyCommand[] = [
 		run: (_e, c) => { const ws = c.ws; if (ws.confirm) ws.confirm = null; else if (ws.prompt) ws.prompt = null; else if (ws.toolId !== 'select') c.setTool('select'); else if (ws.selection.length || !ws.vpEdit) ws.select([]); else c.canvas()?.leaveViewport() } },
 	{ label: 'Zoom to the selection', keys: KEYS.zoomSel, group: 'View', when: (e) => e.key === 'Home' && e.shiftKey, run: (_e, c) => c.zoomSel() },
 	{ label: 'Zoom to fit', keys: `${KEYS.fit} · ${KEYS.zoomExt}`, group: 'View', when: (e) => e.key === 'Home', run: (_e, c) => c.canvas()?.zoomExtents() },
-	// AutoCAD's ZOOM (User 2026-10-14): Z, then E / W / P — the second key is read in shellKey (zoomPending)
+	// AutoCAD's ZOOM (User 2026-10-14): Z, then E / W / P — the second key is read in shellKey (ws.zoomChordAt)
 	{ label: 'Zoom: Z, then E extents (fit) · W window (two clicks; EOS input: drag a box) · P previous (back through each zoom and pan)', keys: `${KEYS.zoomWin} · ${KEYS.zoomPrev}`, group: 'View',
-		when: (e, _c, k, mod) => !mod && !e.altKey && k === 'z', run: (e, c) => { pd(e); zoomPending = Date.now(); c.ws.say('Zoom: E extents · W window · P previous') } },
+		when: (e, _c, k, mod) => !mod && !e.altKey && k === 'z', run: (e, c) => { pd(e); c.ws.zoomChordAt = Date.now(); c.ws.say('Zoom: E extents · W window · P previous') } },
 	{ label: 'Page up / down (sideways: Shift)', keys: KEYS.page, group: 'View', when: (e) => e.key === 'PageDown' || e.key === 'PageUp', run: (e, c) => { pd(e); c.canvas()?.page(e.key === 'PageDown' ? 1 : -1, e.shiftKey) } },
 ]
-
-/** When Z was pressed (0 = not waiting): the next key, within a few seconds, picks the zoom. */
-let zoomPending = 0
 
 export function shellKey(e: KeyboardEvent, c: ShellKeyCtx): void {
 	if (composing(e) || typingIn(e.target)) return
@@ -140,9 +137,9 @@ export function shellKey(e: KeyboardEvent, c: ShellKeyCtx): void {
 	if (c.dialogOpen()) return
 	const { project } = c, canvas = c.canvas()
 	const mod = e.ctrlKey || e.metaKey
-	if (zoomPending && !['Shift', 'Control', 'Alt', 'Meta'].includes(e.key)) {
-		const fresh = Date.now() - zoomPending < 5000, z = e.key.toLowerCase()
-		zoomPending = 0
+	if (c.ws.zoomChordAt && !['Shift', 'Control', 'Alt', 'Meta'].includes(e.key)) {
+		const fresh = Date.now() - c.ws.zoomChordAt < 5000, z = e.key.toLowerCase()
+		c.ws.zoomChordAt = 0
 		if (fresh && !mod && !e.altKey && (z === 'e' || z === 'w' || z === 'p' || e.key === 'Escape')) {
 			e.preventDefault()
 			if (z === 'e') canvas?.zoomExtents()

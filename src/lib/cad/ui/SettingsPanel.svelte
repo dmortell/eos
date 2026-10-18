@@ -10,6 +10,7 @@
      Adding a usage or a cable type takes its code / name first (Enter or + Add): a usage's code is what outlets store
      and can't be renamed, so it's never a placeholder; cable types work the same way, for one habit. -->
 <script lang="ts">
+	import { tick } from 'svelte'
 	import { enterKey } from './keyGuards'
 	import SheetCategoriesTab from './SheetCategoriesTab.svelte'
 	import DisciplinesTab from './DisciplinesTab.svelte'
@@ -33,7 +34,20 @@
 	import { FILE_TOKENS, patternName } from '../render/download'
 	import EditHistorySettings from './EditHistorySettings.svelte'
 
-	let { project, ws, tab }: { project: CadProject; ws: Workspace; tab: 'usages' | 'cables' | 'lengths' | 'drawing' | 'sheets' | 'files' } = $props()
+	let { project, ws, tab, scrollTo }: {
+		project: CadProject; ws: Workspace; tab: 'usages' | 'cables' | 'lengths' | 'drawing' | 'sheets' | 'files'
+		/** Asked to show a section (Sheets › Title block…): it scrolls into view as it's drawn, and again on each new ask
+		 *  (`n` counts them). */
+		scrollTo?: { what: 'title-block'; n: number }
+	} = $props()
+	/** On the section's heading: scrolled to the top of the dialog when it's the one asked for — after the dialog has
+	 *  settled (CadDialog moves itself to the shell's root and takes the focus as it opens, which drops a scroll made
+	 *  before). */
+	function shown(node: HTMLElement, ask: { on: boolean; n?: number }) {
+		const go = (a: { on: boolean }) => { if (a.on) void tick().then(() => node.scrollIntoView({ block: 'start' })) }
+		go(ask)
+		return { update: go }
+	}
 
 	const st = $derived(project.settings)
 	const types = $derived(sortedCableTypes(st))
@@ -120,7 +134,7 @@
 		<ContactsTab {project} />
 	</section>
 	<section>
-		<p class="h" id="settings-title-block">Title block <span class="hint">— the project's, on every sheet</span></p>
+		<p class="h" use:shown={{ on: scrollTo?.what === 'title-block', n: scrollTo?.n }}>Title block <span class="hint">— the project's, on every sheet</span></p>
 		{#if st}
 			<div class="tb"><TitleBlockEditor template={st.titleBlock} onchange={setTemplate} files={{ db: project.db, pid: project.pid, storage: st.fileStorage }} /></div>
 		{:else}{@render none()}{/if}
