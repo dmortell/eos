@@ -52,7 +52,7 @@ CadShell, ViewCanvas and selectTool were split 2026-10-07; split again only when
   live (a layer per reviewer on the sheet? a separate review doc tied to a release?); seeing their marks against the
   next revision; notifications. **P? · L** (investigate first).
 
-- [ ] **Hide layers in PDF files** (User 2026-10-16 todo) — turn a floorplan PDF's own layers (OCGs: furniture,
+- [x] **Hide layers in PDF files** (User 2026-10-16 todo; DONE — User 2026-10-18: set in the Uploads tool, which cad draws with and a new floorplan revision copies; no cad control needed) — turn a floorplan PDF's own layers (OCGs: furniture,
   dimensions, other trades) on / off from cad, per file. cad already DRAWS with the file's `hiddenLayers` (set in
   Uploads; `PdfState.applyFileSettings`), but has no control for it: a layer list on the floorplan's row in Plans &
   floorplans (read the PDF's OCGs, tick to hide, saved in the file like the crop). **P2 · M**.
