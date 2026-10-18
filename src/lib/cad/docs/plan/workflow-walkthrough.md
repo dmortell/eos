@@ -901,3 +901,27 @@ context menu after a right-button wheel.
 7. The + tip is drawn over the rack's lines (no halo). Noted only.
 Good: patching at Fit zoom across the split (SW1:32 → SW2:21, lit ports made the 2 px targets findable), Enter for
 three pairs in a row, typed SW2:10, the far end lit in the other pane, Rows on sheets (S003 / S004 at 1:20).
+
+## Round 11: patching between the rows, third pass (live, 2026-10-18)
+
+The "Round 9 test" project, Row A | Row B in a split, after Round 10's follow-ups (cord stubs, the other pane's hover
+outline, white halos) and the hacky-code fixes (#1–#8). Also: a cable manager added at R01 U35 (CM1) and a cord
+re-patched through it (User).
+
+**Found:**
+1. Enter for the next pair stopped at a refused pair (SW1:28 → SW2:21, taken) and repeated the refusal on every Enter.
+   → it offers to skip to the pair after it ("Enter: skip to SW1:29 → SW2:22") — built (53b51417).
+2. Cord lengths went stale: adding CM1 at R01 U35 left the 12 PP1 → SW1 cords at 1–1.5 m while their estimate (now
+   through CM1) was 2–3 m; only a cord's Properties tooltip had the current figure, the table / labels / BOM / schedule
+   read the stored one. → an edit that changes racks or devices re-estimates the planned, unlocked cords through them,
+   in the same undo step (`store.derive`); installed (User: "leave installed cords alone"), `remove` and locked cords
+   keep theirs — built (fe340706). Live: moving CM1 and back updated the 11 to 2–3 m.
+3. A cord to the other row was hard to pick: its stub was ~7 px at a working zoom and drawn under the row's own cords
+   (a click took PP1:5's cord). → stubs 3U long at least and drawn over the row's cords — built.
+4. A click on a device that didn't move it recorded "Move device" (an undo step, a save, a History line — User). →
+   the store records nothing for a put with the same values — built (e4b871ab).
+5. (Not ours, but on the way) removing an agent's worktree whose node_modules was a junction deleted parts of the main
+   node_modules; repaired with `pnpm install --frozen-lockfile --force` (dev server stopped). Memory note made.
+Good: the other pane's outline under the pointer; green / red / grey ports in both panes while patching (grey: PP2's and
+PP1's unlabelled ports); the refusal names what's in the way ("already patched (to R02 · SW1 : 32)"); typed re-patch
+in the Patching table ("SW2:22"); the cord re-patched to SW1:33 re-estimated 1.5 → 5 m (through CM1).
