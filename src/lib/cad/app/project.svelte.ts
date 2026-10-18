@@ -8,6 +8,7 @@ import { FirestoreBackend } from '../persist/firestore'
 import { PROJECT_SCOPE, levelScope, viewScope, sheetScope } from '../persist/docs'
 import { untrack } from 'svelte'
 import { ProjectIndex } from '../domain/project'
+import { racksTouched, relengthCords } from '../domain/cords'
 import { cableSettings } from '../domain/routing'
 import { routeAll, type Routing } from '../domain/estimates'
 import { fillBySegment } from '../domain/fill'
@@ -134,6 +135,13 @@ export class CadProject {
 		this.#offCategories = onSnapshot(doc(db, ...CATEGORIES_DOC), (s) => { this.globalSheetCategories = (s.data()?.categories ?? null) as SheetCategory[] | null }, this.#listenFailed('the sheet categories'))
 		this.#offDisciplines = onSnapshot(doc(db, ...DISCIPLINES_DOC), (s) => { const l = s.data()?.list; this.globalDisciplines = Array.isArray(l) ? (l as string[]) : null }, this.#listenFailed('the discipline list'))
 		this.#off = this.store.subscribe((c) => { this.rev++; if (settles(c, this.store.busy)) this.dataRev++; this.#watchLevels() })
+		// an edit that changes racks or devices re-estimates the planned cords through them, in the same undo step
+		// (User 2026-10-18: a manager added at R01 U35 left the cords' lengths stale; installed cords are left alone)
+		this.store.derive = (tx, ops) => {
+			const racks = racksTouched(ops)
+			if (!racks.size) return
+			for (const c of relengthCords(new ProjectIndex(this.store.all()), racks)) tx.put(c)
+		}
 		this.#sync = new Sync(this.store, new FirestoreBackend(db, pid), {
 			user, client: this.client, onPending: (n) => this.#pending(n),
 			onError: (e) => { this.#failed = true; this.error = `Saving failed: ${(e as Error).message ?? e}` },

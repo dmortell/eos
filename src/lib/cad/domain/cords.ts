@@ -4,6 +4,7 @@
 import type { Id, Cord, Device, PortRef, Rack } from './types'
 import { RU_MM, RAIL_W } from './units'
 import type { ProjectIndex } from './project'
+import type { Entity } from './drawing'
 import { racksInOrder, portGrid, portAt } from './devices'
 import { newId } from './ids'
 import { reservationsOf } from './ports'
@@ -355,4 +356,24 @@ export function traceCircuit(ix: ProjectIndex, start: { on: Id; port: number }, 
 	// read it from the OUTLET end when one end is an outlet (outlet → panel → switch), whichever way it was walked
 	const isOutlet = (s: TraceStep) => ix.get(s.ref.on)?.type === 'outlet'
 	return !isOutlet(full[0]) && isOutlet(full[full.length - 1]) ? walk(full[full.length - 1].ref) : full
+}
+
+/** The racks an edit changes for cord routes: a device's rack (where it was and where it is), a rack itself. */
+export function racksTouched(ops: { before: Entity | null; after: Entity | null }[]): Set<Id> {
+	const out = new Set<Id>()
+	for (const o of ops) for (const e of [o.before, o.after]) {
+		if (e?.type === 'device') out.add(e.rackId)
+		else if (e?.type === 'rack') out.add(e.id)
+	}
+	return out
+}
+
+/** KEEPING CORD LENGTHS CURRENT (User 2026-10-18: a cable manager added at R01 U35 left the cords through it at their old
+ *  length): the cords with an end in these racks whose estimate has changed — unlocked and still planned (add / change /
+ *  replace). Installed cords keep their length: it's what's there (User); `remove` ones are installed cords going. */
+export function relengthCords(ix: ProjectIndex, racks: Set<Id>): Cord[] {
+	if (!racks.size) return []
+	const inRacks = (r: PortRef) => { const d = ix.getOf('device', r.on); return !!d && racks.has(d.rackId) }
+	return ix.cords.filter((c) => !c.lengthLocked && (c.status === 'add' || c.status === 'change' || c.status === 'replace') && (inRacks(c.a) || inRacks(c.b)))
+		.flatMap((c) => { const m = cordLength(ix, c.a, c.b); return m !== c.lengthM ? [{ ...c, lengthM: m }] : [] })
 }

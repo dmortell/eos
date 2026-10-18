@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { EntityStore, settles, type Change } from './store'
 import { makeBox, makeText } from '../domain/make'
+import { demoProject } from '../domain/fixtures'
 import type { Shape } from '../domain/shapes'
 
 const box = (id: string, x = 0): Shape => ({ ...makeBox('L', { x, y: 0 }, 600, 600, 0, 720), id })
@@ -213,5 +214,34 @@ describe('settling changes (Q59: readers that skip drag frames)', () => {
 		s.subscribe((c) => { if (settles(c, s.busy)) settled.push(c.source) })
 		s.transact('Add', (tx) => tx.put(box('a'))); s.undo()
 		expect(settled).toEqual(['local', 'undo'])
+	})
+})
+
+describe('derive: what follows from an edit, in the same step (User 2026-10-18)', () => {
+	it('runs on a local edit and a drag’s drop; one undo takes both back; not on undo', () => {
+		const store = new EntityStore()
+		store.load(demoProject())
+		const nameOf = (id: string) => { const e = store.get(id); return e?.type === 'rack' || e?.type === 'device' ? e.name : '' }
+		let runs = 0
+		store.derive = (tx, ops) => {
+			runs++
+			const r = ops.find((o) => o.after?.type === 'rack')?.after
+			if (r?.type === 'rack') { const s = tx.get('SW1'); if (s?.type === 'device') tx.put({ ...s, name: `${r.name}+` }) }
+		}
+		const r1 = store.get('R1')
+		if (r1?.type !== 'rack') throw new Error('fixture')
+		store.transact('Rename R1', (tx) => tx.put({ ...r1, name: 'Q1' }))
+		expect(nameOf('SW1')).toBe('Q1+')
+		expect(store.undo()?.label).toBe('Rename R1')
+		expect([nameOf('R1'), nameOf('SW1')]).toEqual([r1.name, expect.not.stringContaining('+')])
+		const before = runs
+		store.redo()
+		expect(runs).toBe(before)   // the step already holds what followed
+		const g = store.begin('Drag R1')
+		g.update((tx) => tx.put({ ...r1, name: 'Q2' }))
+		g.update((tx) => tx.put({ ...r1, name: 'Q3' }))
+		expect(runs).toBe(before)   // not each frame
+		g.commit()
+		expect(nameOf('SW1')).toBe('Q3+')
 	})
 })

@@ -2,7 +2,7 @@
 import { describe, it, expect } from 'vitest'
 import { ProjectIndex } from './project'
 import { demoProject } from './fixtures'
-import { patchProblem, cordLength, makeCord, removeCord, repatch, revertCord, installCord, setStatus, cordAction, withCableType, bulkPatch, traceCircuit, snapToStandard, cordAt, replacedText, portUse, portUseText, portUseByDevice, portColumn, portSide, allocatedUnpatched } from './cords'
+import { patchProblem, cordLength, makeCord, removeCord, repatch, revertCord, installCord, setStatus, cordAction, withCableType, bulkPatch, traceCircuit, snapToStandard, cordAt, replacedText, portUse, portUseText, portUseByDevice, portColumn, portSide, allocatedUnpatched, relengthCords, racksTouched } from './cords'
 import type { Entity } from './drawing'
 import type { Cord, Device, Rack } from './types'
 
@@ -253,5 +253,25 @@ describe('circuit trace', () => {
 		const ents = demoProject().map((e) => (e.id === 'C1' ? { ...(e as Cord), status: 'remove' as const } : e))
 		expect(traceCircuit(new ProjectIndex(ents), { on: 'O1', port: 1 }).map((s) => s.ref.on)).toEqual(['O1', 'P1'])
 		expect(cordAt(new ProjectIndex(ents), { on: 'P1', port: 1 })).toBeUndefined()
+	})
+})
+
+describe('keeping cord lengths current (User 2026-10-18)', () => {
+	it('a switch moved far down its rack: the planned, unlocked cords to it are re-estimated; installed and locked ones keep theirs', () => {
+		const base = demoProject()
+		const sw = base.find((e) => e.id === 'SW1')
+		if (sw?.type !== 'device') throw new Error('fixture')
+		const cords = base.filter((e): e is Cord => e.type === 'cord')
+		const [c1, c2] = cords
+		const lockedOne: Cord = { ...c2, id: 'CL', lengthLocked: true, a: { ...c2.a, port: 9 }, b: { ...c2.b, port: 9 } }
+		const installed: Cord = { ...c2, status: 'installed' }
+		const moved: Entity[] = [...base.filter((e) => e.id !== 'SW1' && e.id !== c2.id), { ...sw, u: 5 }, installed, lockedOne]
+		const ix = new ProjectIndex(moved)
+		expect(racksTouched([{ before: sw, after: { ...sw, u: 5 } }])).toEqual(new Set([sw.rackId]))
+		const out = relengthCords(ix, new Set([sw.rackId]))
+		expect(out.map((c) => c.id)).toEqual([c1.id])                          // only the planned, unlocked one
+		expect(out[0].lengthM).toBe(cordLength(ix, c1.a, c1.b))
+		expect(out[0].lengthM).toBeGreaterThan(c1.lengthM!)                  // 33U further: a longer cord
+		expect(relengthCords(ix, new Set(['elsewhere']))).toEqual([])
 	})
 })

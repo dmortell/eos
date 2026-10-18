@@ -90,7 +90,7 @@ export class EntityStore {
 		if (this.#gesture) { this.#afterGesture.push(() => this.transact(label, fn, sel)); return null }
 		if (this.#refused()) return null
 		const base = new Map<Id, Entity | null>()
-		try { fn(this.#txn(base)) } catch (e) { this.#putBack(base); throw e }   // all or nothing: no half-made edit
+		try { fn(this.#txn(base)); this.#derive(base) } catch (e) { this.#putBack(base); throw e }   // all or nothing: no half-made edit
 		const ops = this.#settle(base)
 		if (!ops.length) return null
 		const step = { label, ops, ...(sel ? { sel } : {}) }
@@ -137,6 +137,7 @@ export class EntityStore {
 			commit: (sel) => {
 				if (this.#gesture !== g) return null
 				this.#gesture = null
+				this.#derive(g.base)   // (on the drop, not each frame of the drag)
 				const ops = this.#settle(g.base)
 				let step: Step | null = null
 				if (ops.length) {
@@ -209,6 +210,14 @@ export class EntityStore {
 	}
 
 	/** The net ops of a transaction: first `before`, last `after`, untouched entities dropped. */
+	/** What follows from an edit, written in the SAME step (one undo brings both back): set by the app — e.g. a cord's
+	 *  estimated length when the racks it runs through change (User 2026-10-18). Runs on a local edit or a drag's drop,
+	 *  never on undo / redo (the step already holds it) or another tab's edit (that tab wrote it). */
+	derive: ((tx: Txn, ops: Op[]) => void) | null = null
+	#derive(base: Map<Id, Entity | null>): void {
+		const ops = this.derive ? this.#settle(base) : []
+		if (ops.length) this.derive!(this.#txn(base), ops)
+	}
 	#settle(base: Map<Id, Entity | null>, _final = true): Op[] {
 		const ops: Op[] = []
 		for (const [id, before] of base) {
