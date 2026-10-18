@@ -47,8 +47,8 @@ describe('DXF export', () => {
 	})
 	it('a region’s fill becomes a solid HATCH of its color, under its outline; a circle’s too', () => {
 		const sq = [{ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 10, y: 10 }, { x: 0, y: 10 }]
-		const r = displayListToDxf([{ k: 'line', pts: sq, closed: true, fill: true, cls: 'shape-fill', color: '#ff0000' }, { k: 'line', pts: sq, closed: true, cls: 'shape' },
-			{ k: 'circle', c: { x: 5, y: 5 }, r: 3, fill: true, cls: 'shape-fill', color: '#00ff00' }])
+		const r = displayListToDxf([{ k: 'line', pts: sq, closed: true, fill: true, cls: 'shape-fill', role: 'fill', color: '#ff0000' }, { k: 'line', pts: sq, closed: true, cls: 'shape' },
+			{ k: 'circle', c: { x: 5, y: 5 }, r: 3, fill: true, cls: 'shape-fill', role: 'fill', color: '#00ff00' }])
 		const ls = lines(r.text)
 		expect(ls.filter((l) => l === 'HATCH').length).toBe(2)
 		expect(ls).toContain('SOLID')

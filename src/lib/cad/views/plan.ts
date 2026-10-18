@@ -86,7 +86,7 @@ export function planDisplayList(ix: ProjectIndex, levelId: Id, o: PlanOpts): Pri
 	for (const s of shapes) {
 		if (s.role?.kind !== 'containment' || s.geom.kind !== 'path') continue
 		const high = s.role.tier === 'high' || s.geom.nodes.every((n) => n.z > 0)
-		for (const p of runPrims(s, levelId, k, (id) => ix.nameOf(id))) (high || (p.k !== 'image' && p.cls.startsWith('riser')) ? over : out).push(p)
+		for (const p of runPrims(s, levelId, k, (id) => ix.nameOf(id))) (high || p.role === 'riser' ? over : out).push(p)
 	}
 	for (const r of ix.racks) if (r.levelId === levelId && r.at) out.push(...rackPrims(r, k))
 	out.push(...over)
@@ -118,7 +118,7 @@ export function shapePrims(s: Shape, k: number, blocks?: PlanOpts['blocks']): Pr
 
 /** A region's fill (Properties → Fill): its outline again, filled with the color, drawn under it. */
 function regionFill(p: Prim | undefined, color: string): Prim | null {
-	if (p?.k === 'line' || p?.k === 'circle') return { ...p, fill: true, cls: 'shape-fill', color }
+	if (p?.k === 'line' || p?.k === 'circle') return { ...p, fill: true, cls: 'shape-fill', role: 'fill', color }
 	return null
 }
 function basePrims(s: Shape, k: number, blocks: PlanOpts['blocks'] | undefined): Prim[] {
@@ -331,7 +331,7 @@ function runBodies(ix: ProjectIndex, shapes: Shape[], levelId: Id): { low: Prim[
 		const cls = `run-body${b.high ? ' run-high run-ceiling' : ''}${b.primary ? ' run-primary' : ''}`
 		// a ring of runs gives an outside loop and its hole: the hole goes with the loop round it, so it stays unfilled
 		for (const { outer, holes } of nestLoops(outlineLoops(b.edges).map((l) => roundCorners(l, r, sharp))))
-			(b.high ? high : low).push({ k: 'line', pts: outer, closed: true, fill: true, cls, ...(holes.length ? { holes } : {}), ...(b.layer ? { layer: b.layer } : {}), ...(b.color ? { color: b.color } : {}) })
+			(b.high ? high : low).push({ k: 'line', pts: outer, closed: true, fill: true, cls, role: b.high ? 'run-high' : 'run', ...(holes.length ? { holes } : {}), ...(b.layer ? { layer: b.layer } : {}), ...(b.color ? { color: b.color } : {}) })
 	}
 	return { low, high }
 }
@@ -350,7 +350,7 @@ function runPrims(s: Shape, levelId: Id, k: number, levelName: (id: Id) => strin
 		const n = nodes.get(bd.node)
 		if (bd.r <= 0 || (n?.levelId ?? s.levelId) !== levelId) continue
 		const segW = s.geom.segs.filter((g) => bd.segs.includes(g.id)).map((g) => (g.section ?? s.section)?.w ?? w)
-		out.push({ k: 'line', pts: bd.arc, w: Math.min(...segW), cls, src: s.id, ...colour })
+		out.push({ k: 'line', pts: bd.arc, w: Math.min(...segW), cls, role: 'run-pick', src: s.id, ...colour })
 	}
 	for (const sg of s.geom.segs) {
 		const a = nodes.get(sg.a), b = nodes.get(sg.b)
@@ -358,14 +358,14 @@ function runPrims(s: Shape, levelId: Id, k: number, levelName: (id: Id) => strin
 		if (isVertical(a, b)) {
 			const lo = Math.min(a.z, b.z), hi = Math.max(a.z, b.z)
 			out.push(s.section?.round
-				? { k: 'circle', c: a, r: w / 2, cls: 'riser', src: s.id }
-				: { k: 'line', pts: square(a, w), closed: true, cls: 'riser', src: s.id })
+				? { k: 'circle', c: a, r: w / 2, cls: 'riser', role: 'riser', src: s.id }
+				: { k: 'line', pts: square(a, w), closed: true, cls: 'riser', role: 'riser', src: s.id })
 			const la = a.levelId ?? s.levelId ?? levelId, lb = b.levelId ?? s.levelId ?? levelId
 			const text = la !== lb ? `Riser ${levelName(la)} ↕ ${levelName(lb)}` : `↕ ${fmtZ(lo)} → ${fmtZ(hi)}`
-			out.push({ k: 'text', at: { x: a.x + w, y: a.y }, text, size: RISER_LABEL * k, cls: 'riser-label', src: s.id })
+			out.push({ k: 'text', at: { x: a.x + w, y: a.y }, text, size: RISER_LABEL * k, cls: 'riser-label', role: 'riser', src: s.id })
 		} else if ((a.levelId ?? s.levelId) === levelId) {
 			// a segment's own size wins (a reducer); a run's own color (several runs edited at once) over the tier's
-			out.push({ k: 'line', pts: trimmedEnds(bends, sg.id, a, b), w: (sg.section ?? s.section)?.w ?? w, cls, src: s.id, ...colour })
+			out.push({ k: 'line', pts: trimmedEnds(bends, sg.id, a, b), w: (sg.section ?? s.section)?.w ?? w, cls, role: 'run-pick', src: s.id, ...colour })
 		}
 	}
 	// the run's label sits along it, by the middle of its longest segment on this level (UX review L3: at the first node
@@ -391,7 +391,7 @@ function rackPrims(r: Rack, k: number): Prim[] {
 	const p = (x: number, y: number) => add(at, rotate({ x, y }, rot))
 	const corners = [p(-hw, -hd), p(hw, -hd), p(hw, hd), p(-hw, hd)]
 	return [
-		{ k: 'line', pts: corners, closed: true, fill: true, cls: 'rack', src: r.id },
+		{ k: 'line', pts: corners, closed: true, fill: true, cls: 'rack', role: 'rack', src: r.id },
 		{ k: 'line', pts: [corners[0], corners[2]], cls: 'rack-x', src: r.id },
 		{ k: 'line', pts: [corners[1], corners[3]], cls: 'rack-x', src: r.id },
 		{ k: 'line', pts: [corners[0], corners[1]], cls: 'rack-back', src: r.id },

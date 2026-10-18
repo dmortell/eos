@@ -215,7 +215,7 @@ export function sheetDisplayList(ix: ProjectIndex, sheet: Sheet, o0: SheetOpts =
 		for (const p of withFields(viewportContent(ix, vp, { ...o, vps: sheet.viewports }), ctx)) out.push(placePrim(p, t, k, clip))
 		// the window's FRAME: what you pick and drag on the sheet — its border only, not its middle (User: viewports got
 		// dragged around the page by mistake; as Pages and Sheets); a double-click inside enters it
-		out.push({ k: 'line', pts: rect(r.x, r.y, r.x + r.w, r.y + r.h), closed: true, cls: vp.border === false ? 'viewport viewport-hidden' : 'viewport', src: sheet.id, sub: vp.id })
+		out.push({ k: 'line', pts: rect(r.x, r.y, r.x + r.w, r.y + r.h), closed: true, cls: vp.border === false ? 'viewport viewport-hidden' : 'viewport', role: 'viewport', src: sheet.id, sub: vp.id })
 		// its number, in a small circle above the window's top-left corner
 		if (vp.number?.trim()) {
 			const c = { x: r.x + 4, y: r.y - 4 }
@@ -363,7 +363,7 @@ function contentBounds(ix: ProjectIndex, vp: Viewport, o: SheetOpts = {}): Bound
 	// a rack view's extent is its racks: the storey's FFL / ceiling / slab lines are for architectural drawings, not row
 	// schematics (User 2026-10-17) — framing them left the sheet's rows mostly empty above the racks; they're cut at the frame
 	const row = vp.view.spec.kind === 'row'
-	const ps = viewportContent(ix, vp, o).filter((p) => p.k !== 'image' && !(row && /\broom-line\b/.test(p.cls)))
+	const ps = viewportContent(ix, vp, o).filter((p) => p.k !== 'image' && !(row && p.role === 'room-line'))
 	if (!ps.length) return undefined
 	let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity
 	for (const p of ps) {

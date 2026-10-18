@@ -39,8 +39,8 @@ describe('the rack row', () => {
 		expect(texts).not.toContain('CEILING FFL+2700')
 		const lines = after.filter((p) => 'cls' in p && p.cls.includes('room-line'))
 		const known = new Set(layersOf([]).map((l) => l.id))
-		expect(new Set(lines.map((p) => primLayer('cls' in p ? p.cls : '', undefined, known)))).toEqual(new Set(['sys:room-lines']))
-		expect(primLayer('device-other', undefined, known)).toBe('sys:other-face')
+		expect(new Set(lines.map((p) => primLayer(p.role, undefined, known)))).toEqual(new Set(['sys:room-lines']))
+		expect(primLayer('other-face', undefined, known)).toBe('sys:other-face')
 	})
 	it('a room with no racks says so', () => {
 		const ps = rackRowDisplayList(ix([{ type: 'space', id: 'EMPTY', levelId: 'L33', kind: 'server room', name: 'IDF 9', order: 9 } as Entity]), { spaceId: 'EMPTY', face: 'front' })

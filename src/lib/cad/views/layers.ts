@@ -26,7 +26,7 @@ export function applyLayers(prims: Prim[], ix: ProjectIndex, f: LayerFilter = {}
 	const draw: Prim[] = []
 	for (const p of prims) {
 		// a prim with no source can name its layer itself (a run outline that joins several runs: views/plan.ts runBodies)
-		const id = !p.src && p.layer && known.has(p.layer) ? p.layer : primLayer('cls' in p ? p.cls : '', ix.get(p.src), known)
+		const id = !p.src && p.layer && known.has(p.layer) ? p.layer : primLayer(p.role, ix.get(p.src), known)
 		if (!id) { draw.push(p); continue }
 		if (f.hidden?.has(id)) continue
 		const l = byId.get(id), color = p.color ?? l?.color
@@ -61,7 +61,7 @@ function byLayerLine(p: Prim, l: LayerInfo | undefined): { weight?: number; dash
 export function layerCounts(ix: ProjectIndex): Map<Id, number> {
 	const known = new Set(layerMap(ix).keys()), n = new Map<Id, number>()
 	for (const e of ix.byId.values()) {
-		const id = primLayer('', e, known)
+		const id = primLayer(undefined, e, known)
 		if (id) n.set(id, (n.get(id) ?? 0) + 1)
 	}
 	return n

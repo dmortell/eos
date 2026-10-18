@@ -1,26 +1,28 @@
 // Display list → DXF (analysis §6.6: one display list feeds screen, print and DXF, so the export is what you see).
 // Plan mm in; DXF is y-UP, so y is negated. Banded prims (trunks, walls) become LWPOLYLINEs with their real constant
-// width. Layers come from the prim's class. Images (PDF underlays) are not exported: each is kept as a frame + note on A-IMAGE and counted in the result.
+// width. Layers come from the prim's role (a rack, a run …), else its class. Images (PDF underlays) are not exported: each is kept as a frame + note on A-IMAGE and counted in the result.
 // BLOCKS (backlog "DXF blocks as BLOCK + INSERT"): given the block library, every placed block (an outlet's symbol, an
 // insert — prims carrying `ins`) goes out as ONE INSERT of a BLOCK written once, its {TAG} texts as ATTDEF / ATTRIB, so
 // AutoCAD can count them. A hidden attribute is written empty (the writer can't set the invisible flag).
 // LINEWEIGHTS: a shape's own lineweight (paper mm) is written as group 370 (hundredths of a mm, the nearest of DXF's
 // standard weights), put in by wrapping the entity's `dxfy` since the writer has no option for it. FILLS: a region's
-// fill (`shape-fill`) is a solid HATCH of its color.
+// fill (role `fill`) is a solid HATCH of its color.
 import { DxfWriter, LWPolylineFlags, Units, point2d, point3d, TextHorizontalAlignment, TextVerticalAlignment, HatchBoundaryPaths, HatchPolylineBoundary, HatchEdgesTypeData, HatchPredefinedPatterns, TrueColor, vertex } from '@tarikjabiri/dxf'
-import type { Prim, Dash, BlockInstance } from '../views/display'
+import type { Prim, PrimRole, Dash, BlockInstance } from '../views/display'
 import type { Block } from '../domain/blocks'
 import { fillAttrs } from '../domain/blocks'
 import { blockDefinition } from '../views/blocks'
 
-/** DXF layer + color (ACI) for a prim class (its first word). */
+/** DXF layer + color (ACI) for what a prim IS (its role) — the layers that say what is drawn. */
+const ROLE_LAYERS: Partial<Record<PrimRole, { name: string; aci: number }>> = {
+	rack: { name: 'E-RACKS', aci: 7 },
+	riser: { name: 'E-RISERS', aci: 6 },
+	run: { name: 'E-CONTAINMENT', aci: 4 },
+	'run-high': { name: 'E-CONTAINMENT-HIGH', aci: 30 },
+}
+/** DXF layer + color (ACI) for a prim class (its first word): a prim with no role layer, by how it is drawn. */
 const LAYERS: Record<string, { name: string; aci: number }> = {
 	outlet: { name: 'E-OUTLETS', aci: 5 },
-	run: { name: 'E-CONTAINMENT', aci: 4 },
-	'run-body': { name: 'E-CONTAINMENT', aci: 4 },
-	riser: { name: 'E-RISERS', aci: 6 },
-	'riser-label': { name: 'E-RISERS', aci: 6 },
-	rack: { name: 'E-RACKS', aci: 7 },
 	'rack-x': { name: 'E-RACKS', aci: 8 },
 	'port-mid': { name: 'E-RACKS', aci: 7 },
 	'rack-back': { name: 'E-RACKS', aci: 7 },
@@ -30,11 +32,10 @@ const LAYERS: Record<string, { name: string; aci: number }> = {
 	label: { name: 'ANNO-LABELS', aci: 7 },
 	note: { name: 'ANNO-TEXT', aci: 7 },
 }
-const HIGH = { name: 'E-CONTAINMENT-HIGH', aci: 30 }
 
-export function layerOf(cls: string): { name: string; aci: number } {
-	if (/\brun-high\b/.test(cls)) return HIGH
-	return LAYERS[cls.split(/\s+/)[0]] ?? { name: '0', aci: 7 }
+/** A prim's DXF layer: its role's, else its class's, else layer 0. */
+export function layerOf(p: { cls: string; role?: PrimRole }): { name: string; aci: number } {
+	return (p.role && ROLE_LAYERS[p.role]) || LAYERS[p.cls.split(/\s+/)[0]] || { name: '0', aci: 7 }
 }
 
 /** DXF's standard lineweights (group 370, hundredths of a mm). */
@@ -80,7 +81,7 @@ export function displayListToDxf(prims: Prim[], names?: ReadonlyMap<string, stri
 	}
 	// a project layer's name as DXF takes it: no < > / \ " : ; ? * | = ` (AutoCAD refuses the file), and unique ignoring
 	// case (DXF names are case-insensitive: "Walls" and "WALLS" would merge)
-	const dxfName = new Map<string, string>(), usedUpper = new Set(Object.values(LAYERS).map((l) => l.name).concat(HIGH.name, '0'))
+	const dxfName = new Map<string, string>(), usedUpper = new Set([...Object.values(ROLE_LAYERS), ...Object.values(LAYERS)].map((l) => l.name).concat('0'))
 	const ownName = (id: string, name: string): string => {
 		let n = dxfName.get(id)
 		if (n) return n
@@ -92,7 +93,7 @@ export function displayListToDxf(prims: Prim[], names?: ReadonlyMap<string, stri
 	}
 	const layer = (p: Exclude<Prim, { k: 'image' }>) => {
 		const own = p.layer ? names?.get(p.layer) : undefined
-		const l = own ? { name: ownName(p.layer!, own), aci: 7 } : layerOf(p.cls)
+		const l = own ? { name: ownName(p.layer!, own), aci: 7 } : layerOf(p)
 		if (l.name !== '0' && !made.has(l.name)) { made.add(l.name); w.addLayer(l.name, l.aci, 'CONTINUOUS') }
 		return l.name
 	}
@@ -152,9 +153,9 @@ export function displayListToDxf(prims: Prim[], names?: ReadonlyMap<string, stri
 		return true
 	}
 	for (const p of prims) {
-		if ((p.k === 'line' || p.k === 'circle') && p.cls === 'shape-fill') { if (fillOf(p)) entities++; continue }
-		if (p.k !== 'image' && p.cls === 'shape-fill') continue   // a region's fill: a solid hatch under its outline
-		if (p.k !== 'image' && p.cls.split(' ').includes('run-hit')) continue   // a run's pick bands: DXF gets its outline (run-body)
+		if ((p.k === 'line' || p.k === 'circle') && p.role === 'fill') { if (fillOf(p)) entities++; continue }
+		if (p.role === 'fill') continue   // a region's fill: a solid hatch under its outline
+		if (p.role === 'run-pick') continue   // a run's pick bands: DXF gets its outline (run-body)
 		if (p.k !== 'image' && p.ins && insertOf(p, p.ins)) continue
 		switch (p.k) {
 			case 'line': {

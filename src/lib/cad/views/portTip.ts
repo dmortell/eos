@@ -16,7 +16,7 @@ export function portUnder(prims: Prim[], p: { x: number; y: number }, face: 'fro
 export function portCellUnder(prims: Prim[], p: { x: number; y: number }): Extract<Prim, { k: 'line' }> | null {
 	for (let i = prims.length - 1; i >= 0; i--) {
 		const q = prims[i]
-		if (q.k === 'line' && q.closed && q.src && q.sub && q.cls.startsWith('port') && inPolygon(p, q.pts)) return q
+		if (q.k === 'line' && q.closed && q.src && q.sub && q.role === 'port' && inPolygon(p, q.pts)) return q
 	}
 	return null
 }
@@ -85,7 +85,7 @@ export function portLights(ix: ProjectIndex, prims: Prim[], face: 'front' | 'rea
 		const link = s.bulk?.kind === 'link', corded = new Set<string>()
 		if (!link) for (const c of ix.cords) for (const e of [c.a, c.b]) if (onFace(e)) corded.add(`${e.on}:${e.port}`)
 		for (const p of prims) {
-			if (p.k !== 'line' || !p.closed || !p.src || !p.sub || !p.cls.startsWith('port')) continue
+			if (p.k !== 'line' || !p.closed || !p.src || !p.sub || p.role !== 'port') continue
 			const k = `${p.src}:${p.sub}`
 			const r = { on: p.src, port: Number(p.sub), face }
 			// a panel port with no label refuses a cord (Round 10: it showed free): blocked, grey

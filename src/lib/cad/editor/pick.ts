@@ -28,10 +28,10 @@ export function pickPrim(prims: Prim[], p: Pt, tol: number, skip?: (src: Id) => 
  *  said PP1 port 1, the click took port 3 — the tolerance reaches over the next tiny cell, drawn later). */
 function exactPort(prims: Prim[], hit: Prim | undefined, p: Pt): Prim | undefined {
 	// (a port's LABEL too: drawn at a minimum on-screen size, it spills over the next cell and took the click)
-	if (!hit || hit.k === 'image' || !hit.sub || !/^port\b/.test(hit.cls) || (hit.k === 'line' && hit.closed && inPolygon(p, hit.pts))) return hit
+	if (!hit || hit.k === 'image' || !hit.sub || (hit.role !== 'port' && hit.role !== 'port-label') || (hit.k === 'line' && hit.closed && inPolygon(p, hit.pts))) return hit
 	for (let i = prims.length - 1; i >= 0; i--) {
 		const pr = prims[i]
-		if (pr.k === 'line' && pr.src && pr.sub && pr.closed && /^port\b/.test(pr.cls) && inPolygon(p, pr.pts)) return pr
+		if (pr.k === 'line' && pr.src && pr.sub && pr.closed && pr.role === 'port' && inPolygon(p, pr.pts)) return pr
 	}
 	return hit
 }
@@ -53,10 +53,10 @@ function pickNear(prims: Prim[], p: Pt, tol: number, skip?: (src: Id) => boolean
 /** A rack view's click on a patch CORD where it crosses a port cell takes the PORT (W15 / B54: cords drawn over a
  *  panel's lower row hid its ports; patching more meant hiding the cords layer). Off the ports the cord is picked. */
 export function preferPort(prims: Prim[], hit: Prim | undefined, p: Pt): Prim | undefined {
-	if (!hit || hit.k !== 'line' || !/^cord\b/.test(hit.cls)) return hit
+	if (!hit || hit.k !== 'line' || hit.role !== 'cord') return hit
 	for (let i = prims.length - 1; i >= 0; i--) {
 		const pr = prims[i]
-		if (pr.k === 'line' && pr.src && pr.sub && /^port\b/.test(pr.cls) && pr.closed && inPolygon(p, pr.pts)) return pr
+		if (pr.k === 'line' && pr.src && pr.sub && pr.role === 'port' && pr.closed && inPolygon(p, pr.pts)) return pr
 	}
 	return hit
 }

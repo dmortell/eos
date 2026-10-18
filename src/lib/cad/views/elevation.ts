@@ -124,7 +124,7 @@ function footprint(at: Pt, w: number, d: number, rot = 0, z = 0): Pt3[] {
 function rackItem(ix: ProjectIndex, r: Rack, sp: ViewSpace, rect: RectFn, uSpan: SpanFn, k: number): Item {
 	const [u0, u1] = uSpan(footprint(r.at!, r.widthMm, r.depthMm, r.rot))
 	const h = rackHeight(r), f = roomFloor(ix, r.spaceId)
-	const prims: Prim[] = [rect(u0, u1, f, f + h, 'rack', r.id)]
+	const prims: Prim[] = [{ ...rect(u0, u1, f, f + h, 'rack', r.id), role: 'rack' }]
 	// its devices as plain boxes at their U, when its front or rear faces the viewer — no names (User 2026-10-15)
 	const facing = sp.frame ? rackFrontNormal(r).x * sp.frame.n.x + rackFrontNormal(r).y * sp.frame.n.y : 0
 	const face = facing > 0.5 ? 'front' : facing < -0.5 ? 'rear' : null
@@ -133,7 +133,7 @@ function rackItem(ix: ProjectIndex, r: Rack, sp: ViewSpace, rect: RectFn, uSpan:
 		for (const d of ix.devicesIn(r.id)) {
 			if (d.kind === 'pdu' || d.face === 'none' || (d.face !== 'both' && d.face !== face)) continue
 			const hw = Math.min(r.widthMm, d.widthMm ?? RACK_DEVICE_W) / 2, z0 = base + (d.u - 1) * RU_MM
-			prims.push(rect(mid - hw, mid + hw, z0, z0 + d.heightU * RU_MM, `device device-${d.kind}`, d.id))
+			prims.push({ ...rect(mid - hw, mid + hw, z0, z0 + d.heightU * RU_MM, `device device-${d.kind}`, d.id), role: 'device' })
 		}
 	}
 	prims.push({ k: 'text', at: { x: (u0 + u1) / 2, y: -(f + h) - RACK_NAME * k * 0.4 }, text: r.name, size: RACK_NAME * k, anchor: 'middle', cls: 'label', src: r.id })
@@ -221,8 +221,8 @@ function shapeItems(s: Shape, sp: ViewSpace, rect: RectFn, uSpan: SpanFn, zOf: (
 			}
 			if (s.role?.kind === 'containment' && sec) {
 				const lift = sec.anchor === 'centre' || sec.round ? 0 : sec.h / 2
-				const cls = s.role.tier === 'high' ? 'run run-high' : 'run'
-				return [{ depth, prims: [{ k: 'line', pts: [{ x: pa.x, y: pa.y - lift }, { x: pb.x, y: pb.y - lift }], w: isVertical(a, b) ? sec.w : sec.h, cls, src: s.id }] }]
+				const high = s.role.tier === 'high', cls = high ? 'run run-high' : 'run'
+				return [{ depth, prims: [{ k: 'line', pts: [{ x: pa.x, y: pa.y - lift }, { x: pb.x, y: pb.y - lift }], w: isVertical(a, b) ? sec.w : sec.h, cls, role: high ? 'run-high' : 'run', src: s.id }] }]
 			}
 			return [{ depth, prims: ownStyle(s, [{ k: 'line', pts: [pa, pb], cls: 'shape', src: s.id }]) }]
 		}).concat(!s.role && s.style?.ends ? endItems(s, g, nodes, sp, k) : [])
@@ -241,7 +241,7 @@ function shapeItems(s: Shape, sp: ViewSpace, rect: RectFn, uSpan: SpanFn, zOf: (
 			return [{ depth: sp.depthOf(mid), prims: [{ k: 'image', url: pictureRef(g.fileId, g.page ?? 1), x: c.x - g.size.x / 2, y: c.y - g.size.y / 2, w: g.size.x, h: g.size.y, fit: 'centre', ...(rot ? { rot } : {}), src: s.id },
 				{ k: 'line', pts, closed: true, fill: true, cls: 'image-frame', src: s.id }] }]
 		}
-		const fill: Prim[] = s.style?.fill ? [{ k: 'line', pts, closed: true, fill: true, cls: 'shape-fill', color: s.style.fill, src: s.id }] : []
+		const fill: Prim[] = s.style?.fill ? [{ k: 'line', pts, closed: true, fill: true, cls: 'shape-fill', role: 'fill', color: s.style.fill, src: s.id }] : []
 		return [{ depth: sp.depthOf(mid), prims: [...fill, ...ownStyle(s, [{ k: 'line', pts, closed: true, cls: 'shape', src: s.id }])] }]
 	}
 	if ((g.kind === 'rect' || g.kind === 'circle' || g.kind === 'ellipse' || g.kind === 'polygon') && (!s.plane || s.plane.kind === 'plan')) {

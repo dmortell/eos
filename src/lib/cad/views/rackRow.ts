@@ -109,7 +109,7 @@ export function rackRowDisplayList(ix: ProjectIndex, spec: RowSpec, o: RowOpts =
 	for (const { rack, x0 } of layout) {
 		const h = rackHeight(rack), base = rackUBase(rack), mid = x0 + rack.widthMm / 2
 		const uScale: Prim[] = []
-		out.push({ k: 'line', pts: [{ x: x0, y: 0 }, { x: x0 + rack.widthMm, y: 0 }, { x: x0 + rack.widthMm, y: -h }, { x: x0, y: -h }], closed: true, fill: true, cls: 'rack', src: rack.id })
+		out.push({ k: 'line', pts: [{ x: x0, y: 0 }, { x: x0 + rack.widthMm, y: 0 }, { x: x0 + rack.widthMm, y: -h }, { x: x0, y: -h }], closed: true, fill: true, cls: 'rack', role: 'rack', src: rack.id })
 		// U ticks and numbers (every U) INSIDE the rack's own edges — racks narrower
 		// than 19" rails (cable managers, desks) have no U scale (theirs would land on the neighbours)
 		if (rack.widthMm >= DEVICE_W && rack.kind !== 'vcm' && rack.kind !== 'desk') {
@@ -152,8 +152,8 @@ export function rackRowDisplayList(ix: ProjectIndex, spec: RowSpec, o: RowOpts =
 			if (behind) {
 				const w = Math.min(rack.widthMm, d.widthMm ?? DEVICE_W), dx = mid + (spec.face === 'rear' ? -(d.offsetX ?? 0) : d.offsetX ?? 0)
 				const z0 = base + (d.u - 1) * RU_MM, z1 = z0 + d.heightU * RU_MM
-				out.push({ k: 'line', pts: [{ x: dx - w / 2, y: -z0 }, { x: dx + w / 2, y: -z0 }, { x: dx + w / 2, y: -z1 }, { x: dx - w / 2, y: -z1 }], closed: true, cls: 'device-other' })
-				out.push({ k: 'text', at: { x: dx - w / 2 + 6, y: -(z0 + z1) / 2 + 10 }, text: `${d.name} (${d.mount ?? d.face})`, size: Math.min(RU_MM * 0.35, (z1 - z0) * 0.4), cls: 'device-other-label', minPx: 6 })
+				out.push({ k: 'line', pts: [{ x: dx - w / 2, y: -z0 }, { x: dx + w / 2, y: -z0 }, { x: dx + w / 2, y: -z1 }, { x: dx - w / 2, y: -z1 }], closed: true, cls: 'device-other', role: 'other-face' })
+				out.push({ k: 'text', at: { x: dx - w / 2 + 6, y: -(z0 + z1) / 2 + 10 }, text: `${d.name} (${d.mount ?? d.face})`, size: Math.min(RU_MM * 0.35, (z1 - z0) * 0.4), cls: 'device-other-label', role: 'other-face', minPx: 6 })
 				continue
 			}
 			if (d.kind === 'pdu') {   // a 0U strip hugging the outside of the rails (clear of the U numbers in the margin)
@@ -161,7 +161,7 @@ export function rackRowDisplayList(ix: ProjectIndex, spec: RowSpec, o: RowOpts =
 				const onLeft = ((d.pduSide ?? 'left') === 'left') === (spec.face !== 'rear')
 				const x = onLeft ? Math.max(x0 + 2, mid - DEVICE_W / 2 - 44) : Math.min(x0 + rack.widthMm - 42, mid + DEVICE_W / 2 + 4)
 				const z0 = base + (d.u - 1) * RU_MM, z1 = z0 + d.heightU * RU_MM
-				out.push({ k: 'line', pts: [{ x, y: -z0 }, { x: x + 40, y: -z0 }, { x: x + 40, y: -z1 }, { x, y: -z1 }], closed: true, fill: true, cls: 'device device-pdu', src: d.id })
+				out.push({ k: 'line', pts: [{ x, y: -z0 }, { x: x + 40, y: -z0 }, { x: x + 40, y: -z1 }, { x, y: -z1 }], closed: true, fill: true, cls: 'device device-pdu', role: 'device', src: d.id })
 				// its name up the strip, its power inlets at the bottom (where the feed comes in), its sockets along it
 				out.push({ k: 'text', at: { x: x + 30, y: -(z0 + z1) / 2 }, text: d.name, size: 22, anchor: 'middle', rot: -90, cls: 'device-label', src: d.id, minPx: 6 })
 				for (let n = 0; n < (d.inlets ?? 0); n++) {
@@ -176,7 +176,7 @@ export function rackRowDisplayList(ix: ProjectIndex, spec: RowSpec, o: RowOpts =
 				for (let n = 1; n <= d.portCount; n++) {
 					const cy = z1 - 8 - (n - 1) * 40, c = { x: x + 4, y: -cy, w: 32, h: 32 }
 					const ref = { on: d.id, port: n, face: spec.face }, linked = !!ix.linkAt(ref)
-					out.push({ k: 'line', pts: [{ x: c.x, y: c.y }, { x: c.x + c.w, y: c.y }, { x: c.x + c.w, y: c.y + c.h }, { x: c.x, y: c.y + c.h }], closed: true, fill: true, cls: (linked ? 'port port-linked' : 'port') + (patched.has(`${d.id}:${n}`) ? ' port-patched' : ''), src: d.id, sub: String(n) })
+					out.push({ k: 'line', pts: [{ x: c.x, y: c.y }, { x: c.x + c.w, y: c.y }, { x: c.x + c.w, y: c.y + c.h }, { x: c.x, y: c.y + c.h }], closed: true, fill: true, cls: (linked ? 'port port-linked' : 'port') + (patched.has(`${d.id}:${n}`) ? ' port-patched' : ''), role: 'port', src: d.id, sub: String(n) })
 					portAt.set(`${d.id}:${n}`, { x: c.x + c.w / 2, y: c.y + c.h / 2, hh: c.h / 2, rack: frame })
 				}
 				continue
@@ -186,7 +186,7 @@ export function rackRowDisplayList(ix: ProjectIndex, spec: RowSpec, o: RowOpts =
 			// a printed panel whose labels have changed since says so, and the changed ports are flagged
 			const stale = new Set(changedSincePrinted(ix, d))
 			const note = d.panel?.labelsPrintedAt ? (stale.size ? `  ⚠ ${stale.size} label${stale.size > 1 ? 's' : ''} changed since printed` : '  · printed') : ''
-			out.push({ k: 'line', pts: [{ x: dx - w / 2, y: -z0 }, { x: dx + w / 2, y: -z0 }, { x: dx + w / 2, y: -z1 }, { x: dx - w / 2, y: -z1 }], closed: true, fill: true, cls: `device device-${d.kind}`, src: d.id })
+			out.push({ k: 'line', pts: [{ x: dx - w / 2, y: -z0 }, { x: dx + w / 2, y: -z0 }, { x: dx + w / 2, y: -z1 }, { x: dx - w / 2, y: -z1 }], closed: true, fill: true, cls: `device device-${d.kind}`, role: 'device', src: d.id })
 			const nameCls = stale.size ? 'device-label device-stale' : 'device-label'
 			// with ports, the name is drawn AFTER them, at the top left with a halo (User: the panel's own label was hidden
 			// behind its ports; the strip above a 1U panel's ports is only ~8 mm, too small to read); without, it sits in
@@ -199,7 +199,7 @@ export function rackRowDisplayList(ix: ProjectIndex, spec: RowSpec, o: RowOpts =
 				? { k: 'text', at: { x: dx + Math.min(w * 0.6, 40) * 0.35, y: -(z0 + z1) / 2 }, text: d.name + note, size: Math.min(w * 0.6, 40, (z1 - z0) / Math.max(4, d.name.length) * 1.4), anchor: 'middle', rot: -90, cls: nameCls, src: grid ? undefined : d.id, minPx: 6 }
 				: grid
 				// no src: drawn over the ports, it must not take their clicks (the device is picked by its body)
-				? { k: 'text', at: { x: dx - w / 2 + 4, y: -(z1 - nameSize * 0.95) }, text: d.name + note, size: nameSize, cls: `${nameCls} on-ports`, minPx: 6 }
+				? { k: 'text', at: { x: dx - w / 2 + 4, y: -(z1 - nameSize * 0.95) }, text: d.name + note, size: nameSize, cls: `${nameCls} on-ports`, role: 'device-name', minPx: 6 }
 				: { k: 'text', at: { x: dx - w / 2 + 6, y: -(z1 - Math.min(RU_MM * 0.75, (z1 - z0) * 0.8)) }, text: d.name + note, size: Math.min(RU_MM * 0.45, (z1 - z0) * 0.5), cls: nameCls, src: d.id, minPx: 6 }
 			if (!grid || narrow) out.push(nameText)
 			let minLabel = Infinity   // the smallest port label: once it can be read, the name over the ports shrinks
@@ -212,7 +212,7 @@ export function rackRowDisplayList(ix: ProjectIndex, spec: RowSpec, o: RowOpts =
 				const label = ix.portLabel(ref), linked = !!ix.linkAt(ref)
 				const reserved = !!reservedFor(d, n)   // a panel's, or a switch's (W16)
 				const cls = (label ? (linked ? 'port port-linked' : 'port port-labelled') : 'port') + (patched.has(`${d.id}:${n}`) ? ' port-patched' : '') + (stale.has(n) ? ' port-stale' : '') + (reserved && !linked ? ' port-reserved' : '')
-				out.push({ k: 'line', pts: [{ x: c.x + 1, y: c.y + 1 }, { x: c.x + c.w - 1, y: c.y + 1 }, { x: c.x + c.w - 1, y: c.y + c.h - 1 }, { x: c.x + 1, y: c.y + c.h - 1 }], closed: true, fill: true, cls, src: d.id, sub: String(n) })
+				out.push({ k: 'line', pts: [{ x: c.x + 1, y: c.y + 1 }, { x: c.x + c.w - 1, y: c.y + 1 }, { x: c.x + c.w - 1, y: c.y + c.h - 1 }, { x: c.x + 1, y: c.y + c.h - 1 }], closed: true, fill: true, cls, role: 'port', src: d.id, sub: String(n) })
 				// a port cabled to an outlet: a light tint of the outlet's usage color, inside its edge (backlog "Usage colors")
 				const far = linked ? ix.farEnd(ref) : null, fo = far ? ix.get(far.on) : undefined
 				const tint = fo?.type === 'outlet' ? usageColour((id) => ix.get(id), fo.usage) : undefined
@@ -223,8 +223,8 @@ export function rackRowDisplayList(ix: ProjectIndex, spec: RowSpec, o: RowOpts =
 				const sizeFor = (lines: string[]) => Math.min((c.h * 0.85) / lines.length, (c.w * 0.92) / (Math.max(...lines.map((l) => l.length)) * 0.6))
 				const sS = sizeFor(short), sF = sizeFor(full)
 				minLabel = Math.min(minLabel, sS)
-				short.forEach((t, li) => out.push({ k: 'text', at: { x: c.x + c.w / 2, y: c.y + c.h / 2 + (li - (short.length - 1) / 2) * sS + sS * 0.35 }, text: t, size: sS, anchor: 'middle', cls: 'port-label', src: d.id, sub: String(n), minPx: LABEL_MIN_PX, maxPx: full.length > short.length ? FULL_MIN_PX * (sS / sF) : undefined }))
-				if (full.length > short.length) full.forEach((t, li) => out.push({ k: 'text', at: { x: c.x + c.w / 2, y: c.y + c.h / 2 + (li - (full.length - 1) / 2) * sF + sF * 0.35 }, text: t, size: sF, anchor: 'middle', cls: 'port-label', src: d.id, sub: String(n), minPx: FULL_MIN_PX }))
+				short.forEach((t, li) => out.push({ k: 'text', at: { x: c.x + c.w / 2, y: c.y + c.h / 2 + (li - (short.length - 1) / 2) * sS + sS * 0.35 }, text: t, size: sS, anchor: 'middle', cls: 'port-label', role: 'port-label', src: d.id, sub: String(n), minPx: LABEL_MIN_PX, maxPx: full.length > short.length ? FULL_MIN_PX * (sS / sF) : undefined }))
+				if (full.length > short.length) full.forEach((t, li) => out.push({ k: 'text', at: { x: c.x + c.w / 2, y: c.y + c.h / 2 + (li - (full.length - 1) / 2) * sF + sF * 0.35 }, text: t, size: sF, anchor: 'middle', cls: 'port-label', role: 'port-label', src: d.id, sub: String(n), minPx: FULL_MIN_PX }))
 			}
 			// 24 ports or more: a tick under the middle of the ports, up from the device's bottom edge to the ports (6 mm at most)
 			// (User: cable a frame's left-hand outlets to the switch's left-hand ports, its right-hand ones to the right)
@@ -262,15 +262,15 @@ export function rackRowDisplayList(ix: ProjectIndex, spec: RowSpec, o: RowOpts =
 		// stub down from the port and, under it, where it goes — upright, no wider than the port, so neighbours don't overlap
 		if ((a || b) && !(a && b)) {
 			const p = (a ?? b)!, other = a ? c.b : c.a, y0 = p.y + p.hh, len = Math.max(30, p.hh * 3)
-			cords.push({ k: 'line', pts: [{ x: p.x, y: y0 }, { x: p.x, y: y0 + len }], cls: `cord cord-${c.status} cord-stub`, src: c.id, color: c.colour })
+			cords.push({ k: 'line', pts: [{ x: p.x, y: y0 }, { x: p.x, y: y0 + len }], cls: `cord cord-${c.status} cord-stub`, role: 'cord', src: c.id, color: c.colour })
 			const size = Math.min(p.hh * 1.6, 14)
 			cords.push({ k: 'text', at: { x: p.x + size * 0.35, y: y0 + len + size * 0.3 }, rot: 90, text: `→ ${ix.portPlace(other).replace(/ \((front|rear)\)$/, '')}`, size, anchor: 'start', cls: 'cord-stub-label', src: c.id, minPx: 7 })
 			continue
 		}
 		if (!a || !b) continue
-		if (o.cords === 'channels') { cords.push({ k: 'line', pts: channelRoute(a, b, lane++), cls: `cord cord-${c.status}`, src: c.id, color: c.colour }); continue }
+		if (o.cords === 'channels') { cords.push({ k: 'line', pts: channelRoute(a, b, lane++), cls: `cord cord-${c.status}`, role: 'cord', src: c.id, color: c.colour }); continue }
 		const sag = Math.min(200, Math.abs(a.x - b.x) * 0.15 + Math.abs(a.y - b.y) * 0.05)
-		cords.push({ k: 'line', pts: [a, { x: (a.x + b.x) / 2, y: Math.max(a.y, b.y) + sag }, b], cls: `cord cord-${c.status}`, src: c.id, color: c.colour })
+		cords.push({ k: 'line', pts: [a, { x: (a.x + b.x) / 2, y: Math.max(a.y, b.y) + sag }, b], cls: `cord cord-${c.status}`, role: 'cord', src: c.id, color: c.colour })
 	}
 	// the racks stand on the room's own floor (Space.floorMm, above FFL): everything drawn so far goes up by it
 	const lift = roomFloor(ix, spec.spaceId)
@@ -280,7 +280,7 @@ export function rackRowDisplayList(ix: ProjectIndex, spec: RowSpec, o: RowOpts =
 		const x1 = Math.max(...layout.map((l) => l.x0 + l.rack.widthMm)), sp = ix.get(spec.spaceId)
 		// FFL is the room's floor too until it has its own (then that line is the one to drag — editor/selectTool.ts)
 		const ownFloor = sp?.type === 'space' && !!sp.floorMm
-		lines.push({ k: 'line', pts: [{ x: -400, y: 0 }, { x: x1 + 400, y: 0 }], cls: 'datum datum-ffl room-line', ...(ownFloor ? {} : { sub: ROOM_FLOOR }) }, { k: 'text', at: { x: -400, y: -30 }, text: 'FFL', size: 60, cls: 'datum-label room-line' },
+		lines.push({ k: 'line', pts: [{ x: -400, y: 0 }, { x: x1 + 400, y: 0 }], cls: 'datum datum-ffl room-line', role: 'room-line', ...(ownFloor ? {} : { sub: ROOM_FLOOR }) }, { k: 'text', at: { x: -400, y: -30 }, text: 'FFL', size: 60, cls: 'datum-label room-line', role: 'room-line' },
 			...storeyPrims(ix.getOf('level', (sp as { levelId?: Id } | undefined)?.levelId), sp?.type === 'space' ? sp : undefined, -400, x1 + 400))
 	}
 	return [...lines, ...up(out), ...up(cords)]
@@ -295,8 +295,8 @@ export const ROOM_FLOOR = 'room-floor', ROOM_CEILING = 'room-ceiling'
  *  ceiling). Drawn under the racks, on the Room lines layer; nothing from the level when it has no heights. */
 function storeyPrims(lv: Level | undefined, room: Space | undefined, xa: number, xb: number): Prim[] {
 	const h = lv?.type === 'level' ? lv.heights : undefined
-	const line = (y: number, cls: string, sub?: string): Prim => ({ k: 'line', pts: [{ x: xa, y }, { x: xb, y }], cls: `${cls} room-line`, ...(sub ? { sub } : {}) })
-	const label = (y: number, text: string): Prim => ({ k: 'text', at: { x: xa, y }, text, size: 50, cls: 'datum-label room-line' })
+	const line = (y: number, cls: string, sub?: string): Prim => ({ k: 'line', pts: [{ x: xa, y }, { x: xb, y }], cls: `${cls} room-line`, role: 'room-line', ...(sub ? { sub } : {}) })
+	const label = (y: number, text: string): Prim => ({ k: 'text', at: { x: xa, y }, text, size: 50, cls: 'datum-label room-line', role: 'room-line' })
 	const sign = (v: number) => (v < 0 ? `-${-v}` : `+${v}`)
 	const out: Prim[] = []
 	const roomCeil = room?.ceilingMm, rFloor = room?.floorMm

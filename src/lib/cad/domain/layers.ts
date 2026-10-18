@@ -4,6 +4,7 @@
 // Who sees what is NOT stored here: the eye / lock are per user (the workspace), a viewport's freeze is on the sheet.
 import type { Id } from './types'
 import type { Entity, Layer, Sheet } from './drawing'
+import type { PrimRole } from './prim'
 
 /** `color` = the layer's color, applied to its items; `look` = a system layer's default: the color its items
  *  already draw in (shown on the swatch, NOT applied — forcing it would flatten colors that mean something: an
@@ -71,12 +72,12 @@ export function layerOf(e: Entity, known: Set<Id>): Id | undefined {
 }
 
 /** The layer a drawn prim is on: its source's — except that a containment run's RISER parts sit on Risers. */
-export function primLayer(cls: string, e: Entity | undefined, known: Set<Id>): Id | undefined {
+export function primLayer(role: PrimRole | undefined, e: Entity | undefined, known: Set<Id>): Id | undefined {
 	// a rack view's context: not pickable (no source), on their own layers so they can be hidden / frozen
-	if (!e) { const c = cls.split(' '); return c.includes('room-line') ? 'sys:room-lines' : c.includes('device-other') || c.includes('device-other-label') ? 'sys:other-face' : undefined }
-	if (e.type === 'shape' && e.role?.kind === 'containment' && !e.layerId && cls.startsWith('riser')) return 'sys:risers'
+	if (!e) return role === 'room-line' ? 'sys:room-lines' : role === 'other-face' ? 'sys:other-face' : undefined
+	if (e.type === 'shape' && e.role?.kind === 'containment' && !e.layerId && role === 'riser') return 'sys:risers'
 	// a device's port labels have their own layer (User 2026-10-07): hidden / frozen apart from the racks
-	if (e.type === 'device' && cls.split(' ').includes('port-label')) return 'sys:port-labels'
+	if (e.type === 'device' && role === 'port-label') return 'sys:port-labels'
 	return layerOf(e, known)
 }
 

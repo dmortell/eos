@@ -35,11 +35,11 @@ export function portMapDisplayList(ix: ProjectIndex, deviceIds: Id[]): Prim[] {
 		const d = ix.getOf('device', id)!, mine = rows.filter((r) => r.deviceId === id), g = portGrid(d), first = mine[0]
 		const w = g.cols * CELL_W + 2 * PAD, h = g.rows * CELL_H + 2 * PAD, top = y + TITLE_H
 		out.push({ k: 'text', at: { x: 0, y: y + 4 }, text: `${d.name} — ${first.rack} U${d.u}${first.room ? ` · ${first.room}` : ''} · ${d.portCount} ports`, size: 3.2, cls: 'device-label', src: d.id })
-		out.push({ k: 'line', pts: [{ x: 0, y: top }, { x: w, y: top }, { x: w, y: top + h }, { x: 0, y: top + h }], closed: true, fill: true, cls: `device device-${d.kind}`, src: d.id })
+		out.push({ k: 'line', pts: [{ x: 0, y: top }, { x: w, y: top }, { x: w, y: top + h }, { x: 0, y: top + h }], closed: true, fill: true, cls: `device device-${d.kind}`, role: 'device', src: d.id })
 		for (const r of mine) {
 			const [row, col] = portAt(d.portNumbering, r.port, g.rows, g.cols), x = PAD + col * CELL_W, cy = top + PAD + row * CELL_H
 			out.push({ k: 'line', pts: [{ x, y: cy }, { x: x + CELL_W, y: cy }, { x: x + CELL_W, y: cy + CELL_H }, { x, y: cy + CELL_H }], closed: true, fill: true,
-				cls: r.far ? `port port-linked${r.cordStatus ? ' port-patched' : ''}` : 'port', src: d.id, sub: String(r.port) })
+				cls: r.far ? `port port-linked${r.cordStatus ? ' port-patched' : ''}` : 'port', role: 'port', src: d.id, sub: String(r.port) })
 			out.push({ k: 'text', at: { x: x + 0.7, y: cy + 2 }, text: d.portLabels?.[String(r.port)] || String(r.port), size: 1.6, cls: 'u-label' })
 			const lines = farLines(r.far)
 			if (!lines.length) continue

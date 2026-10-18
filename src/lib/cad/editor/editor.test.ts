@@ -85,8 +85,8 @@ describe('picking uses what is drawn', () => {
 })
 
 describe('a cord over a port (W15)', () => {
-	const cell = { k: 'line' as const, pts: [{ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 10, y: 10 }, { x: 0, y: 10 }], closed: true, fill: true, cls: 'port port-linked', src: 'P1', sub: '7' }
-	const cord = { k: 'line' as const, pts: [{ x: -20, y: 5 }, { x: 40, y: 5 }], cls: 'cord cord-design', src: 'C1' }
+	const cell = { k: 'line' as const, pts: [{ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 10, y: 10 }, { x: 0, y: 10 }], closed: true, fill: true, cls: 'port port-linked', role: 'port' as const, src: 'P1', sub: '7' }
+	const cord = { k: 'line' as const, pts: [{ x: -20, y: 5 }, { x: 40, y: 5 }], cls: 'cord cord-design', role: 'cord' as const, src: 'C1' }
 	it('the click takes the port under the cord; off the port it takes the cord; anything else is left alone', () => {
 		expect(preferPort([cell, cord], cord, { x: 5, y: 5 })).toBe(cell)
 		expect(preferPort([cell, cord], cord, { x: 30, y: 5 })).toBe(cord)

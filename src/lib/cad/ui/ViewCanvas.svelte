@@ -337,7 +337,7 @@
 
 	/** Double-click a rack in a rack view: fit it; off a rack: the whole row. */
 	function focusRack(p: Pt): void {
-		const racks = prims.filter((x) => x.k === 'line' && x.cls === 'rack')
+		const racks = prims.filter((x) => x.k === 'line' && x.role === 'rack')
 		const id = pickAt(racks, p, TOL_PX / cam.k)
 		const b = id ? unionBounds(prims.filter((x) => x.src === id).map(primBounds)) : null
 		if (b) cam = fit(b, w, h)

@@ -32,7 +32,28 @@ export type Prim = (
 	/** Drawn from a BLOCK (an outlet's symbol, an insert): which, where, and its attribute values — so the DXF can write
 	 *  one INSERT of a BLOCK instead of loose lines (backlog "DXF blocks as BLOCK + INSERT"). Shared by all its prims. */
 	ins?: BlockInstance
+	/** What the prim IS, for the code that acts on it (picking, port tips, overlays, layers, DXF) — `cls` only styles
+	 *  it, so a renamed CSS class changes nothing else (hacky-code #6). Absent = nothing reads it by meaning. */
+	role?: PrimRole
 }
+
+/** The meanings a prim is read by (hacky-code #6). Set by the generator alongside `cls`; a restyled copy (a hover, a
+ *  highlight) keeps it.
+ *  - `port` — a device's port CELL (closed; `src` = the device, `sub` = the port number): rack views, port grids
+ *  - `port-label` — a port's label text over its cell (`src` / `sub` as the cell's when pickable)
+ *  - `cord` — a patch cord's line, or its stub when the cords are drawn as stubs (`src` = the cord)
+ *  - `device` — a device's body outline (`src` = the device)
+ *  - `device-name` — a device's name drawn over its ports (no `src`: it takes no clicks)
+ *  - `other-face` — a device on the rack's other face, outline and name (no `src`; the Other face layer)
+ *  - `rack` — a rack's body (`src` = the rack)
+ *  - `room-line` — a rack view's storey / room floor and ceiling lines and their labels (no `src`; the Room lines layer)
+ *  - `viewport` — a sheet viewport's frame (`sub` = the viewport id)
+ *  - `riser` — a containment run's riser: its symbol and label on a plan, its shaft in a riser view (the Risers layer)
+ *  - `run` / `run-high` — a containment run's drawn body, low / high tier (DXF E-CONTAINMENT / -HIGH)
+ *  - `run-pick` — a plan run's pick band (drawn along its centre line; DXF writes the run's outline instead)
+ *  - `fill` — a region's fill under its outline (DXF: a solid hatch) */
+export type PrimRole = 'port' | 'port-label' | 'cord' | 'device' | 'device-name' | 'other-face' | 'rack' | 'room-line' | 'viewport'
+	| 'riser' | 'run' | 'run-high' | 'run-pick' | 'fill'
 
 /** One placed block: its id, insertion point (drawing mm, y down), rotation (°), scale (incl. the annotative k), the
  *  filled attribute values, and the entity it draws. */

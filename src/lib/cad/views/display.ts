@@ -5,7 +5,7 @@ import type { Id, Pt } from '../domain/types'
 /** The scale plans and elevations are drawn at on screen (1:N): annotation (text, symbols) is sized for it. */
 export const PLOT_SCALE = 100
 
-export type { Prim, BlockInstance, Dash, Bounds } from '../domain/prim'
+export type { Prim, PrimRole, BlockInstance, Dash, Bounds } from '../domain/prim'
 import type { Prim, Dash, Bounds } from '../domain/prim'
 export const DASHES: Dash[] = ['dashed', 'dotted', 'dashdot']
 /** Standard lineweights, paper mm. */

@@ -230,7 +230,7 @@ export class CordTool implements Tool {
 	preview(c: ToolCtx): Prim[] {
 		if (!this.first || !this.#hover) return []
 		const f = this.first
-		const cell = c.prims().find((p) => p.k === 'line' && p.src === f.on && p.sub === String(f.port) && p.cls.startsWith('port'))
+		const cell = c.prims().find((p) => p.k === 'line' && p.src === f.on && p.sub === String(f.port) && p.role === 'port')
 		if (!cell || cell.k !== 'line') return []
 		const xs = cell.pts.map((p) => p.x), ys = cell.pts.map((p) => p.y)
 		const from = { x: (Math.min(...xs) + Math.max(...xs)) / 2, y: (Math.min(...ys) + Math.max(...ys)) / 2 }

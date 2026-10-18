@@ -5,7 +5,7 @@
 	import type { Prim } from '../views/display'
 
 	let { prims, lit }: { prims: Prim[]; lit: Map<string, string> } = $props()
-	const cells = $derived(lit.size ? prims.flatMap((p) => (p.k === 'line' && p.closed && p.src && p.sub && p.cls.startsWith('port') && lit.has(`${p.src}:${p.sub}`)
+	const cells = $derived(lit.size ? prims.flatMap((p) => (p.k === 'line' && p.closed && p.src && p.sub && p.role === 'port' && lit.has(`${p.src}:${p.sub}`)
 		? [{ kind: lit.get(`${p.src}:${p.sub}`)!, pts: p.pts.map((q) => `${q.x},${q.y}`).join(' ') }] : [])) : [])
 </script>
 

@@ -3,7 +3,7 @@ import { describe, it, expect } from 'vitest'
 import { pickPrim } from './pick'
 import type { Prim } from '../views/display'
 
-const cell = (n: number, x: number): Prim => ({ k: 'line', closed: true, pts: [{ x, y: 0 }, { x: x + 10, y: 0 }, { x: x + 10, y: 10 }, { x, y: 10 }], cls: 'port', src: 'PP1', sub: String(n) })
+const cell = (n: number, x: number): Prim => ({ k: 'line', closed: true, pts: [{ x, y: 0 }, { x: x + 10, y: 0 }, { x: x + 10, y: 10 }, { x, y: 10 }], cls: 'port', role: 'port', src: 'PP1', sub: String(n) })
 
 describe('picking a port', () => {
 	it('takes the cell under the point', () => {
@@ -15,7 +15,7 @@ describe('picking a port', () => {
 
 describe('a port label spilling over the next cell', () => {
 	it('does not take the click from the cell under it', () => {
-		const label: Prim = { k: 'text', at: { x: 15, y: 5 }, text: '1-001.B long label', size: 4, anchor: 'middle', cls: 'port-label', src: 'PP1', sub: '2' }
+		const label: Prim = { k: 'text', at: { x: 15, y: 5 }, text: '1-001.B long label', size: 4, anchor: 'middle', cls: 'port-label', role: 'port-label', src: 'PP1', sub: '2' }
 		const prims = [cell(1, 0), cell(2, 10), label]
 		expect((pickPrim(prims, { x: 5, y: 5 }, 1) as { sub?: string }).sub).toBe('1')
 	})

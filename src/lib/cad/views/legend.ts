@@ -43,7 +43,7 @@ export function legendPrims(id: string, at: Pt, title: string, rows: LegendRow[]
 			}
 		} else {
 			const s = icon * 0.7, sq = [{ x: cx - s / 2, y: cy - s / 2 }, { x: cx + s / 2, y: cy - s / 2 }, { x: cx + s / 2, y: cy + s / 2 }, { x: cx - s / 2, y: cy + s / 2 }]
-			out.push({ k: 'line', pts: sq, closed: true, fill: true, cls: 'shape-fill', ...(r.color ? { color: r.color } : {}), src: id })
+			out.push({ k: 'line', pts: sq, closed: true, fill: true, cls: 'shape-fill', role: 'fill', ...(r.color ? { color: r.color } : {}), src: id })
 			out.push({ k: 'line', pts: sq, closed: true, cls: 'legend-rule', src: id })
 		}
 		out.push({ k: 'text', at: { x: at.x + pad + icon + pad, y: cy + size * 0.35 }, text: r.name, size, cls: 'legend-text', src: id })

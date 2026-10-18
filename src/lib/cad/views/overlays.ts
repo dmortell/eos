@@ -20,7 +20,7 @@ import { fillTone, estCount } from '../domain/fill'
 export function portCells(prims: Prim[], s: PortSel | null): Prim[] {
 	if (!s) return []
 	const want = new Set(s.ports.map(String))
-	const cells = prims.flatMap((p) => (p.k === 'line' && p.src === s.on && p.sub && want.has(p.sub) && p.cls.startsWith('port') ? [{ ...p, cls: 'port-sel', src: undefined }] : []))
+	const cells = prims.flatMap((p) => (p.k === 'line' && p.src === s.on && p.sub && want.has(p.sub) && p.role === 'port' ? [{ ...p, cls: 'port-sel', src: undefined }] : []))
 	return [...cells, ...labelsOf(prims, new Set([...want].map((n) => `${s.on}:${n}`)), 'port-label port-label-sel'), ...namesOver(prims, [s.on])]
 }
 
@@ -31,21 +31,21 @@ export function outletPortCells(ix: ProjectIndex, prims: Prim[], selection: Id[]
 	if (!outlets.size) return []
 	const keys = new Set(ix.links.flatMap((l) => (outlets.has(l.b.on) ? [`${l.a.on}:${l.a.port}`] : outlets.has(l.a.on) ? [`${l.b.on}:${l.b.port}`] : [])))
 	if (!keys.size) return []
-	const cells = prims.flatMap((p) => (p.k === 'line' && p.src && p.sub && p.cls.startsWith('port') && keys.has(`${p.src}:${p.sub}`) ? [{ ...p, cls: 'port-sel', src: undefined }] : []))
+	const cells = prims.flatMap((p) => (p.k === 'line' && p.src && p.sub && p.role === 'port' && keys.has(`${p.src}:${p.sub}`) ? [{ ...p, cls: 'port-sel', src: undefined }] : []))
 	const devs = [...new Set([...keys].map((k) => k.split(':')[0]))]
 	return [...cells, ...labelsOf(prims, keys, 'port-label port-label-sel'), ...namesOver(prims, devs)]
 }
 
 /** A panel's name drawn over its ports (no src: it takes no clicks) — found inside the device's body. */
 function namesOver(prims: Prim[], devices: Id[]): Prim[] {
-	const bodies = prims.flatMap((p) => (p.k === 'line' && p.src && devices.includes(p.src) && p.cls.startsWith('device ') ? [primBounds(p)] : []))
-	return prims.filter((p) => p.k === 'text' && !p.src && p.cls.includes('on-ports') && bodies.some((b) => p.at.x >= b.x0 && p.at.x <= b.x1 && p.at.y >= b.y0 && p.at.y <= b.y1))
+	const bodies = prims.flatMap((p) => (p.k === 'line' && p.src && devices.includes(p.src) && p.role === 'device' ? [primBounds(p)] : []))
+	return prims.filter((p) => p.k === 'text' && !p.src && p.role === 'device-name' && bodies.some((b) => p.at.x >= b.x0 && p.at.x <= b.x1 && p.at.y >= b.y0 && p.at.y <= b.y1))
 }
 
 /** The port labels of these ports (`device:port`), restyled, to draw over a highlight cell (no layer color: the
  *  class decides). */
 function labelsOf(prims: Prim[], keys: Set<string>, cls: string): Prim[] {
-	return prims.flatMap((p) => (p.k === 'text' && p.src && p.sub && p.cls === 'port-label' && keys.has(`${p.src}:${p.sub}`) ? [{ ...p, cls, src: undefined, color: undefined }] : []))
+	return prims.flatMap((p) => (p.k === 'text' && p.src && p.sub && p.role === 'port-label' && keys.has(`${p.src}:${p.sub}`) ? [{ ...p, cls, src: undefined, color: undefined }] : []))
 }
 
 /** The circuit of a selected cord or single port (rack rows): its cords and ports drawn highlighted. */
@@ -60,7 +60,7 @@ export function circuitOf(ix: ProjectIndex, prims: Prim[], selection: Id[], ps: 
 	if (ps?.ports.length === 1) ports.delete(`${ps.on}:${ps.ports[0]}`)   // the selected port itself: blue, not blue over amber
 	const lines = prims.flatMap((p) => p.k !== 'line' ? [] :
 		p.src && cords.has(p.src) ? [{ ...p, cls: 'trace-cord', src: undefined, color: undefined }] :   // no inline color: the trace look wins
-		p.src && p.sub && p.cls.startsWith('port') && ports.has(`${p.src}:${p.sub}`) ? [{ ...p, cls: 'trace-port', src: undefined }] : [])
+		p.src && p.sub && p.role === 'port' && ports.has(`${p.src}:${p.sub}`) ? [{ ...p, cls: 'trace-port', src: undefined }] : [])
 	const devs = [...new Set(steps.map((s) => s.ref.on))]
 	return [...lines, ...labelsOf(prims, ports, 'port-label port-label-trace'), ...namesOver(prims, devs)]   // labels and names over the cells
 }
@@ -227,7 +227,7 @@ export function workPlaneAt(spec: ViewSpec, other: ViewSpec, p: Pt): number | nu
 
 /** A sheet's picked VIEWPORT: its frame highlighted and (unlocked) corner grips a constant `g` mm (= 4 px) across. */
 export function viewportHighlight(prims: Prim[], vpId: Id, locked: boolean, g: number): Prim[] {
-	const frame = prims.find((p) => p.k === 'line' && p.sub === vpId && p.cls.startsWith('viewport'))
+	const frame = prims.find((p) => p.k === 'line' && p.sub === vpId && p.role === 'viewport')
 	if (!frame || frame.k !== 'line') return []
 	const grips: Prim[] = locked ? [] : frame.pts.map((q) => ({ k: 'line', pts: [{ x: q.x - g, y: q.y - g }, { x: q.x + g, y: q.y - g }, { x: q.x + g, y: q.y + g }, { x: q.x - g, y: q.y + g }], closed: true, fill: true, cls: 'grip' }))
 	return [{ ...frame, cls: 'viewport sel', src: undefined }, ...grips]

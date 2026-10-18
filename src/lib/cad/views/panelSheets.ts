@@ -33,11 +33,11 @@ function panelPrims(ix: ProjectIndex, d: Device, y0: number, x0 = M): Prim[] {  
 	for (let n = 1; n <= d.portCount; n++) {
 		const [r, c] = g.at(n), x = x0 + c * CW, y = y0 + TITLE_H + r * CELL_H
 		const label = ix.portLabel({ on: d.id, port: n })
-		out.push({ k: 'line', pts: [{ x, y }, { x: x + CW, y }, { x: x + CW, y: y + CELL_H }, { x, y: y + CELL_H }], closed: true, fill: true, cls: label ? 'port port-labelled' : 'port', src: d.id, sub: String(n) })
+		out.push({ k: 'line', pts: [{ x, y }, { x: x + CW, y }, { x: x + CW, y: y + CELL_H }, { x, y: y + CELL_H }], closed: true, fill: true, cls: label ? 'port port-labelled' : 'port', role: 'port', src: d.id, sub: String(n) })
 		out.push({ k: 'text', at: { x: x + 0.8, y: y + 2.2 }, text: String(n), size: 1.8, cls: 'u-label' })
 		if (!label) continue
 		const lines = labelLines(label).full, size = fitSize(lines, CW), lh = size * 1.2, top = y + 2.6 + (CELL_H - 2.6 - lines.length * lh) / 2 + size
-		lines.forEach((t, i) => out.push({ k: 'text', at: { x: x + CW / 2, y: top + i * lh }, text: t, size, anchor: 'middle', cls: 'port-label' }))
+		lines.forEach((t, i) => out.push({ k: 'text', at: { x: x + CW / 2, y: top + i * lh }, text: t, size, anchor: 'middle', cls: 'port-label', role: 'port-label' }))
 	}
 	return out
 }

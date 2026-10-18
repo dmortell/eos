@@ -7,6 +7,14 @@ import { ProjectIndex } from '../domain/project'
 import { demoProject } from '../domain/fixtures'
 import { BUILTIN_BLOCKS } from '../domain/blocks'
 import type { Prim } from '../views/display'
+import { rackRowDisplayList } from '../views/rackRow'
+import { elevationDisplayList } from '../views/elevation'
+import { sheetDisplayList } from '../views/sheet'
+import { spaceOf } from '../views/space'
+import { makeWall } from '../domain/make'
+import type { Rack } from '../domain/types'
+import type { Shape } from '../domain/shapes'
+import type { Sheet } from '../domain/drawing'
 
 const ix = () => new ProjectIndex(demoProject())
 
@@ -31,10 +39,38 @@ describe('DXF', () => {
 		expect(r.text).toContain('A-IMAGE')
 		expect(r.text).toContain('not included in the DXF')
 	})
-	it('layers by class', () => {
-		expect(layerOf('run run-high').name).toBe('E-CONTAINMENT-HIGH')
-		expect(layerOf('outlet outlet-low').name).toBe('E-OUTLETS')
-		expect(layerOf('mystery').name).toBe('0')
+	it('layers by role, else by class', () => {
+		expect(layerOf({ cls: 'run run-high', role: 'run-high' }).name).toBe('E-CONTAINMENT-HIGH')
+		expect(layerOf({ cls: 'outlet outlet-low' }).name).toBe('E-OUTLETS')
+		expect(layerOf({ cls: 'mystery' }).name).toBe('0')
+		// the role decides, not the CSS class (hacky-code #6): a renamed class keeps its layer
+		expect(layerOf({ cls: 'renamed', role: 'rack' }).name).toBe('E-RACKS')
+		expect(layerOf({ cls: 'rack' }).name).toBe('0')
+	})
+	it('every prim the plan, a rack row, an elevation and a sheet draw keeps the DXF layer its class gave it before roles (hacky-code #6)', () => {
+		// the class → layer table as it was (first word; run-high anywhere → the high layer)
+		const OLD: Record<string, string> = { outlet: 'E-OUTLETS', run: 'E-CONTAINMENT', 'run-body': 'E-CONTAINMENT', riser: 'E-RISERS', 'riser-label': 'E-RISERS', rack: 'E-RACKS', 'rack-x': 'E-RACKS',
+			'port-mid': 'E-RACKS', 'rack-back': 'E-RACKS', wall: 'A-WALL', shape: 'A-DETAIL', 'tile-line': 'A-FLOR-TILE', label: 'ANNO-LABELS', note: 'ANNO-TEXT' }
+		const old = (cls: string) => (/\brun-high\b/.test(cls) ? 'E-CONTAINMENT-HIGH' : OLD[cls.split(/\s+/)[0]] ?? '0')
+		const ents = demoProject().map((e) => (e.id === 'R1' ? { ...(e as Rack), at: { x: 5000, y: 1000 } } : e))
+		ents.push(makeWall('L33', [{ x: 0, y: 0 }, { x: 4000, y: 0 }], 100, 2600),
+			{ type: 'shape', id: 'RF', levelId: 'L33', style: { fill: '#fde047' }, geom: { kind: 'rect', centre: { x: 2000, y: 2000 }, size: { x: 100, y: 50 } } } as Shape)
+		const sheet = { type: 'sheet', id: 'SH', number: 'S-001', title: 'Plan', order: 1, paper: { size: 'A3', orientation: 'landscape', marginMm: 10 }, status: 'active',
+			viewports: [{ id: 'V1', view: { levelId: 'L33', spec: { kind: 'plan' } }, rect: { x: 20, y: 20, w: 200, h: 150 }, scale: 100, centre: { x: 3000, y: 3000 } },
+				{ id: 'V2', view: { levelId: 'L33', spec: { kind: 'row', spaceId: 'SR-A', face: 'front' } }, rect: { x: 230, y: 20, w: 150, h: 150 }, scale: 50, centre: { x: 0, y: -1000 } }] } as unknown as Sheet
+		const i = new ProjectIndex([...ents, sheet])
+		const lists = [planDisplayList(i, 'L33', { scale: 100 }), rackRowDisplayList(i, { spaceId: 'SR-A', face: 'front' }), rackRowDisplayList(i, { spaceId: 'SR-A', face: 'rear' }),
+			elevationDisplayList(i, 'L33', spaceOf({ kind: 'elevation', dir: 'front' }), { scale: 100 }), sheetDisplayList(i, sheet)]
+		// what the DXF writes (a region's fill is its hatch, a plan run's pick bands are left out)
+		const written = lists.flat().filter((p): p is Exclude<Prim, { k: 'image' }> => p.k !== 'image' && p.role !== 'fill' && p.role !== 'run-pick')
+		expect(written.map((p) => layerOf(p).name)).toEqual(written.map((p) => old(p.cls)))
+		const names = new Set(written.map((p) => layerOf(p).name))
+		for (const n of ['E-RACKS', 'E-RISERS', 'E-CONTAINMENT-HIGH', 'E-OUTLETS', 'A-WALL']) expect(names).toContain(n)
+		// the left-out ones were the same before: the fill by its class, the pick bands by `run-hit`
+		const skipped = lists.flat().filter((p) => p.k !== 'image' && (p.role === 'fill' || p.role === 'run-pick'))
+		expect(skipped.length).toBeGreaterThan(0)
+		const wasSkipped = lists.flat().filter((p) => p.k !== 'image' && (p.cls === 'shape-fill' || p.cls.split(' ').includes('run-hit')))
+		expect(wasSkipped).toEqual(skipped)
 	})
 })
 

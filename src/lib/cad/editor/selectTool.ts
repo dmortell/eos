@@ -595,7 +595,7 @@ export class SelectTool implements Tool {
 		// the NEAREST port cell (inside one = 0): the topmost within the tolerance was the next port along, on small cells
 		let hit: Prim | undefined, best = c.tol()
 		for (const p of c.prims()) {
-			if (p.k !== 'line' || !p.sub || !p.cls.startsWith('port')) continue
+			if (p.k !== 'line' || !p.sub || p.role !== 'port') continue
 			const dist = primDist(p, e.p)
 			if (dist <= best) { best = dist; hit = p }
 		}
