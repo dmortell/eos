@@ -26,7 +26,7 @@ CadShell, ViewCanvas and selectTool were split 2026-10-07; split again only when
   model. Questions: a guest account limited to one project and its released sheets (the Firestore / Storage rules
   allow only the team today) or a shared link to an issued PDF with markup coming back as a file; where markups
   live (a layer per reviewer on the sheet? a separate review doc tied to a release?); seeing their marks against the
-  next revision; notifications. **P? · L** (investigate first).
+  next revision; notifications. **P? · L** (investigate first). **Investigated 2026-10-20: `outside-review.md`** — recommends a PDF round trip (Release › Import review…: annotations → an overlay per reviewer + Log changes), guest accounts later; 5 questions for the User there.
 
 - [x] **Hide layers in PDF files** (User 2026-10-16 todo; DONE — User 2026-10-18: set in the Uploads tool, which cad draws with and a new floorplan revision copies; no cad control needed) — turn a floorplan PDF's own layers (OCGs: furniture,
   dimensions, other trades) on / off from cad, per file. cad already DRAWS with the file's `hiddenLayers` (set in
