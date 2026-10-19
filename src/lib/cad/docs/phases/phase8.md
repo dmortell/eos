@@ -4171,3 +4171,8 @@ User: "Yes, cords kept inside the set" (the ❓ entry of 2026-10-17).
 - Help: "Change the order of racks". Tests: clipboard (cords in / out, pasted states, row kept, the row copy), racks
   (the drag, the Ctrl copy, a drop on itself). Seen live on Test Project 33IDF2 (move, copy on the plan, both undone;
   the Ctrl copy sent as page pointer events — the browser tool's Ctrl didn't reach the drag).
+- Into another row (User 2026-10-20: "build it and move them to the row's end"): dropped on a rack of another row of
+  the room (All rows), the racks join that row — out of their old row's hand order — and on the plan move to the end
+  of its run, lined up with it and facing as it does (`runEndPlaces`, shared with the Ctrl copies, which now go to the
+  end of the target's run too). The racks list still moves a rack only within its row. Tested (move and copy into
+  another row); seen live on 33IDF2 (R313 put in Row B, R312 dragged onto it: Row B, Y −10093 past R313 — both undone).

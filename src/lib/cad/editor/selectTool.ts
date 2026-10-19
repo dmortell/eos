@@ -588,24 +588,27 @@ export class SelectTool implements Tool {
 	}
 
 	/** Racks dragged in a rack view, dropped: before / after the rack under the pointer (the half it's on, as the row reads
-	 *  from this face), or copies of them there with Ctrl. */
+	 *  from this face) — into its row if they were in another — or copies of them there with Ctrl. */
 	#dropRacks(ids: Id[], e: PointerIn, c: ToolCtx): void {
 		const hit = c.rowHit?.(e.p), spec = c.space.spec
-		if (!hit || ids.includes(hit.rack.id)) { c.say?.('Not moved — drop on another rack of the row'); return }
+		if (!hit || ids.includes(hit.rack.id)) { c.say?.('Not moved — drop on another rack'); return }
 		const right = e.p.x > hit.x0 + hit.rack.widthMm / 2, after = spec.kind === 'row' && spec.face === 'rear' ? !right : right
 		const n = ids.length === 1 ? 'rack' : `${ids.length} racks`, where = `${after ? 'after' : 'before'} ${hit.rack.name}`
+		const rowName = hit.rack.rowId ? c.index.getOf('rackRow', hit.rack.rowId)?.name ?? 'its row' : 'no row'
 		if (e.ctrl) {
 			const r = copyRacksInRow(c.index, ids, hit.rack.id, after)
-			if (!r) { c.say?.('Not copied — drop on a rack of the same row'); return }
+			if (!r) { c.say?.('Not copied — drop on a rack of the same room'); return }
 			c.store.transact(`Copy ${n}`, (tx) => { for (const x of r.put) tx.put(x) })
 			c.select(r.select)
-			c.say?.(`Copied the ${n} ${where}, with their devices and the cords between them — on the plan past the row's last rack · Ctrl+Z undoes`)
+			c.say?.(`Copied the ${n} ${where} (${rowName}), with their devices and the cords between them — on the plan at the end of its run · Ctrl+Z undoes`)
 			return
 		}
-		const space = moveRacks(c.index, ids, hit.rack.id, after)
-		if (!space) { c.say?.('Not moved — drop on a rack of the same row'); return }
-		c.store.transact(`Move ${n}`, (tx) => tx.put(space))
-		c.say?.(`Moved the ${n} ${where} (the row's order, not the plan) · Ctrl+Z undoes`)
+		const put = moveRacks(c.index, ids, hit.rack.id, after)
+		if (!put) { c.say?.('Not moved — drop on a rack of the same room'); return }
+		c.store.transact(`Move ${n}`, (tx) => { for (const x of put) tx.put(x) })
+		c.say?.(put.length > 1
+			? `Moved the ${n} ${where} — into ${rowName}, on the plan at the end of its run · Ctrl+Z undoes`
+			: `Moved the ${n} ${where} (the row's order, not the plan) · Ctrl+Z undoes`)
 	}
 
 	/** The end of a press on a picked port: a click picks that port alone; a drop on a panel (its port, else its first

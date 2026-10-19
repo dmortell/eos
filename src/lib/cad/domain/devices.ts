@@ -166,24 +166,56 @@ export const rowKey = (r: Pick<Rack, 'rowId'>): string => r.rowId ?? 'none'
 /** Move a rack before / after another of its row (dragged in the racks list, backlog "Rack order in a row"): the room's
  *  hand order for that row, written in full. Null = not the same row (or itself). */
 export function moveRack(ix: ProjectIndex, rackId: Id, targetId: Id, after: boolean): Space | null {
-	return moveRacks(ix, [rackId], targetId, after)
+	const r = ix.getOf('rack', rackId), t = ix.getOf('rack', targetId)
+	if (!r || !t || rowKey(r) !== rowKey(t)) return null
+	return (moveRacks(ix, [rackId], targetId, after)?.[0] as Space | undefined) ?? null
 }
 
-/** Several racks moved before / after another of their row (dragged in a rack view, User 2026-10-20), keeping their
- *  own order. Null = not all in the target's room and row (or the target is one of them). */
-export function moveRacks(ix: ProjectIndex, rackIds: Id[], targetId: Id, after: boolean): Space | null {
-	const row = rowOrderFor(ix, rackIds, targetId)
-	if (!row) return null
-	const moving = row.ids.filter((id) => rackIds.includes(id)), rest = row.ids.filter((id) => !rackIds.includes(id))
-	rest.splice(rest.indexOf(targetId) + (after ? 1 : 0), 0, ...moving)
-	return { ...row.space, rackOrder: { ...row.space.rackOrder, [row.key]: rest } }
+/** Several racks moved before / after another rack of their room (dragged in a rack view, User 2026-10-20), keeping
+ *  their own order. From another row they join the target's row, out of their old row's hand order, and on the plan
+ *  stand past the end of its run, facing as it does (`runEndPlaces`). The room first, then the racks that changed.
+ *  Null = not all in the target's room (or the target is one of them). */
+export function moveRacks(ix: ProjectIndex, rackIds: Id[], targetId: Id, after: boolean): Entity[] | null {
+	const row = rowOrderFor(ix, rackIds, targetId, true), t = ix.getOf('rack', targetId)
+	if (!row || !t) return null
+	const moving = racksInOrder(ix, t.spaceId).filter((r) => rackIds.includes(r.id))
+	const rest = row.ids.filter((id) => !rackIds.includes(id))
+	rest.splice(rest.indexOf(targetId) + (after ? 1 : 0), 0, ...moving.map((r) => r.id))
+	const order = { ...row.space.rackOrder, [row.key]: rest }
+	const joining = moving.filter((r) => rowKey(r) !== row.key)
+	// out of the hand order of the rows they leave
+	for (const r of joining) { const k = rowKey(r); if (order[k]) order[k] = order[k].filter((id) => id !== r.id) }
+	const places = runEndPlaces(ix, row.ids, t, joining, rackIds)
+	const racks = joining.map((r, i): Rack => {
+		const { rowId: _, ...rest } = r, p = places[i]
+		return { ...rest, ...(t.rowId ? { rowId: t.rowId } : {}), ...(p ? { at: p.at, rot: p.rot } : {}) }
+	})
+	return [{ ...row.space, rackOrder: order }, ...racks]
 }
 
-/** The room, row key and racks in order of the row `targetId` is in — when every one of `rackIds` is in it too. */
-export function rowOrderFor(ix: ProjectIndex, rackIds: Id[], targetId: Id): { space: Space; key: string; ids: Id[] } | null {
+/** Where racks go on the plan to stand past the end of `target`'s run in its row (the row's racks facing its way or
+ *  back to back, `skip` left out), one after another, lined up with it and facing as it does. Undefined for a rack
+ *  when the target isn't on the plan. */
+export function runEndPlaces(ix: ProjectIndex, rowIds: Id[], target: Rack, racks: Rack[], skip: Id[] = []): ({ at: Pt; rot: number } | undefined)[] {
+	if (!target.at) return racks.map(() => undefined)
+	const rot = target.rot ?? 0, right = rotate({ x: 1, y: 0 }, rot), across = rotate({ x: 0, y: 1 }, rot)
+	const turn = (r: Rack) => ((((r.rot ?? 0) % 180) + 180) % 180)
+	const along = (p: Pt) => p.x * right.x + p.y * right.y, off = target.at.x * across.x + target.at.y * across.y
+	const run = rowIds.map((id) => ix.getOf('rack', id)).filter((r): r is Rack => !!r?.at && turn(r) === turn(target) && !skip.includes(r.id))
+	let s = Math.max(along(target.at) + target.widthMm / 2, ...run.map((r) => along(r.at!) + r.widthMm / 2))
+	return racks.map((r) => {
+		const c = s + r.widthMm / 2
+		s += r.widthMm
+		return { at: { x: right.x * c + across.x * off, y: right.y * c + across.y * off }, rot }
+	})
+}
+
+/** The room, row key and racks in order of the row `targetId` is in — when every one of `rackIds` is in it too (`anyRow`:
+ *  in its room). */
+export function rowOrderFor(ix: ProjectIndex, rackIds: Id[], targetId: Id, anyRow = false): { space: Space; key: string; ids: Id[] } | null {
 	const t = ix.getOf('rack', targetId), space = t ? ix.getOf('space', t.spaceId) : undefined
 	if (!t || !space || !rackIds.length || rackIds.includes(targetId)) return null
-	if (!rackIds.every((id) => { const r = ix.getOf('rack', id); return r?.spaceId === t.spaceId && rowKey(r) === rowKey(t) })) return null
+	if (!rackIds.every((id) => { const r = ix.getOf('rack', id); return r?.spaceId === t.spaceId && (anyRow || rowKey(r) === rowKey(t)) })) return null
 	return { space, key: rowKey(t), ids: racksInOrder(ix, t.spaceId).filter((x) => rowKey(x) === rowKey(t)).map((x) => x.id) }
 }
 

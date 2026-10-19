@@ -1,7 +1,7 @@
 // Copy / paste, as behaviour: what a paste writes, where it lands, what its labels and references become.
 import { describe, it, expect } from 'vitest'
 import { makeClip, parseClip, pasteClip, clipCentre, copyRacksInRow, type PasteTarget } from './clipboard'
-import { moveRacks } from './devices'
+import { moveRacks, moveRack } from './devices'
 import { ProjectIndex } from './project'
 import { demoProject } from './fixtures'
 import type { Entity, Layer, Sheet } from './drawing'
@@ -156,18 +156,42 @@ describe('paste at the cursor (Ctrl+Shift+V)', () => {
 
 describe('several racks in a rack view (User 2026-10-20)', () => {
 	// a row of three along x: R1 (with the fixture's panel, switch and cords), then RB, RC
-	const row = (): ProjectIndex => {
+	const rowEntities = (): Entity[] => {
 		const base = demoProject().map((e) => (e.id === 'R1' && e.type === 'rack' ? { ...e, rowId: 'W', at: { x: 300, y: 0 } } : e))
 		const more = [{ type: 'rackRow', id: 'W', spaceId: 'SR-A', name: 'Row A', order: 0 },
 			{ ...base.find((e) => e.id === 'R1'), id: 'RB', name: 'A02', at: { x: 900, y: 0 } }, { ...base.find((e) => e.id === 'R1'), id: 'RC', name: 'A03', at: { x: 1500, y: 0 } }] as Entity[]
-		return new ProjectIndex([...base, L34, ...more])
+		return [...base, L34, ...more]
 	}
+	const row = (): ProjectIndex => new ProjectIndex(rowEntities())
 	const order = (i: ProjectIndex, put: Entity[]) => (put.find((e) => e.type === 'space') as Space).rackOrder?.W
 	it('drag: they move together, in their own order, before / after the rack dropped on', () => {
 		const i = row()
-		expect(moveRacks(i, ['RB', 'R1'], 'RC', true)?.rackOrder?.W).toEqual(['RC', 'R1', 'RB'])
-		expect(moveRacks(i, ['RC'], 'R1', false)?.rackOrder?.W).toEqual(['RC', 'R1', 'RB'])
+		expect((moveRacks(i, ['RB', 'R1'], 'RC', true)?.[0] as Space).rackOrder?.W).toEqual(['RC', 'R1', 'RB'])
+		expect((moveRacks(i, ['RC'], 'R1', false)?.[0] as Space).rackOrder?.W).toEqual(['RC', 'R1', 'RB'])
+		expect(moveRacks(i, ['RC'], 'R1', false)).toHaveLength(1)   // within the row: only the order changes
 		expect(moveRacks(i, ['RB'], 'RB', true)).toBeNull()       // onto itself
+	})
+	// a second row X in the same room: XA, XB along x at y 3000; row W has a hand order
+	const two = (): ProjectIndex => {
+		const es = rowEntities(), rack = es.find((e) => e.id === 'RB') as Rack
+		const all = es.map((e) => (e.type === 'space' && e.id === 'SR-A' ? { ...e, rackOrder: { W: ['RC', 'R1', 'RB'] } } : e))
+		return new ProjectIndex([...all, { type: 'rackRow', id: 'X', spaceId: 'SR-A', name: 'Row B', order: 1 } as Entity,
+			{ ...rack, id: 'XA', name: 'B01', rowId: 'X', at: { x: 0, y: 3000 } }, { ...rack, id: 'XB', name: 'B02', rowId: 'X', at: { x: 600, y: 3000 } }])
+	}
+	it('dropped on a rack of another row: they join it, leave the old row’s order, and stand at the end of its run on the plan', () => {
+		const i = two(), put = moveRacks(i, ['RB'], 'XB', true)!
+		const space = put[0] as Space, rb = put.find((e) => e.id === 'RB') as Rack
+		expect([space.rackOrder?.X, space.rackOrder?.W]).toEqual([['XA', 'XB', 'RB'], ['RC', 'R1']])
+		expect([rb.rowId, rb.at, rb.rot]).toEqual(['X', { x: 1200, y: 3000 }, 0])   // past XB (600 + 300), facing as it does
+		expect(moveRack(i, 'RB', 'XB', true)).toBeNull()   // the racks list still moves a rack within its own row
+	})
+	it('Ctrl-dropped on another row: the copies join that row at its run’s end; the originals stay', () => {
+		const i = two(), r = copyRacksInRow(i, ['R1'], 'XA', false)!
+		const copy = r.put.find((e) => e.type === 'rack') as Rack
+		expect([copy.name, copy.rowId, copy.at]).toEqual(['A01', 'X', { x: 1200, y: 3000 }])
+		expect(order(i, r.put)).toEqual(['RC', 'R1', 'RB'])   // row W as it was
+		expect((r.put.find((e) => e.type === 'space') as Space).rackOrder?.X).toEqual([copy.id, 'XA', 'XB'])
+		expect(r.put.some((e) => e.id === 'R1')).toBe(false)
 	})
 	it('Ctrl-drag: copies with devices and their cords, in the row where dropped; on the plan past the row’s end', () => {
 		const i = row(), r = copyRacksInRow(i, ['R1', 'RB'], 'RC', true)!

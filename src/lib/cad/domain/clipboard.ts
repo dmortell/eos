@@ -2,16 +2,16 @@
 // levels, sheets, tabs and projects. A paste is AS-IS (User): same coordinates, same labels — the user sorts out
 // overlaps and duplicates. It gets new ids (references inside the copy follow), keeps each item's layer (bringing the
 // project layers it uses) and drops references the target can't honour. Ctrl-drag copy is the same paste, moved.
-import type { Id, Pt, Device, Space, Cord, Link, Rack } from './types'
+import type { Id, Pt, Device, Space, Cord, Link } from './types'
 import { outletZ } from './floors'
 import type { Entity, Layer, Sheet, Group, Viewport } from './drawing'
 import { moveGeometry, outlineOf, type Shape } from './shapes'
 import type { ProjectIndex } from './project'
 import { newId } from './ids'
 import { freezeInExisting } from './layers'
-import { newServerRoom, placementProblem, rowOrderFor } from './devices'
+import { newServerRoom, placementProblem, rowOrderFor, racksInOrder, runEndPlaces } from './devices'
 import { untie } from './sheetEdit'
-import { unproject, rotate } from './conventions'
+import { unproject } from './conventions'
 
 export const CLIP_MARK = 'eos-cad-clip/1'
 
@@ -264,22 +264,25 @@ export function pasteClip(clip: Clip, t: PasteTarget): Pasted {
  *  devices and the cords / links between them, in the row's order where dropped; on the plan they stand past the row's
  *  last rack, along its run (move them into place after). Null = not all in the target's row. */
 export function copyRacksInRow(ix: ProjectIndex, rackIds: Id[], targetId: Id, after: boolean): Pasted | null {
-	const row = rowOrderFor(ix, rackIds, targetId)
-	if (!row) return null
-	const ids = row.ids.filter((id) => rackIds.includes(id)), racks = ids.map((id) => ix.getOf('rack', id)!)
-	const clip = makeClip(ix, ids, '')
+	const row = rowOrderFor(ix, rackIds, targetId, true), t = ix.getOf('rack', targetId)
+	if (!row || !t) return null
+	const racks = racksInOrder(ix, t.spaceId).filter((r) => rackIds.includes(r.id))
+	const clip = makeClip(ix, racks.map((r) => r.id), '')
 	if (!clip) return null
-	// on the plan: just past the last rack of their run (the row's racks facing their way or back to back — beside the
-	// originals they'd sit on their neighbours; a run turned round a corner isn't in the way)
-	const right = rotate({ x: 1, y: 0 }, racks[0].rot ?? 0), along = (r: Rack) => r.at!.x * right.x + r.at!.y * right.y
-	const turn = (r: Rack) => ((((r.rot ?? 0) % 180) + 180) % 180)
-	const placed = (rs: Rack[]) => rs.filter((r) => r.at && turn(r) === turn(racks[0]))
-	const rowRacks = placed(row.ids.map((id) => ix.getOf('rack', id)!)), own = placed(racks)
-	const by = own.length ? Math.max(...rowRacks.map((r) => along(r) + r.widthMm / 2)) - Math.min(...own.map((r) => along(r) - r.widthMm / 2)) : 0
-	const r = pasteClip(clip, { pid: '', ix, to: { kind: 'level', id: racks[0].levelId }, d: { x: right.x * by, y: right.y * by } })
-	const made = r.put.filter((e) => e.type === 'rack').map((e) => e.id), order = [...row.ids]
+	const r = pasteClip(clip, { pid: '', ix, to: { kind: 'level', id: t.levelId } })
+	// the copies (in the clip's order) join the target's row, and on the plan stand past the end of its run — beside
+	// the originals they'd sit on their neighbours (User 2026-10-20: "move them to the row's end")
+	const places = runEndPlaces(ix, row.ids, t, racks), made: Id[] = []
+	let i = 0
+	const put = r.put.map((e): Entity => {
+		if (e.type !== 'rack') return e
+		const { rowId: _, ...rest } = e, p = places[i++]
+		made.push(e.id)
+		return { ...rest, ...(t.rowId ? { rowId: t.rowId } : {}), ...(p ? { at: p.at, rot: p.rot } : {}) }
+	})
+	const order = [...row.ids]
 	order.splice(order.indexOf(targetId) + (after ? 1 : 0), 0, ...made)
-	return { ...r, put: [...r.put, { ...row.space, rackOrder: { ...row.space.rackOrder, [row.key]: order } }], select: made }
+	return { ...r, put: [...put, { ...row.space, rackOrder: { ...row.space.rackOrder, [row.key]: order } }], select: made }
 }
 
 /** A copied device is a new thing: its panel's printed-labels record belongs to the original (a copy would say its
