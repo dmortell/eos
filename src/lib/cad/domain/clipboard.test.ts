@@ -1,6 +1,7 @@
 // Copy / paste, as behaviour: what a paste writes, where it lands, what its labels and references become.
 import { describe, it, expect } from 'vitest'
-import { makeClip, parseClip, pasteClip, clipCentre, type PasteTarget } from './clipboard'
+import { makeClip, parseClip, pasteClip, clipCentre, copyRacksInRow, type PasteTarget } from './clipboard'
+import { moveRacks } from './devices'
 import { ProjectIndex } from './project'
 import { demoProject } from './fixtures'
 import type { Entity, Layer, Sheet } from './drawing'
@@ -18,9 +19,27 @@ describe('copy', () => {
 		expect(parseClip('hello')).toBeNull()
 		expect(parseClip('{"a":1}')).toBeNull()
 	})
-	it('a rack comes with its devices; links and cords stay behind', () => {
-		const types = copy(ix(), ['R1']).items.map((e) => e.type)
-		expect(types).toEqual(['rack', 'device', 'device'])
+	it('a rack comes with its devices and the cords between them; links out to outlets stay behind', () => {
+		const i = ix(), cords = i.cords.filter((c) => c.status !== 'remove').length
+		const types = copy(i, ['R1']).items.map((e) => e.type)
+		expect(types).toEqual(['rack', 'device', 'device', ...Array(cords).fill('cord')])
+		expect(cords).toBeGreaterThan(0)
+		// with an outlet in the copy, its links to the rack's panel come too
+		const linked = i.links.find((l) => l.b.on === 'O1')!
+		expect(copy(i, ['R1', 'O1']).items.some((e) => e.id === linked.id)).toBe(true)
+	})
+	it('a pasted cord is one to fit (new ends, no label, nothing to revert); a link a cable to route', () => {
+		const i = ix(), clip = copy(i, ['R1', 'O1'])
+		const src = clip.items.find((e) => e.type === 'cord')!
+		clip.items = clip.items.map((e) => (e.id === src.id && e.type === 'cord' ? { ...e, status: 'installed', cordId: '2AR-0001', previous: { a: e.a, b: e.b, status: 'installed' } } : e))
+		const r = pasteClip(clip, target(i, { kind: 'level', id: 'L33' }, { d: { x: 5000, y: 0 } }))
+		const devices = new Set(r.put.filter((e) => e.type === 'device').map((e) => e.id))
+		const cord = r.put.find((e) => e.type === 'cord')!, link = r.put.find((e) => e.type === 'link')!
+		expect(cord.type === 'cord' && [devices.has(cord.a.on), devices.has(cord.b.on), cord.status, cord.cordId, cord.previous]).toEqual([true, true, 'add', undefined, undefined])
+		expect(link.type === 'link' && [devices.has(link.a.on), r.put.some((e) => e.type === 'outlet' && e.id === link.b.on), link.status, link.route]).toEqual([true, true, 'design', undefined])
+		expect(r.select.some((id) => id === cord.id || id === link.id)).toBe(false)
+		// pasted onto a sheet nothing carries the ends: the cords don't come either
+		expect(pasteClip(clip, target(i, { kind: 'sheet', id: 'nope' })).put.some((e) => e.type === 'cord')).toBe(false)
 	})
 	it('a note tied to a viewport is copied as plain paper points', () => {
 		const sheet: Sheet = { type: 'sheet', id: 'S', number: 'S1', title: 'S', order: 0, status: 'active', paper: { size: 'A3', orientation: 'landscape', marginMm: 10 },
@@ -132,5 +151,36 @@ describe('paste at the cursor (Ctrl+Shift+V)', () => {
 		expect(clipCentre(clip)).toEqual({ x: 3000, y: 500 })              // not (1000, 1200): u along the frame, depth across it
 		const r = pasteClip(clip, target(i, { kind: 'level', id: 'L33' }, { d: { x: 400, y: 900, z: 100 } }))
 		expect(r.put.flatMap((x) => (x.type === 'shape' && x.geom.kind === 'text' ? [x.geom.at] : []))).toEqual([{ x: 1400, y: 1300 }])
+	})
+})
+
+describe('several racks in a rack view (User 2026-10-20)', () => {
+	// a row of three along x: R1 (with the fixture's panel, switch and cords), then RB, RC
+	const row = (): ProjectIndex => {
+		const base = demoProject().map((e) => (e.id === 'R1' && e.type === 'rack' ? { ...e, rowId: 'W', at: { x: 300, y: 0 } } : e))
+		const more = [{ type: 'rackRow', id: 'W', spaceId: 'SR-A', name: 'Row A', order: 0 },
+			{ ...base.find((e) => e.id === 'R1'), id: 'RB', name: 'A02', at: { x: 900, y: 0 } }, { ...base.find((e) => e.id === 'R1'), id: 'RC', name: 'A03', at: { x: 1500, y: 0 } }] as Entity[]
+		return new ProjectIndex([...base, L34, ...more])
+	}
+	const order = (i: ProjectIndex, put: Entity[]) => (put.find((e) => e.type === 'space') as Space).rackOrder?.W
+	it('drag: they move together, in their own order, before / after the rack dropped on', () => {
+		const i = row()
+		expect(moveRacks(i, ['RB', 'R1'], 'RC', true)?.rackOrder?.W).toEqual(['RC', 'R1', 'RB'])
+		expect(moveRacks(i, ['RC'], 'R1', false)?.rackOrder?.W).toEqual(['RC', 'R1', 'RB'])
+		expect(moveRacks(i, ['RB'], 'RB', true)).toBeNull()       // onto itself
+	})
+	it('Ctrl-drag: copies with devices and their cords, in the row where dropped; on the plan past the row’s end', () => {
+		const i = row(), r = copyRacksInRow(i, ['R1', 'RB'], 'RC', true)!
+		const racks = r.put.filter((e) => e.type === 'rack') as Rack[]
+		expect(racks.map((x) => [x.name, x.rowId, x.at])).toEqual([['A01', 'W', { x: 2100, y: 0 }], ['A02', 'W', { x: 2700, y: 0 }]])   // past RC, the row's last
+		expect(order(i, r.put)).toEqual(['R1', 'RB', 'RC', ...racks.map((x) => x.id)])
+		expect(r.select).toEqual(racks.map((x) => x.id))
+		const devs = new Set(r.put.filter((e) => e.type === 'device').map((e) => e.id))
+		expect(r.put.filter((e) => e.type === 'cord').every((c) => c.type === 'cord' && devs.has(c.a.on) && devs.has(c.b.on))).toBe(true)
+		expect(r.put.some((e) => e.type === 'cord')).toBe(true)
+	})
+	it('a pasted rack stays in its row when it lands in that row’s room', () => {
+		const i = row(), r = pasteClip(copy(i, ['RB']), target(i, { kind: 'level', id: 'L33' }))
+		expect((r.put.find((e) => e.type === 'rack') as Rack).rowId).toBe('W')
 	})
 })

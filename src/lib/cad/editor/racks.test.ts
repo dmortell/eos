@@ -394,3 +394,24 @@ describe('devices in the rack row', () => {
 		expect(h.said.at(-1)).toMatch(/overlap/)
 	})
 })
+
+describe('racks dragged in a rack view (User 2026-10-20)', () => {
+	const R3: Rack = { ...R2, id: 'R3', order: 2, name: 'A03' }
+	const names = (h: ReturnType<typeof harness>) => rackLayout(new ProjectIndex(h.store.all()), { spaceId: 'SR-A', face: 'front' }).map((l) => l.rack.name)
+	it('a drag puts the rack before / after the one it is dropped on (the half it lands on); Ctrl drops a copy there', () => {
+		const h = harness(ROW, [R2, R3]), sel = new SelectTool()
+		const from = uPoint(h.store, 'R3', 20), to = uPoint(h.store, 'R1', 20)   // an empty U: the rack's body
+		sel.down(at(from.x, from.y), h.ctx()); sel.move(at(to.x, to.y), h.ctx()); sel.up(at(to.x, to.y), h.ctx())
+		expect(names(h)).toEqual(['A03', 'A01', 'A02'])
+		const a = uPoint(h.store, 'R1', 20), b = uPoint(h.store, 'R2', 20)
+		sel.down(at(a.x, a.y), h.ctx())
+		sel.move({ ...at(b.x + 440, b.y), ctrl: true }, h.ctx()); sel.up({ ...at(b.x + 440, b.y), ctrl: true }, h.ctx())   // R2's right half
+		expect(names(h)).toEqual(['A03', 'A01', 'A02', 'A01'])
+		expect(h.store.ofType('device').filter((d) => d.rackId === h.sel()[0]).length).toBe(h.store.ofType('device').filter((d) => d.rackId === 'R1').length)
+		// dropped on itself: nothing moves
+		const c = uPoint(h.store, 'R2', 20)
+		sel.down(at(c.x, c.y), h.ctx()); sel.move(at(c.x + 100, c.y), h.ctx()); sel.up(at(c.x + 100, c.y), h.ctx())
+		expect(names(h)).toEqual(['A03', 'A01', 'A02', 'A01'])
+		expect(h.said.at(-1)).toMatch(/^Not moved/)
+	})
+})

@@ -60,7 +60,7 @@ export interface ToolCtx {
 	/** Ask the user for a number (the tool bar prompt); `apply` runs on Enter. */
 	ask(label: string, value: number, apply: (v: number) => void, choices?: { label: string; value: number }[]): void
 	/** Rack-row views only: the rack and U under a view point. */
-	rowHit?(p: Pt): { rack: Rack; u: number } | null
+	rowHit?(p: Pt): { rack: Rack; u: number; x0: number } | null
 	/** One opening of a wall selected (null = none) and which one is (Phase 6: holes are selectable). */
 	selectOpening?(wallId: Id, openingId: string | null): void
 	openingId?(): string | null

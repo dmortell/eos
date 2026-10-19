@@ -2,16 +2,16 @@
 // levels, sheets, tabs and projects. A paste is AS-IS (User): same coordinates, same labels — the user sorts out
 // overlaps and duplicates. It gets new ids (references inside the copy follow), keeps each item's layer (bringing the
 // project layers it uses) and drops references the target can't honour. Ctrl-drag copy is the same paste, moved.
-import type { Id, Pt, Device, Space } from './types'
+import type { Id, Pt, Device, Space, Cord, Link, Rack } from './types'
 import { outletZ } from './floors'
 import type { Entity, Layer, Sheet, Group, Viewport } from './drawing'
 import { moveGeometry, outlineOf, type Shape } from './shapes'
 import type { ProjectIndex } from './project'
 import { newId } from './ids'
 import { freezeInExisting } from './layers'
-import { newServerRoom, placementProblem } from './devices'
+import { newServerRoom, placementProblem, rowOrderFor } from './devices'
 import { untie } from './sheetEdit'
-import { unproject } from './conventions'
+import { unproject, rotate } from './conventions'
 
 export const CLIP_MARK = 'eos-cad-clip/1'
 
@@ -55,6 +55,12 @@ export function makeClip(ix: ProjectIndex, ids: Id[], pid: string): Clip | null 
 		if (e.type === 'rack') items.push(...ix.devices.filter((d) => d.rackId === e.id))
 	}
 	if (!from || !items.length) return null
+	// the cords and links between copied items come too (User 2026-10-20: kept inside the set; one leading out isn't
+	// copied) — not the cords marked to be removed
+	if (from.kind === 'level') {
+		const has = new Set(items.map((e) => e.id)), inside = (x: Cord | Link) => has.has(x.a.on) && has.has(x.b.on)
+		items.push(...ix.cords.filter((c) => c.status !== 'remove' && inside(c)), ...ix.links.filter(inside))
+	}
 	const used = new Set(items.map((e) => (e as { layerId?: Id }).layerId).filter(Boolean))
 	return { mark: CLIP_MARK, pid, from, items, layers: ix.layers.filter((l) => used.has(l.id) && !l.id.startsWith('sys:')) }
 }
@@ -142,7 +148,8 @@ export function pasteClip(clip: Clip, t: PasteTarget): Pasted {
 	const vps = sheet?.type === 'sheet' ? clip.viewports ?? [] : []
 	const racks = new Set(clip.items.filter((e) => e.type === 'rack').map((e) => e.id))
 	const fits = (e: Entity) => (toLevel ? e.type === 'outlet' || e.type === 'rack' || (e.type === 'device' && racks.has(e.rackId)) || (e.type === 'shape' && !!e.levelId) : e.type === 'shape' && !!e.sheetId)
-	const kept = clip.items.filter(fits)
+	const things = clip.items.filter((e) => e.type !== 'cord' && e.type !== 'link' && fits(e)), pasted = new Set(things.map((e) => e.id))
+	const kept = [...things, ...clip.items.filter((e) => (e.type === 'cord' || e.type === 'link') && pasted.has(e.a.on) && pasted.has(e.b.on))]
 	const skipped = clip.items.length - kept.length + (clip.viewports?.length ?? 0) - vps.length
 	if (!kept.length && !vps.length) return { put: [], select: [], skipped }
 
@@ -193,7 +200,9 @@ export function pasteClip(clip: Clip, t: PasteTarget): Pasted {
 		if (e.type === 'rack') {
 			const r = e, spaceId = roomFor(r.spaceId)
 			const { rowId, ...rest } = r
-			return { ...rest, levelId: to.id, spaceId, ...layer(r), ...(ok(rowId) && spaceId === r.spaceId ? { rowId } : {}),
+			// its row, when that's a row of the room it lands in (a row has no level of its own: `ok` never kept it)
+			const row = rowId ? ix.getOf('rackRow', rowId) : undefined
+			return { ...rest, levelId: to.id, spaceId, ...layer(r), ...(row?.spaceId === spaceId ? { rowId } : {}),
 				order: ix.racks.filter((x) => x.spaceId === spaceId).length + r.order, ...(r.at ? { at: move(r.at) } : {}) }
 		}
 		if (e.type === 'device') {
@@ -202,7 +211,10 @@ export function pasteClip(clip: Clip, t: PasteTarget): Pasted {
 			const { serverRoomId, ...panel } = dv.panel, room = rooms.get(serverRoomId)
 			return { ...dv, panel: { ...panel, ...(room ? { serverRoomId: room } : {}) } }
 		}
-		if (e.type !== 'shape') return e   // (`fits` kept only outlets, racks, devices and shapes)
+		// a copied cord is one more to fit (no label yet, nothing to revert to); a copied link a cable still to route
+		if (e.type === 'cord') { const { previous: _p, cordId: _c, ...cord } = e; return { ...cord, status: 'add' } }
+		if (e.type === 'link') { const { route: _r, cable: _c, ...link } = e; return { ...link, status: 'design' } }
+		if (e.type !== 'shape') return e   // (`fits` kept only outlets, racks, devices, shapes and the cords / links between them)
 		const s = e
 		// on an elevation's plane its points are (u, z): a plan move goes along the plane, and up (as moveBy)
 		const along = s.plane?.kind === 'vertical' && s.geom.kind !== 'path' ? s.plane.frame.t : null
@@ -244,8 +256,30 @@ export function pasteClip(clip: Clip, t: PasteTarget): Pasted {
 		frozen.delete(sheet.id)
 		return { put: [...extra, ...frozen.values(), ...newGroups, { ...here, viewports: [...here.viewports, ...made] }, ...items], select: [sheet.id], skipped, viewports: picked, reset }
 	}
-	const select = items.filter((e) => e.type !== 'device').map((e) => e.id)
+	const select = items.filter((e) => e.type !== 'device' && e.type !== 'cord' && e.type !== 'link').map((e) => e.id)
 	return { put: [...extra, ...frozen.values(), ...made, ...newGroups, ...items], select, skipped }
+}
+
+/** Copies of racks dropped before / after another of their row in a rack view (Ctrl-drag, User 2026-10-20): with their
+ *  devices and the cords / links between them, in the row's order where dropped; on the plan they stand past the row's
+ *  last rack, along its run (move them into place after). Null = not all in the target's row. */
+export function copyRacksInRow(ix: ProjectIndex, rackIds: Id[], targetId: Id, after: boolean): Pasted | null {
+	const row = rowOrderFor(ix, rackIds, targetId)
+	if (!row) return null
+	const ids = row.ids.filter((id) => rackIds.includes(id)), racks = ids.map((id) => ix.getOf('rack', id)!)
+	const clip = makeClip(ix, ids, '')
+	if (!clip) return null
+	// on the plan: just past the last rack of their run (the row's racks facing their way or back to back — beside the
+	// originals they'd sit on their neighbours; a run turned round a corner isn't in the way)
+	const right = rotate({ x: 1, y: 0 }, racks[0].rot ?? 0), along = (r: Rack) => r.at!.x * right.x + r.at!.y * right.y
+	const turn = (r: Rack) => ((((r.rot ?? 0) % 180) + 180) % 180)
+	const placed = (rs: Rack[]) => rs.filter((r) => r.at && turn(r) === turn(racks[0]))
+	const rowRacks = placed(row.ids.map((id) => ix.getOf('rack', id)!)), own = placed(racks)
+	const by = own.length ? Math.max(...rowRacks.map((r) => along(r) + r.widthMm / 2)) - Math.min(...own.map((r) => along(r) - r.widthMm / 2)) : 0
+	const r = pasteClip(clip, { pid: '', ix, to: { kind: 'level', id: racks[0].levelId }, d: { x: right.x * by, y: right.y * by } })
+	const made = r.put.filter((e) => e.type === 'rack').map((e) => e.id), order = [...row.ids]
+	order.splice(order.indexOf(targetId) + (after ? 1 : 0), 0, ...made)
+	return { ...r, put: [...r.put, { ...row.space, rackOrder: { ...row.space.rackOrder, [row.key]: order } }], select: made }
 }
 
 /** A copied device is a new thing: its panel's printed-labels record belongs to the original (a copy would say its

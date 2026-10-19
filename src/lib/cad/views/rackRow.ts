@@ -50,12 +50,12 @@ export function rackLayout(ix: ProjectIndex, spec: RowSpec): { rack: Rack; x0: n
 
 
 /** Which rack and which U are under a view point (U = the rack unit the point is in, 1-based from the bottom). */
-export function rowHit(ix: ProjectIndex, spec: RowSpec, p: { x: number; y: number }): { rack: Rack; u: number } | null {
+export function rowHit(ix: ProjectIndex, spec: RowSpec, p: { x: number; y: number }): { rack: Rack; u: number; x0: number } | null {
 	for (const { rack, x0 } of rackLayout(ix, spec)) {
 		if (p.x < x0 || p.x > x0 + rack.widthMm) continue
 		const base = rackUBase(rack) + roomFloor(ix, spec.spaceId)   // racks stand on the room's floor
 		const u = Math.floor((-p.y - base) / RU_MM) + 1
-		return u >= 1 && u <= rack.heightU ? { rack, u } : null
+		return u >= 1 && u <= rack.heightU ? { rack, u, x0 } : null
 	}
 	return null
 }

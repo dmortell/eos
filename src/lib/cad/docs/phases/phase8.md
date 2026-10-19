@@ -4152,4 +4152,22 @@ commit each (that doc marks each FIXED, and what was kept and why).
 - Parameters (2dda1921): options objects / named values for makeBox, dimGrips, dragDevices, setTool, groupKey,
   tabs.open.
 Left, with reasons in hacky-code.md: EditHistorySettings' copied styles, Properties' Enter / Esc microtask, the
-backup / restore polls, the remaining `cls` checks of #6.
+backup / restore polls. The remaining `cls` checks of #6 (d30b527d, 2026-10-19): roles for the selection look, Fit (the
+elevation ceiling line had kept Fit at the slab lines' width), viewport snap lines, dimension grips, label placement; the
+style rules keep `cls`, one copy each in views/display.ts.
+
+## Several racks at once (2026-10-20)
+User: "Yes, cords kept inside the set" (the ❓ entry of 2026-10-17).
+- Copying on the plan (Ctrl+C / V, Ctrl-drag, Copy tool, rotate / mirror copies — all `makeClip`) brings the cords and
+  links whose two ends are both copied; one leading out stays behind, and cords marked to be removed don't come. A
+  pasted cord is one to fit (`add`, no label, nothing to revert to), a link a cable to route (`design`, no route, no
+  multi-core grouping). A cut counts them as coming along, not as picked.
+- Found: a pasted / Ctrl-drag copied rack always lost its row (a RackRow has no level, so the "on this level" check
+  failed) — it keeps it now when it lands in that row's room.
+- Rack view: press on a picked rack (by an empty U) and drag it onto another rack of its row — the picked racks go
+  before / after it by the half dropped on (as the row reads from that face), in the room's hand order (`moveRacks`,
+  `moveRack` its one-rack form). Ctrl: copies go there (`copyRacksInRow`), with devices and the cords between them; on
+  the plan they stand past the last rack of their run (same facing / back to back), not on a neighbour.
+- Help: "Change the order of racks". Tests: clipboard (cords in / out, pasted states, row kept, the row copy), racks
+  (the drag, the Ctrl copy, a drop on itself). Seen live on Test Project 33IDF2 (move, copy on the plan, both undone;
+  the Ctrl copy sent as page pointer events — the browser tool's Ctrl didn't reach the drag).

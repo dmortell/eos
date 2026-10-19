@@ -16,10 +16,10 @@ import { moveBy, canMove, followAttached, followSections } from './behaviours'
 import { pathGrips, gripAt, moveNodesBy, type Grip } from './grips'
 import { insertNode, copySegs, splitSegRefs } from '../domain/pathEdit'
 import { dragViewport, dragNodesInto, snapViewportDrag, viewportSnapLines } from './dragParts'
-import { makeClip, makeViewportClip, pasteClip, type Clip, type Pasted } from '../domain/clipboard'
+import { makeClip, makeViewportClip, pasteClip, copyRacksInRow, type Clip, type Pasted } from '../domain/clipboard'
 import { startDeviceDrag, dragDevices, type DeviceDrag } from './deviceDrag'
 import { RU_MM } from '../domain/units'
-import { devicesBetween } from '../domain/devices'
+import { devicesBetween, moveRacks } from '../domain/devices'
 import { newId } from '../domain/ids'
 import type { Entity } from '../domain/drawing'
 import { handlesFor, handleAt, segWidthHandles, bendHandles, insertScaleHandles, type Handle } from './handles'
@@ -84,6 +84,9 @@ export class SelectTool implements Tool {
 	/** Pressed on a PICKED port: a drag takes the picked ports' outlets to another panel (dropped on its first port); a
 	 *  click picks just that port. */
 	#portMove: PortMove | null = null
+	/** Pressed on a picked rack in a rack view: dropped on another rack of its row, the picked racks go before / after
+	 *  it (Ctrl: copies of them do — User 2026-10-20). */
+	#rackDrag: { ids: Id[]; start: Pt; moved: boolean } | null = null
 	/** Pressed on a port (rack rows): a drag picks the ports from it to the one under the pointer (backlog "Drag to
 	 *  select a block of ports"); the device moves by its body instead (or Alt-drag from a port). */
 	#portRange: { on: Id; face: 'front' | 'rear'; anchor: number } | null = null
@@ -173,7 +176,7 @@ export class SelectTool implements Tool {
 		// it by, User 2026-10-17) — shown whole
 		const grab = !!c.rowHit && e.alt && en.type === 'device'
 		this.#hov = { id, sub: grab ? undefined : sub }
-		this.#cursor = c.rowHit ? (en.type === 'device' && (!sub || grab) ? 'move' : 'pointer') : canMove(en) || (en.type === 'sheet' && sub) ? 'move' : 'pointer'
+		this.#cursor = c.rowHit ? ((en.type === 'device' && (!sub || grab)) || en.type === 'rack' ? 'move' : 'pointer') : canMove(en) || (en.type === 'sheet' && sub) ? 'move' : 'pointer'
 	}
 
 	dragFrom(): Pt | null { return this.#gesture ? (this.#grip?.grip.at ?? this.#start) : null }
@@ -414,6 +417,11 @@ export class SelectTool implements Tool {
 			// in a rack row, devices move (by U / into another rack); elsewhere what has a plan position moves
 			this.#ids = sel.filter((x) => { const en = c.store.get(x); return !!en && (c.rowHit ? en.type === 'device' : canMove(en) || e.ctrl) })
 			if (!c.rowHit) this.#clip = makeClip(c.index, sel, '')
+			// a rack in a rack view: the picked racks go where they're dropped (their devices with them, nothing else)
+			else if (c.store.get(id)?.type === 'rack') {
+				this.#rackDrag = { ids: sel.filter((x) => c.store.get(x)?.type === 'rack'), start: e.p, moved: false }
+				this.#ids = []
+			}
 			this.#start = e.p
 		} else {
 			this.#marquee = e.p
@@ -428,6 +436,14 @@ export class SelectTool implements Tool {
 			const { on, face, anchor } = this.#portRange, hit = pickPrim(c.prims().filter((p) => p.src === on && p.k === 'line' && p.sub), e.p, c.tol())
 			const n = hit && hit.k !== 'image' && hit.sub ? Number(hit.sub) : NaN
 			if (Number.isFinite(n)) c.selectPorts?.({ on, face, ports: Array.from({ length: Math.abs(n - anchor) + 1 }, (_, i) => Math.min(n, anchor) + i), anchor })
+			return
+		}
+		if (this.#rackDrag) {
+			const rd = this.#rackDrag
+			if (!rd.moved && Math.hypot(e.p.x - rd.start.x, e.p.y - rd.start.y) > c.tol()) {
+				rd.moved = true
+				c.say?.(`Drop on a rack of this row — the ${rd.ids.length === 1 ? 'rack goes' : `${rd.ids.length} racks go`} before or after it (the side you drop on) · Ctrl: copies`)
+			}
 			return
 		}
 		if (this.#portMove) {
@@ -571,6 +587,27 @@ export class SelectTool implements Tool {
 		}
 	}
 
+	/** Racks dragged in a rack view, dropped: before / after the rack under the pointer (the half it's on, as the row reads
+	 *  from this face), or copies of them there with Ctrl. */
+	#dropRacks(ids: Id[], e: PointerIn, c: ToolCtx): void {
+		const hit = c.rowHit?.(e.p), spec = c.space.spec
+		if (!hit || ids.includes(hit.rack.id)) { c.say?.('Not moved — drop on another rack of the row'); return }
+		const right = e.p.x > hit.x0 + hit.rack.widthMm / 2, after = spec.kind === 'row' && spec.face === 'rear' ? !right : right
+		const n = ids.length === 1 ? 'rack' : `${ids.length} racks`, where = `${after ? 'after' : 'before'} ${hit.rack.name}`
+		if (e.ctrl) {
+			const r = copyRacksInRow(c.index, ids, hit.rack.id, after)
+			if (!r) { c.say?.('Not copied — drop on a rack of the same row'); return }
+			c.store.transact(`Copy ${n}`, (tx) => { for (const x of r.put) tx.put(x) })
+			c.select(r.select)
+			c.say?.(`Copied the ${n} ${where}, with their devices and the cords between them — on the plan past the row's last rack · Ctrl+Z undoes`)
+			return
+		}
+		const space = moveRacks(c.index, ids, hit.rack.id, after)
+		if (!space) { c.say?.('Not moved — drop on a rack of the same row'); return }
+		c.store.transact(`Move ${n}`, (tx) => tx.put(space))
+		c.say?.(`Moved the ${n} ${where} (the row's order, not the plan) · Ctrl+Z undoes`)
+	}
+
 	/** The end of a press on a picked port: a click picks that port alone; a drop on a panel (its port, else its first
 	 *  free one) moves the picked ports' outlets there, and picks them in their new place. */
 	#dropPorts(pm: PortMove, e: PointerIn, c: ToolCtx): void {
@@ -616,6 +653,7 @@ export class SelectTool implements Tool {
 	up(e: PointerIn, c: ToolCtx): void {
 		if (this.#cordEnd) { const ce = this.#cordEnd; this.#cordEnd = null; this.#dropCordEnd(ce, e, c); return }
 		if (this.#portMove) { const pm = this.#portMove; this.#portMove = null; this.#dropPorts(pm, e, c); return }
+		if (this.#rackDrag?.moved) { const rd = this.#rackDrag; this.#reset(c); this.#dropRacks(rd.ids, e, c); return }
 		if (this.#editOnUp) { const id = this.#editOnUp; this.#reset(c); c.editText?.(id); return }
 		if (!this.#gesture && this.#handle) {
 			const { h, base } = this.#handle
@@ -754,7 +792,7 @@ export class SelectTool implements Tool {
 	}
 
 	#reset(c: ToolCtx): void {
-		this.#start = null; this.#ids = []; this.#gesture = null; this.#marquee = null; this.#grip = null; this.#snap = null; this.#dev = null; this.#clip = null; this.#toggle = null; this.#copied = []; this.#cycle = null; this.#vp = null; this.#vpCopy = null; this.#vpLines = null; this.#handle = null; this.#note = null; this.#region = null; this.#joined = 0; this.#editOnUp = null; this.#cordEnd = null
+		this.#start = null; this.#ids = []; this.#rackDrag = null; this.#gesture = null; this.#marquee = null; this.#grip = null; this.#snap = null; this.#dev = null; this.#clip = null; this.#toggle = null; this.#copied = []; this.#cycle = null; this.#vp = null; this.#vpCopy = null; this.#vpLines = null; this.#handle = null; this.#note = null; this.#region = null; this.#joined = 0; this.#editOnUp = null; this.#cordEnd = null
 		this.#followers = new Map(); this.#absorbed = 0; this.#joinRefused = null; this.#segDrag = null; this.#segPick = null; this.#portRange = null
 		c.setMarquee(null)
 	}

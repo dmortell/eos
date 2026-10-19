@@ -83,9 +83,9 @@ export function clipboardEvents({ project, ws, target, inRow, image, note, curso
 		}
 		const clip = makeClip(project.index, ws.selection, project.pid)
 		if (!clip) { ws.say('Copy takes plan items (shapes, outlets, racks), notes on a sheet, or devices'); return }
-		// what was picked (a copied rack's devices come along with it)
+		// what was picked (a copied rack's devices and the cords / links between copied items come along with it)
 		const racks = new Set(clip.items.filter((x) => x.type === 'rack').map((x) => x.id))
-		const ids = clip.items.filter((x) => x.type !== 'device' || !racks.has(x.rackId)).map((x) => x.id)
+		const ids = clip.items.filter((x) => x.type !== 'cord' && x.type !== 'link' && (x.type !== 'device' || !racks.has(x.rackId))).map((x) => x.id)
 		e.preventDefault()
 		// other apps get the words (one per line); cad's own format waits beside it for a paste back in cad (see stash)
 		const words = readableClip(clip.items), json = JSON.stringify(clip)
