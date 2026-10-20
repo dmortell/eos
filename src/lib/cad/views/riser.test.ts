@@ -1,7 +1,7 @@
 // The riser view: floors, rooms at their racks' x, risers between levels, backbone groups with counts and lengths.
 import { describe, it, expect } from 'vitest'
 import { ProjectIndex } from '../domain/project'
-import { riserDisplayList, riserShafts, backboneKey, mediaColour, withRiserEnd, FIBRE_COLOUR, COPPER_COLOUR } from './riser'
+import { riserDisplayList, riserShafts, riserFloors, backboneKey, mediaColour, withRiserEnd, FIBRE_COLOUR, COPPER_COLOUR } from './riser'
 import type { Entity } from '../domain/drawing'
 
 const level = (id: string, name: string, e: number) => ({ type: 'level', id, name, number: 1, elevationMm: e, order: 1, heights: { slabMm: 200, raisedFloorMm: 300, clearHeightMm: 2600, plenumMm: 700 } })
@@ -21,6 +21,9 @@ const ents = [
 	path('T4', 'L4', [[10210, -2600, 0], [10210, -1500, 0]]),
 	...[1, 2].map((n) => ({ type: 'link', id: `B${n}`, kind: 'backbone', a: { on: 'PP1', port: n, face: 'rear' }, b: { on: 'PP2', port: n, face: 'rear' }, cableType: 'cat6a', status: 'design' })),
 ] as Entity[]
+
+/** The levels numbered by their name ("4F" → 4). */
+const numbered = (es: Entity[]) => es.map((e) => (e.type === 'level' ? { ...e, number: parseInt(e.name) } : e)) as Entity[]
 
 describe('riser view', () => {
 	const ix = new ProjectIndex(ents)
@@ -44,11 +47,11 @@ describe('riser view', () => {
 		expect(label?.k === 'text' && label.text).toMatch(/^2 × cat6a · \d+m$/)
 	})
 	it('hide empty floors: floors with no server room squeeze into one break band; the riser and rooms follow', () => {
-		const more = [...ents, level('L2', '2F', 3800), level('L3', '3F', 7600)] as Entity[]
+		const more = numbered([...ents, level('L2', '2F', 3800), level('L3', '3F', 7600)] as Entity[])
 		const ps = riserDisplayList(new ProjectIndex(more), { hideEmpty: true })
 		const ffl = ps.filter((p) => p.k === 'line' && p.cls === 'riser-ffl').map((p) => (p.k === 'line' ? -p.pts[0].y : 0))
 		expect(ffl).toEqual([0, 3800 + 1200])                                      // 1F, then 4F right after one 1200 break (2F + 3F)
-		expect(ps.some((p) => p.k === 'text' && p.text === '2F – 3F not shown')).toBe(true)
+		expect(ps.some((p) => p.k === 'text' && p.text === '2 floors hidden (2F – 3F)')).toBe(true)
 		const shaft = ps.find((p) => p.k === 'line' && p.cls === 'riser-shaft')
 		expect(shaft?.k === 'line' && Math.min(...shaft.pts.map((q) => q.y))).toBe(-(3800 + 1200))   // the riser now ends at 4F's squeezed FFL
 		expect(riserDisplayList(new ProjectIndex(more)).filter((p) => p.k === 'line' && p.cls === 'riser-ffl')).toHaveLength(4)   // off: all floors
@@ -130,6 +133,29 @@ describe('riser view: floors with no model (W33)', () => {
 		const ffl = ps.filter((p) => p.k === 'line' && p.cls === 'riser-ffl').map((p) => (p.k === 'line' ? -p.pts[0].y : 0))
 		expect(ffl).toEqual([0, 3800, 7600, 11400])                                   // 1F, 2F, 3F (no models), 4F
 		expect(ps.some((p) => p.k === 'text' && /^2F {2}FFL 3\.80$/.test(p.text))).toBe(true)
+	})
+})
+
+describe('riser view: its floor list (User 2026-10-21 — the Risers and Sheets tools’ hidden floors)', () => {
+	const bld = { type: 'building', id: 'B1', name: 'Tower', order: 0 }
+	// 1F and 4F modelled, in a building with no floor list: 2F and 3F are there all the same (between their numbers)
+	const tower = numbered([...ents.map((e) => (e.type === 'level' ? { ...e, buildingId: 'B1' } : e)), bld] as Entity[])
+	const ffl = (ps: ReturnType<typeof riserDisplayList>) => ps.filter((p) => p.k === 'line' && p.cls === 'riser-ffl').map((p) => (p.k === 'line' ? -p.pts[0].y : 0))
+	it('every floor between the levels’ numbers is listed and drawn, top down; empty = no server room', () => {
+		expect(riserFloors(new ProjectIndex(tower), 'B1')).toEqual([
+			{ number: 4, name: '4F', empty: false }, { number: 3, name: '3F', empty: true }, { number: 2, name: '2F', empty: true }, { number: 1, name: '1F', empty: false }])
+		expect(ffl(riserDisplayList(new ProjectIndex(tower)))).toEqual([0, 3800, 7600, 11400])
+	})
+	it('floors ticked off squeeze into a hatched band saying how many; the riser through it gets a break slash', () => {
+		const ps = riserDisplayList(new ProjectIndex(tower), { hidden: [2, 3] })
+		expect(ffl(ps)).toEqual([0, 3800 + 1200])
+		expect(ps.filter((p) => p.k === 'line' && p.cls === 'riser-gap')).toHaveLength(1)
+		expect(ps.filter((p) => p.k === 'line' && p.cls === 'riser-gap-hatch').length).toBeGreaterThan(3)
+		expect(ps.find((p) => p.k === 'text' && p.cls === 'riser-gap-label')).toMatchObject({ text: '2 floors hidden (2F – 3F)' })
+		expect(ps.filter((p) => p.k === 'line' && p.cls === 'riser-break')).toHaveLength(1)                   // Riser A crosses it
+		// one floor: named; a modelled floor can be ticked off too
+		expect(riserDisplayList(new ProjectIndex(tower), { hidden: [3] }).find((p) => p.k === 'text' && p.cls === 'riser-gap-label')).toMatchObject({ text: '3F hidden' })
+		expect(ffl(riserDisplayList(new ProjectIndex(tower), { hidden: [4] }))).toEqual([0, 3800, 7600])
 	})
 })
 

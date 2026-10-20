@@ -26,6 +26,7 @@
 	import type { Issue, SheetChange } from '../domain/drawing'
 	import { ordered, categoryOf } from '../domain/sheetCategories'
 	import { drawnFallback } from '../domain/titleBlock'
+	import RiserFloors from './RiserFloors.svelte'
 
 	let { project, ws, s }: { project: CadProject; ws: Workspace; s: Sheet } = $props()
 
@@ -132,7 +133,11 @@
 		const next = { ...v, view }
 		putVp(label, isPaperSpec(view.spec) || isPaperSpec(v.view.spec) ? { view, ...fitViewport(project.index, next) } : { view, centre: contentCentre(project.index, next) })
 	}
-	const setView = (v: Viewport, key: string) => { const c = viewChoices.find((x) => x.key === key); if (c) showIn(v, 'Viewport view', { ...v.view, spec: c.spec }) }
+	const setView = (v: Viewport, key: string) => {
+		const c = viewChoices.find((x) => x.key === key), cur = v.view.spec
+		// riser to riser: its floor list stays
+		if (c) showIn(v, 'Viewport view', { ...v.view, spec: c.spec.kind === 'riser' && cur.kind === 'riser' && cur.hidden?.length ? { ...c.spec, hidden: cur.hidden } : c.spec })
+	}
 	function setLevel(v: Viewport, levelId: string) {
 		// a room's racks, a section, a rack's ports, a room's schedule and a run's fill belong to their level
 		const s = v.view.spec, own = s.kind === 'row' || s.kind === 'section' || s.kind === 'ports' || s.kind === 'fill' || (s.kind === 'schedule' && !!s.spaceId)
@@ -201,7 +206,10 @@
 				{#each viewChoices as c (c.key)}<option value={c.key}>{c.label}</option>{/each}
 			</select>
 		</label>
-		{#if vp.view.spec.kind === 'ports'}
+		{#if vp.view.spec.kind === 'riser'}
+			<!-- its own floor list (User 2026-10-21): which floors this viewport shows -->
+			<div class="rfl"><RiserFloors {project} spec={vp.view.spec} onchange={(sp) => setSpec(vp, 'Riser floors', sp)} /></div>
+		{:else if vp.view.spec.kind === 'ports'}
 			{@const ps = vp.view.spec}
 			<label class="row" title="All the rack's patch panels (a frame), or one device's ports">Panel
 				<select class="inp" value={ps.deviceId ?? ''} onchange={(e) => { const { deviceId: _, ...rest } = ps; setSpec(vp, 'Port grid panel', e.currentTarget.value ? { ...rest, deviceId: e.currentTarget.value } : rest) }}>
@@ -366,6 +374,7 @@
 {/if}
 
 <style>
+	.rfl { padding: 2px 0 4px; }
 	.flag { outline: 1px solid #f59e0b; }
 	.tags { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 4px; }
 	.tag { display: inline-flex; align-items: center; gap: 2px; padding: 0 2px 0 6px; border-radius: 8px; background: var(--cad-hover); font-size: 11px; }

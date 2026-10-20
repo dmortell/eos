@@ -15,6 +15,7 @@
 	import { FILL_LIMIT_PCT } from '../domain/fill'
 	import { exportPortMap } from '../render/exports'
 	import { handOrderDiffers, planOrder } from '../domain/devices'
+	import RiserFloors from './RiserFloors.svelte'
 
 	export interface PaneNav { back?: string; fwd?: string; go: (dir: -1 | 1) => void }
 
@@ -139,9 +140,8 @@
 				<label class="num" title="How far the band reaches away from you (mm); beyond it is faded">back <input type="number" min="0" step="100" bind:value={ws.band.back} /></label>
 			{/if}
 		{:else if spec.kind === 'riser'}
-			{@const hide = !!spec.hideEmpty}
-			{@const bid = spec.buildingId}
-			<label title="Squeeze the floors that have no server room into break marks"><input type="checkbox" checked={hide} onchange={() => go({ kind: 'riser', ...(hide ? {} : { hideEmpty: true }), ...(bid ? { buildingId: bid } : {}) })} /> Hide empty floors</label>
+			<!-- the floor list (User 2026-10-21): which floors this riser tab shows; Hide empty floors is in it -->
+			<RiserFloors {project} {spec} onchange={go} />
 			<!-- the floor range is the project's (everyone's riser view), so it lives in Properties, not here -->
 			<span class="dnote">Which floors: Properties, with nothing selected (for everyone)</span>
 		{:else if spec.kind === 'row'}

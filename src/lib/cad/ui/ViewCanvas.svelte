@@ -131,7 +131,7 @@
 				: isPaperSpec(spec)
 					? paperDisplayList(project.index, spec, { fills: project.fills })
 				: spec.kind === 'riser'
-					? riserDisplayList(project.index, { scale: PLOT_SCALE, routes: project.routes, fills: project.fills, hideEmpty: spec.hideEmpty, buildingId: spec.buildingId })
+					? riserDisplayList(project.index, { scale: PLOT_SCALE, routes: project.routes, fills: project.fills, hideEmpty: spec.hideEmpty, buildingId: spec.buildingId, hidden: spec.hidden })
 					: spec.kind === 'section'
 						? (section ? sectionDisplayList(project.index, section, { scale: PLOT_SCALE, blocks: project.blockOf }) : [])
 						: elevationDisplayList(project.index, levelId, space, { scale: PLOT_SCALE, blocks: project.blockOf, ...(ws.band.on ? { band: { near: work.depth + ws.band.front, far: work.depth - ws.band.back } } : {}) }))
@@ -199,9 +199,10 @@
 	const viewGuides = $derived(ws.guidesOf(guideKey))
 	// the riser view refits when empty floors are hidden / shown (Round 7: hiding 18 floors left the rest a speck at
 	// the bottom of the old view)
-	let riserCompact: boolean | undefined = undefined
+	let riserCompact: string | undefined = undefined
 	$effect(() => {
-		const h = spec.kind === 'riser' ? !!spec.hideEmpty : undefined
+		// …and when its floor list changes (User 2026-10-21)
+		const h = spec.kind === 'riser' ? `${!!spec.hideEmpty}:${(spec.hidden ?? []).join(',')}` : undefined
 		untrack(() => {
 			const was = riserCompact
 			riserCompact = h

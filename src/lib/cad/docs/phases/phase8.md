@@ -4324,3 +4324,14 @@ User: "Yes, cords kept inside the set" (the ❓ entry of 2026-10-17).
   under the cursor stays put (centre shifted by (p − middle) × (old − new scale)) — every viewport, not just risers.
   The viewport View list's two riser choices carry the viewport level's building (picking one dropped `buildingId`
   and showed the whole project); `viewKey` tells them apart. Test: viewportEdit.test (new).
+- **Riser floor list** (User 2026-10-21: "hide floors 14 to 28" on sheet 006 — "select the best parts" of the Risers
+  tool and the Sheets tool's Riser viewport). From the Risers tool: a tick per floor (`RiserFloors.svelte`, top down,
+  two columns, ● = has a server room), Shift-click a range, Show all, Hide empty floors (kept dynamic, `hideEmpty`).
+  From the Sheets tool: every floor exists — `floorsWithoutLevel(…, implied)` gives a building with no floor list the
+  floors between its levels' numbers (Journey 12F/30F/33F → 22 floors) — and a hidden run is a hatched spacer saying
+  "15 floors hidden (14F – 28F)" ("3F hidden" for one) with a break slash across each riser through it (was a zigzag
+  and "… not shown"). The list is per view: riser spec `hidden` (floor numbers), in the URL as `h~14:28_31`. In the
+  riser tab's Display ▾ and a riser viewport's Properties; switching the viewport between the two riser views keeps
+  it. Help updated. Tests: riser (implied floors, hidden run, label), urlState (runs). svelte-check clean. Live on
+  Journey 006 Riser: Hide empty off, 14F–28F unticked → 7 of 22 shown, the band reads right (the viewport at 1:100 is
+  now taller than its window — User's to rescale).

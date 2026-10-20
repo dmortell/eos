@@ -49,9 +49,11 @@ const above = (h: Heights) => h.clearHeightMm + h.plenumMm  // FFL up to the nex
  * the level below (above, for floors under the lowest one), named from the building's pattern. `id` = "floor:<n>"; not
  * in the store. Skipped numbers (floors that don't exist) aren't floors.
  */
-export function floorsWithoutLevel(levels: Level[], building: { id: Id; floors?: { lowest: number; top: number; skip?: number[]; above: string; below: string; ground?: string } } | undefined): Level[] {
-	const f = building?.floors
+export function floorsWithoutLevel(levels: Level[], building: { id: Id; floors?: { lowest: number; top: number; skip?: number[]; above: string; below: string; ground?: string } } | undefined, implied = false): Level[] {
 	const main = levels.filter((l) => !l.area && l.buildingId === building?.id).sort((a, b) => a.number - b.number)
+	// `implied` (the riser view, User 2026-10-21): a building with no floor list still has the floors between its levels'
+	// numbers (Journey: 12F, 30F, 33F → 13F–29F, 31F, 32F), named the default way
+	const f = building?.floors ?? (implied && main.length ? { lowest: main[0].number, top: main.at(-1)!.number, ...DEFAULT_NAMES } : undefined)
 	if (!f || !main.length) return []
 	const skip = f.skip ?? [], storeys = (a: number, b: number) => floorNumbers(a + 1, b - 1, skip).filter((n) => n > a && n < b).length
 	const have = new Set(main.map((l) => l.number))

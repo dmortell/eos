@@ -14,7 +14,7 @@ export function encodeSpec(s: ViewSpec): string {
 		case 'elevation': return s.dir
 		case 'row': return ['row', s.spaceId, s.face, ...(s.rowId ? [s.rowId] : [])].join('.')
 		case 'sheet': return `sheet.${s.sheetId}`
-		case 'riser': return ['riser', ...(s.hideEmpty ? ['compact'] : []), ...(s.buildingId ? [`b~${s.buildingId}`] : [])].join('.')
+		case 'riser': return ['riser', ...(s.hideEmpty ? ['compact'] : []), ...(s.hidden?.length ? [`h~${floorRuns(s.hidden)}`] : []), ...(s.buildingId ? [`b~${s.buildingId}`] : [])].join('.')
 		case 'section': return `section.${s.sectionId}`
 		case 'portmap': return `portmap.${s.deviceIds.join('~')}`
 		case 'ports': return ['ports', s.rackId, ...(s.deviceId ? [s.deviceId] : [])].join('.')
@@ -27,10 +27,14 @@ export function decodeSpec(t: string): ViewSpec | null {
 	if (t === 'plan') return { kind: 'plan' }
 	if (DIRS.has(t)) return { kind: 'elevation', dir: t as ElevDir }
 	const [k, a, b, c] = t.split('.')
-	// riser[.compact][.b~<buildingId>] (an id may hold a '.': nanoid's alphabet doesn't, but keep the rest whole)
+	// riser[.compact][.h~<floors>][.b~<buildingId>] (an id may hold a '.': nanoid's alphabet doesn't, but keep the rest whole)
 	if (k === 'riser') {
-		const rest = t.split('.').slice(1), compact = rest[0] === 'compact', bld = rest.slice(compact ? 1 : 0).join('.')
-		return { kind: 'riser', ...(compact ? { hideEmpty: true } : {}), ...(bld.startsWith('b~') && bld.length > 2 ? { buildingId: bld.slice(2) } : {}) }
+		let rest = t.split('.').slice(1)
+		const compact = rest[0] === 'compact'
+		if (compact) rest = rest.slice(1)
+		const hidden = rest[0]?.startsWith('h~') ? parseFloorRuns(rest.shift()!.slice(2)) : []
+		const bld = rest.join('.')
+		return { kind: 'riser', ...(compact ? { hideEmpty: true } : {}), ...(hidden.length ? { hidden } : {}), ...(bld.startsWith('b~') && bld.length > 2 ? { buildingId: bld.slice(2) } : {}) }
 	}
 	if (k === 'row' && a && (b === 'front' || b === 'rear')) return { kind: 'row', spaceId: a, face: b, ...(c ? { rowId: c } : {}) }
 	if (k === 'sheet' && a) return { kind: 'sheet', sheetId: a }
@@ -40,6 +44,28 @@ export function decodeSpec(t: string): ViewSpec | null {
 	if (k === 'schedule' && a === 'patch' && b) return { kind: 'schedule', table: 'patch', ...(b === 'all' ? {} : { spaceId: b }), ...(Number(c) > 1 ? { start: Number(c) } : {}) }
 	if (k === 'fill' && a && b) return { kind: 'fill', shapeId: a, segId: b }
 	return null
+}
+
+/** Floor numbers as runs for a URL: 13:29_31 (`:` a run, `_` between — a basement is −1, so no `-` / `,`). */
+export function floorRuns(ns: number[]): string {
+	const s = [...new Set(ns)].sort((a, b) => a - b), out: string[] = []
+	for (let i = 0; i < s.length; i++) {
+		let j = i
+		while (j + 1 < s.length && s[j + 1] === s[j] + 1) j++
+		out.push(j > i ? `${s[i]}:${s[j]}` : String(s[i]))
+		i = j
+	}
+	return out.join('_')
+}
+export function parseFloorRuns(t: string): number[] {
+	const out: number[] = []
+	for (const part of t.split('_')) {
+		const [a, b] = part.split(':').map(Number)
+		if (!Number.isInteger(a)) continue
+		const hi = Number.isInteger(b) ? b : a
+		for (let n = a; n <= hi && out.length < 500; n++) out.push(n)
+	}
+	return out
 }
 
 /** `levelId` = the active pane's level; `paneLevels` = each pane's (written only when two panes show two levels). */

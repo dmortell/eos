@@ -81,7 +81,7 @@ export type ViewSpec =
 	/** The building's risers and backbone, every floor (Phase 5.5, views/riser.ts); `hideEmpty` = floors with no server
 	 *  room squeezed into break bands (User: like the Midtown risers); `buildingId` = only that building's floors and
 	 *  risers (its Navigator row opens it, User 2026-10-20; absent = the whole project). */
-	| { kind: 'riser'; hideEmpty?: boolean; buildingId?: Id }
+	| { kind: 'riser'; hideEmpty?: boolean; buildingId?: Id; /** Floor numbers this view leaves out (its floor list, User 2026-10-21). */ hidden?: number[] }
 	/** A section through a level along a cut line drawn on its plan (Phase 6.2, views/section.ts). */
 	| { kind: 'section'; sectionId: Id }
 	/** A port map of chosen panels / switches (port-map-plan.md, views/portMap.ts): each drawn like its faceplate, every

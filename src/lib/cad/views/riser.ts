@@ -30,6 +30,8 @@ const ROOM_H = 2200, LANE = 180, MARGIN = 3000, BREAK_H = 1200, EPS_PAD = 450, W
 export interface RiserOpts { scale?: number; routes?: Map<Id, Route>; hideEmpty?: boolean
 	/** Only this building's floors, server rooms and risers (absent: the whole project). */
 	buildingId?: Id
+	/** Floor numbers left out (squeezed into a hatched "N floors hidden" band) — this view's own list (User 2026-10-21). */
+	hidden?: number[]
 	/** The runs' fills (project.fills, with estimates): each riser's cables and fill % (W30). Absent: worked out from
 	 *  the routes. */
 	fills?: Map<string, SegFill> }
@@ -111,6 +113,21 @@ export function riserShafts(ix: ProjectIndex): { s: Shape; seg: Id; x: number; y
 	return out
 }
 
+/** The floors a riser view of `buildingId` (else every building) can show or hide, top down: each floor number once
+ *  (area levels of a floor share it), its name, and whether it's empty (no server room) — for its floor list (User
+ *  2026-10-21, the Risers tool's "Visible n/m"). */
+export function riserFloors(ix: ProjectIndex, buildingId?: Id): { number: number; name: string; empty: boolean }[] {
+	const bs = ix.ofType('building').filter((b) => !buildingId || b.id === buildingId)
+	const levels = [...ix.levels.filter((l) => !buildingId || l.buildingId === buildingId), ...bs.flatMap((b) => floorsWithoutLevel(ix.levels, b, true))]
+	const rooms = new Set(ix.spaces.filter((s) => s.kind === 'server room').map((s) => s.levelId))
+	const by = new Map<number, { number: number; name: string; empty: boolean }>()
+	for (const l of levels) {
+		const b = ix.getOf('building', l.buildingId), had = by.get(l.number)
+		by.set(l.number, { number: l.number, name: floorName(l.number, b?.type === 'building' && b.floors ? b.floors : DEFAULT_NAMES), empty: (had?.empty ?? true) && !rooms.has(l.id) })
+	}
+	return [...by.values()].sort((a, b) => b.number - a.number)
+}
+
 export function riserDisplayList(ix: ProjectIndex, o: RiserOpts = {}): Prim[] {
 	const k = o.scale ?? 100, txt = 2.5 * k, small = 2 * k
 	const routes = o.routes ?? routeLinks(ix)
@@ -120,8 +137,9 @@ export function riserDisplayList(ix: ProjectIndex, o: RiserOpts = {}): Prim[] {
 	// one building's (its Navigator row): its floors, and the rooms and risers drawn on them
 	const bid = o.buildingId, inBuilding = (l: Level | undefined) => !bid || l?.buildingId === bid
 	const levelOf = (id: Id | undefined) => (id ? ix.getOf('level', id) : undefined) as Level | undefined
-	// W33: the building's floors with no level (no model) are drawn too, as plain floors in their storey
-	const noModel = ix.ofType('building').filter((b) => !bid || b.id === bid).flatMap((b) => floorsWithoutLevel(ix.levels, b))
+	// W33: the building's floors with no level (no model) are drawn too, as plain floors in their storey — with no floor
+	// list, the floors between its levels' numbers (User 2026-10-21: as the Risers and Sheets tools, every floor is there)
+	const noModel = ix.ofType('building').filter((b) => !bid || b.id === bid).flatMap((b) => floorsWithoutLevel(ix.levels, b, true))
 	const levels = [...ix.levels.filter(inBuilding), ...noModel].filter(inRange), elevIn = new Set(levels.map((l) => l.elevationMm))
 	const storeyH = (l: Level | undefined) => { const h = l?.heights; return h ? h.raisedFloorMm + h.slabMm + h.clearHeightMm + h.plenumMm : 3800 }
 	const lowest = levels.reduce<Level | undefined>((m, l) => (!m || l.elevationMm < m.elevationMm ? l : m), undefined)
@@ -147,7 +165,11 @@ export function riserDisplayList(ix: ProjectIndex, o: RiserOpts = {}): Prim[] {
 	// …and the floors a riser starts or ends on, where the run carries on across the floor (Round 7, User 2026-10-16:
 	// with empty floors hidden, 2F — its outlets fed up the riser from 1F's IDF 1 — went, and the riser led nowhere)
 	const holds = (e: number, z: number) => { const ls = byElev.get(e); return z >= e - (ls?.[0]?.heights?.raisedFloorMm ?? 300) && z < e + storeyH(ls?.[0]) - (ls?.[0]?.heights?.raisedFloorMm ?? 300) }
-	const shown = (e: number) => !o.hideEmpty || rooms.some((r) => r.z === e) || shafts.some((s) => holds(e, s.z0) || holds(e, s.z1))
+	// a floor ticked off in this view's list is left out; with Hide empty floors, so is one with no server room and no
+	// riser ending on it
+	const off = new Set(o.hidden ?? [])
+	const shown = (e: number) => !(byElev.get(e) ?? []).every((l) => off.has(l.number))
+		&& (!o.hideEmpty || rooms.some((r) => r.z === e) || shafts.some((s) => holds(e, s.z0) || holds(e, s.z1)))
 	const storeyOf = (e: number) => storeyH(byElev.get(e)?.[0])
 	const { z: zv, bands } = squeeze([...byElev.keys()], shown, o.hideEmpty ? storeyOf : undefined)
 	// each floor as a section through the building (as the old Risers tool): the slab, the raised-floor void above it
@@ -156,6 +178,8 @@ export function riserDisplayList(ix: ProjectIndex, o: RiserOpts = {}): Prim[] {
 	const elevs = [...byElev.keys()].sort((a, b) => a - b)
 	const strip = (za: number, zb: number, cls: string): Prim => ({ k: 'line', pts: [{ x: x0, y: -za }, { x: x1, y: -za }, { x: x1, y: -zb }, { x: x0, y: -zb }], closed: true, fill: true, cls })
 	const walls: { bot: number; top: number; e: number }[] = []
+	/** A floor's number as its building names floors ("33F"; area levels of one floor share it). */
+	const floorLabel = (e: number) => { const l = byElev.get(e)?.[0], fb = l ? ix.getOf('building', l.buildingId) : undefined; return l ? floorName(l.number, fb?.type === 'building' && fb.floors ? fb.floors : DEFAULT_NAMES) : '' }
 	for (const [e, ls] of [...byElev].sort((a, b) => a[0] - b[0])) {
 		if (!shown(e)) continue
 		const h = heightsOf(ls[0]), slab = h.slabMm, rf = h.raisedFloorMm, ceil = h.clearHeightMm, plenum = h.plenumMm, v = zv(e)
@@ -176,20 +200,32 @@ export function riserDisplayList(ix: ProjectIndex, o: RiserOpts = {}): Prim[] {
 		out.push({ k: 'text', at: { x: x0 + 200, y: -v - 300 }, text: `${names}  FFL ${(e / 1000).toFixed(2)}`, size: txt, cls: 'rv-label' })
 		// the floor's number big outside the left wall, sized to the storey (User 2026-10-20: readable zoomed out — the label
 		// above is paper-sized and shrinks to nothing over a whole building); area levels of one floor share it
-		const fb = ix.getOf('building', ls[0].buildingId), big = Math.min(ceil * 0.45, 1600)
-		out.push({ k: 'text', at: { x: x0 - WALL - 500, y: -(v + ceil / 2) + big * 0.36 }, text: floorName(ls[0].number, fb?.type === 'building' && fb.floors ? fb.floors : DEFAULT_NAMES), size: big, anchor: 'end', cls: 'rv-floor' })
+		const big = Math.min(ceil * 0.45, 1600)
+		out.push({ k: 'text', at: { x: x0 - WALL - 500, y: -(v + ceil / 2) + big * 0.36 }, text: floorLabel(e), size: big, anchor: 'end', cls: 'rv-floor' })
 	}
 	// the building's side walls (User 2026-10-20: "make it look like a building"), the slabs' concrete, either side of
 	// the floors — from the lowest slab to the top, cut only where floors are left out (a break)
 	for (const w of walls) for (const [a, b] of [[x0 - WALL, x0], [x1, x1 + WALL]])
 		out.push({ k: 'line', pts: [{ x: a, y: -w.bot }, { x: b, y: -w.bot }, { x: b, y: -w.top }, { x: a, y: -w.top }], closed: true, fill: true, cls: 'riser-wall' })
-	// a break mark across each run of left-out floors, naming them
-	const nameAt = (e: number) => [...new Set((byElev.get(e) ?? []).map((l) => l.name))].join(' / ')
+	// each run of left-out floors: a hatched spacer across the building saying how many and which (the Sheets tool's
+	// look, User 2026-10-21), and a break slash across every riser through it
 	for (const b of bands) {
-		const ym = -(b.z0 + b.z1) / 2, step = (x1 - x0) / 24, amp = BREAK_H * 0.15
-		out.push({ k: 'line', pts: Array.from({ length: 25 }, (_, i) => ({ x: x0 + i * step, y: ym + (i % 2 ? amp : -amp) })), cls: 'riser-break' })
-		const what = b.from === undefined ? 'floors with no level' : b.from === b.to ? `${nameAt(b.from)} not shown` : `${nameAt(b.from)} – ${nameAt(b.to!)} not shown`
-		out.push({ k: 'text', at: { x: x0 + 200, y: ym - amp - small * 0.3 }, text: what, size: small, cls: 'datum-label' })
+		const top = -b.z1, bot = -b.z0, ym = (top + bot) / 2
+		out.push({ k: 'line', pts: [{ x: x0, y: bot }, { x: x1, y: bot }, { x: x1, y: top }, { x: x0, y: top }], closed: true, fill: true, cls: 'riser-gap' })
+		// 45° hatch, every 600 mm, clipped to the spacer
+		const H = bot - top
+		for (let x = x0 - H; x < x1; x += 600) {
+			const lo = Math.max(0, (x0 - x) / H), hi = Math.min(1, (x1 - x) / H)
+			if (hi > lo) out.push({ k: 'line', pts: [{ x: x + H * lo, y: bot - H * lo }, { x: x + H * hi, y: bot - H * hi }], cls: 'riser-gap-hatch' })
+		}
+		const nums = [...new Set(elevs.filter((e) => b.from !== undefined && e >= b.from && e <= b.to!).flatMap((e) => byElev.get(e)!.map((l) => l.number)))].sort((p, q) => p - q)
+		const what = !nums.length ? 'floors with no level'
+			: nums.length === 1 ? `${floorLabel(b.from!)} hidden` : `${nums.length} floors hidden (${floorLabel(b.from!)} – ${floorLabel(b.to!)})`
+		out.push({ k: 'text', at: { x: (x0 + x1) / 2, y: ym + Math.min(small * 1.2, H * 0.4) * 0.35 }, text: what, size: Math.min(small * 1.2, H * 0.4), anchor: 'middle', cls: 'riser-gap-label' })
+		for (const sh of shafts) if (zv(sh.z0) < b.z1 && zv(sh.z1) > b.z0) {
+			const hw = sh.w / 2 + 150
+			out.push({ k: 'line', pts: [{ x: sh.x - hw, y: ym + H * 0.2 }, { x: sh.x + hw, y: ym - H * 0.2 }], cls: 'riser-break' })
+		}
 	}
 	for (const r of rooms) {
 		// the room fills its storey, FFL to ceiling (the old tool's boxes did; a fixed 2200 sat under a 2600 ceiling)

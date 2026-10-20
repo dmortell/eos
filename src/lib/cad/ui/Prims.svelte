@@ -264,7 +264,11 @@
 	text.port-label-trace { fill: #78350f; }
 	text.u-label { fill: #94a3b8; }
 	text.u-label.u-clash { fill: #dc2626; font-weight: 700; }
-	.riser-break { stroke: #94a3b8; stroke-width: 1; fill: none; }
+	.riser-break { stroke: #64748b; stroke-width: 1; fill: none; }
+	/* a run of hidden floors in the riser view: a light hatched spacer saying how many (the Sheets tool's look) */
+	.riser-gap { fill: #f8fafc; stroke: #94a3b8; stroke-width: 0.75; stroke-dasharray: 4 3; }
+	.riser-gap-hatch { stroke: #cbd5e1; stroke-width: 0.75; fill: none; }
+	text.riser-gap-label { fill: #64748b; font-weight: 500; }
 	text.pick-order { fill: #c2410c; font-weight: 700; paint-order: stroke; stroke: white; stroke-width: 3px; }
 	text.device-label { fill: #1e293b; font-weight: 600; }
 	/* a panel's name over its ports: no white halo (User: it hid the port labels when zoomed in), full strength */

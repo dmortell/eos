@@ -5,7 +5,8 @@ import type { ViewSpec } from '../views/space'
 describe('view state in the URL', () => {
 	it('every view kind round-trips', () => {
 		const specs: ViewSpec[] = [{ kind: 'plan' }, { kind: 'elevation', dir: 'left' }, { kind: 'row', spaceId: 'S1', face: 'rear' }, { kind: 'row', spaceId: 'S1', face: 'front', rowId: 'R9' }, { kind: 'sheet', sheetId: 'SH' }, { kind: 'portmap', deviceIds: ['d-1', 'Xy_2'] },
-			{ kind: 'riser' }, { kind: 'riser', hideEmpty: true }, { kind: 'riser', buildingId: 'Am0-8_x' }, { kind: 'riser', hideEmpty: true, buildingId: 'B1' }]
+			{ kind: 'riser' }, { kind: 'riser', hideEmpty: true }, { kind: 'riser', buildingId: 'Am0-8_x' }, { kind: 'riser', hideEmpty: true, buildingId: 'B1' },
+			{ kind: 'riser', hidden: [13, 14, 15, 29, 31] }, { kind: 'riser', hideEmpty: true, hidden: [-2, -1, 0, 5], buildingId: 'B1' }]
 		for (const s of specs) expect(decodeSpec(encodeSpec(s))).toEqual(s)
 		expect(decodeSpec('nonsense')).toBeNull()
 	})
@@ -29,5 +30,14 @@ describe('view state in the URL', () => {
 		// a link with one level opens both panes on it; `levels` with one pane is ignored
 		expect(paneLevelsOf(readViewState(new URLSearchParams('level=L3&v=plan,front')))).toEqual(['L3', 'L3'])
 		expect(readViewState(new URLSearchParams('level=L3&v=plan&levels=L3,L7')).paneLevels).toBeUndefined()
+	})
+})
+
+describe('floor runs in a URL (a riser view’s hidden floors)', () => {
+	it('runs with ":" and "_", basements included; junk skipped', async () => {
+		const { floorRuns, parseFloorRuns } = await import('./urlState')
+		expect(floorRuns([29, 13, 14, 15, 31, 14])).toBe('13:15_29_31')
+		expect(floorRuns([-2, -1, 0, 5])).toBe('-2:0_5')
+		expect(parseFloorRuns('13:15_29_x_31')).toEqual([13, 14, 15, 29, 31])
 	})
 })
