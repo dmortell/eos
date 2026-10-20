@@ -13,7 +13,8 @@
 
 	let { project, ws, cords, column = false }: { project: CadProject; ws: Workspace; cords: Cord[]; column?: boolean } = $props()
 
-	const acts = $derived(cordActionsFor(cords))
+	// every action in one order, greyed when it touches none: the buttons stay put as statuses change (User 2026-10-20)
+	const acts = $derived(cordActionsFor(cords, true))
 	const types = $derived(sortedCableTypes(project.settings))
 	const sameType = $derived(cords.every((c) => c.cableType === cords[0]?.cableType) ? cords[0]?.cableType : undefined)
 	const sameColour = $derived(cords.every((c) => c.colour === cords[0]?.colour) ? cords[0]?.colour : undefined)
@@ -32,8 +33,8 @@
 
 <div class="bar" class:column>
 	<span class="acts">
-		{#each acts as x (x.a)}<button class="btn" class:danger={x.a === 'delete'} title={x.title} onclick={() => runCordAction(project, ws, cords, x.a)}>{x.label} ({x.n})</button>{/each}
-		{#if cords.length}<button class="btn" title={REPATCH_TITLE} onclick={() => askRepatch(project, ws, cords)}>Re-patch…</button>{/if}
+		{#each acts as x (x.a)}<button class="btn" class:danger={x.a === 'delete'} disabled={!x.n} title={x.n ? x.title : `${x.title} — none of these cords`} onclick={() => runCordAction(project, ws, cords, x.a)}>{x.label} ({x.n})</button>{/each}
+		<button class="btn" disabled={!cords.length} title={REPATCH_TITLE} onclick={() => askRepatch(project, ws, cords)}>Re-patch…</button>
 	</span>
 	<label class="fld" title="The cable type of {n} — its color comes with it">Type
 		<select class="inp" value={sameType ?? ''} onchange={(e) => setType(e.currentTarget.value)}>
@@ -52,7 +53,8 @@
 	.fld { display: flex; align-items: center; gap: 4px; }
 	.column .fld { display: grid; grid-template-columns: 6.5rem 1fr; }
 	.btn { min-height: 20px; border: 1px solid var(--cad-line); border-radius: 4px; padding: 0 6px; background: var(--cad-input); color: var(--cad-text); }
-	.btn:hover { background: var(--cad-hover); }
+	.btn:hover:not(:disabled) { background: var(--cad-hover); }
 	.btn.danger { color: #b91c1c; }
+	.btn:disabled { opacity: 0.4; cursor: default; }
 	.inp { border: 1px solid var(--cad-line); border-radius: 4px; padding: 0 4px; background: var(--cad-input); color: var(--cad-text); }
 </style>

@@ -4236,3 +4236,11 @@ User: "Yes, cords kept inside the set" (the ❓ entry of 2026-10-17).
   greyed out then. `repatchPreview` (domain/repatchText, the same `portFromText` + `repatchRun` the apply uses; changes
   nothing; tested); `askInDialog` / TextDialog take an optional `preview` (rows, or a problem). Help updated. Seen
   live: 12 cords, "SW1:30" → 30, 31, 33 … 42 (32 and 39–41 taken); cancelled.
+
+### Cord actions stay put (2026-10-20, Round 12 #8)
+
+- User: "grey-out buttons". The patch list's bar and Properties (several cords) showed only the actions that touch
+  the picked cords, so the buttons moved as a status changed (Installed (12) became Add (12), Re-patch… moved left).
+  Now all five and Re-patch… always, in one order, those that touch none greyed with (0) ("— none of these cords" in
+  the tip): `cordActionsFor(cords, all)`; the right-click menu still lists only what applies. Seen live: one ADD
+  cord → Add (0) and Restore (0) greyed, the rest in place.
