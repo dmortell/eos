@@ -4244,3 +4244,11 @@ User: "Yes, cords kept inside the set" (the ❓ entry of 2026-10-17).
   Now all five and Re-patch… always, in one order, those that touch none greyed with (0) ("— none of these cords" in
   the tip): `cordActionsFor(cords, all)`; the right-click menu still lists only what applies. Seen live: one ADD
   cord → Add (0) and Restore (0) greyed, the rest in place.
+
+### Layer lists leave out the derived layers (2026-10-20, Round 12 #10)
+
+- User: "do … outlet layer list". Properties › Layer (shapes, outlets, racks) offered Cord stubs, Port labels, Room
+  lines and Other face — layers drawn from other items, which hold nothing. `DERIVED_LAYERS` / `holdsItems`
+  (domain/layers) leave them out of that list (unless an item is already on one) and out of the Layers window's
+  click-to-make-current (it allowed any layer). The Layer chip already listed only Drawing, Walls and own layers.
+  Test: layers.test. Seen live: 1-007's list is Floorplans … Sections, Outlets B.

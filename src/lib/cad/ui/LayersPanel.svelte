@@ -12,7 +12,7 @@
 	import type { Workspace } from '../app/workspace.svelte'
 	import type { Id } from '../domain/types'
 	import type { Layer, Sheet } from '../domain/drawing'
-	import { layersOf, layerOf, nextLayerColour, freezeInExisting, groupLayers, targetIds, togglePick, rangePick, type LayerInfo } from '../domain/layers'
+	import { layersOf, layerOf, nextLayerColour, freezeInExisting, groupLayers, targetIds, togglePick, rangePick, holdsItems, type LayerInfo } from '../domain/layers'
 	import { layerCounts } from '../views/layers'
 	import { viewportLayers, paperLayers } from '../views/sheet'
 	import { newId } from '../domain/ids'
@@ -69,7 +69,8 @@
 	/** Where the eye points, for the titles and the note. */
 	const eyeOf = $derived(vps.length > 1 ? `in the ${vps.length} picked viewports (Shift: every viewport on the sheet)` : vp ? 'in this viewport (Shift: every viewport on the sheet)' : onPaper ? 'on this sheet’s paper (its own notes; not in viewports)' : '(only for you)')
 	/** Any layer can be current (User: clicking a name did nothing on most); new lines go on it. */
-	const canBeCurrent = (_l: LayerInfo) => true
+	// a layer drawn from other items (Cord stubs, Port labels …) takes no new lines
+	const canBeCurrent = (l: LayerInfo) => holdsItems(l.id)
 
 	/** The layer's record with a change (a system layer gets one the first time it's restyled). */
 	const record = (l: LayerInfo, change: Partial<Layer>): Layer => {

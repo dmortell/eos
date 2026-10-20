@@ -38,6 +38,12 @@ export function nextLayerColour(records: Layer[]): string {
 	return LAYER_PALETTE.find((c) => !used.has(c)) ?? LAYER_PALETTE[own % LAYER_PALETTE.length]
 }
 
+/** The layers drawn from OTHER items (a cord's stub, a device's port labels, a rack view's room lines and other face):
+ *  nothing is put on them — they aren't offered to move items to, nor as the current layer (User 2026-10-20: an
+ *  outlet's Layer list offered Cord stubs). */
+export const DERIVED_LAYERS: ReadonlySet<Id> = new Set(['sys:cord-stubs', 'sys:port-labels', 'sys:room-lines', 'sys:other-face'])
+export const holdsItems = (id: Id): boolean => !DERIVED_LAYERS.has(id)
+
 /** The project's layers: the system ones (restyled by a record with their id) and its own, by order. */
 export function layersOf(records: Layer[]): LayerInfo[] {
 	const own = new Map(records.map((r) => [r.id, r]))

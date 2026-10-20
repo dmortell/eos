@@ -7,7 +7,7 @@ import { viewportContent } from './sheet'
 import { displayListToDxf } from '../render/dxf'
 import { ProjectIndex } from '../domain/project'
 import { demoProject } from '../domain/fixtures'
-import { layersOf, layerOf, defaultLayer, drawnOn, layerBlock, toolBlock, nextLayerColour, LAYER_PALETTE, SYSTEM_LAYERS, groupOf, groupLayers, withPreset, targetIds, togglePick, rangePick } from '../domain/layers'
+import { layersOf, layerOf, defaultLayer, drawnOn, layerBlock, toolBlock, nextLayerColour, LAYER_PALETTE, SYSTEM_LAYERS, groupOf, groupLayers, withPreset, targetIds, togglePick, rangePick, holdsItems, DERIVED_LAYERS } from '../domain/layers'
 import type { Entity, Layer, Viewport } from '../domain/drawing'
 import type { Outlet } from '../domain/types'
 
@@ -196,5 +196,15 @@ describe('layer groups, presets and multi-select', () => {
 		const order = ['A', 'B', 'C', 'D']
 		expect([...rangePick(order, 'D', 'B')].sort()).toEqual(['B', 'C', 'D'])
 		expect([...rangePick(order, null, 'C')]).toEqual(['C'])
+	})
+})
+
+describe('layers drawn from other items (User 2026-10-20)', () => {
+	it('Cord stubs, Port labels, Room lines and Other face hold no items; every other system layer does', () => {
+		expect([...DERIVED_LAYERS].every((id) => SYSTEM_LAYERS.some((l) => l.id === id))).toBe(true)
+		expect(holdsItems('sys:cord-stubs')).toBe(false)
+		expect(holdsItems('sys:port-labels')).toBe(false)
+		expect(holdsItems('sys:outlets-low')).toBe(true)
+		expect(holdsItems('L-own')).toBe(true)
 	})
 })

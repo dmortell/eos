@@ -4,7 +4,7 @@
 	import type { CadProject } from '../app/project.svelte'
 	import type { Id } from '../domain/types'
 	import type { Entity } from '../domain/drawing'
-	import { layersOf, layerOf, defaultLayer } from '../domain/layers'
+	import { layersOf, layerOf, defaultLayer, holdsItems } from '../domain/layers'
 	import { MIXED } from './propsKit'
 
 	let { project, ids }: { project: CadProject; ids: Id[] } = $props()
@@ -33,7 +33,7 @@
 		<span>Layer</span>
 		<select value={on} onchange={(e) => move((e.currentTarget as HTMLSelectElement).value)}>
 			{#if !on}<option value="" disabled>{MIXED}</option>{/if}
-			{#each layers as l (l.id)}<option value={l.id}>{l.name}</option>{/each}
+			{#each layers.filter((l) => holdsItems(l.id) || l.id === on) as l (l.id)}<option value={l.id}>{l.name}</option>{/each}
 		</select>
 	</label>
 {/if}
