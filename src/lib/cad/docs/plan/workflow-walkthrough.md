@@ -925,3 +925,43 @@ re-patched through it (User).
 Good: the other pane's outline under the pointer; green / red / grey ports in both panes while patching (grey: PP2's and
 PP1's unlabelled ports); the refusal names what's in the way ("already patched (to R02 · SW1 : 32)"); typed re-patch
 in the Patching table ("SW2:22"); the cord re-patched to SW1:33 re-estimated 1.5 → 5 m (through CM1).
+
+## Round 12: allocate, patch, cut over, move racks (live, 2026-10-20)
+
+The "Round 9 test" project, Row B | Row A in a split (User: all three jobs, in order): a new SW3 (Switch 24-port 1U)
+from the Device library into R07; six outlets 1-007 … 1-012 on the 1F plan, Allocate this level (PP1 13–24, 12–15 m),
+"Select the 12 allocated ports not patched yet" → Patch 12 ports to… → SW3:1 across the split; a cutover of PP1 1–12
+from SW1 to SW3 13–24 (first as planned cords, then marked installed: Re-patch… SW3:13); racks moved in Row A and
+dragged across the split; at the end half the outlets onto a new layer (User).
+
+**Built during it** (User): "+ Layer" beside the Layers window's Find box, as a button (ffd30428, a5f7a1c9); a **Cord
+stubs** layer — the stubs of cords to another row hide apart from the cords (b30345f0).
+
+**Found:**
+1. A full panel's stubs cover the devices under it: PP1's 24 stubs (3U each, over the row's cords) hid PP2 and the U38
+   panel, their "→ R07 · SW3 : n" labels running into each other. A hover / click there still takes the port. → the
+   Cord stubs layer (built, above).
+2. "Select the 12 allocated ports not patched yet" seemed to do nothing: it worked, but the result (Ports 13–24, Patch
+   12 ports to…) is at the top of Properties, scrolled out of sight, and the status bar still said "1 selected
+   (device)". Open: scroll Properties to the top after it, and a status bar "12 ports selected (PP1 13–24)".
+3. A rack can't be dragged across the split: R03 (Row A pane) dropped on R06 (Row B pane) — "Not moved — drop on
+   another rack". Moving / Ctrl-copying racks into another row works only in one pane's "All rows" view, which is not
+   how the User works. Open: a drop on a rack in the other pane.
+4. A cutover isn't visible in the rack views: after Re-patch the 12 CHANGE cords' old ends (SW1 1–13) show as plain
+   free ports; the "Was R02 · SW1 : 1" is only in the Patching table's ↶ tip. The installer working from the front
+   elevation can't see what to unplug. Open: a mark on a CHANGE cord's old port (a faded / crossed stub "was →")?
+5. Re-patching an installed cord re-estimated its length (2–3 m → 5 m, to the other row). Probably right (a new cord
+   is needed), but Round 11 said installed cords keep theirs — a question for the User.
+6. Moving a rack in a rack view changes the row's order only ("the row's order, not the plan"): R03 now draws before
+   R01 in Row A while the plan still has R01 … R04. Noted (as built 10-20).
+7. The Re-patch dialog has no preview; Patch N cords to… lists every pair first. Noted only.
+8. The Patching table's buttons move as a selection's status changes (Installed (12) becomes Add (12), and Re-patch…
+   moves left) — a second click in the same place hits a different button. Noted only.
+9. The tab strip is shared by both panes: a tab click opens in the ACTIVE pane (Row B first landed in the left pane);
+   the pane badges (1 / 2) tell them apart. Noted only.
+10. An outlet's Layer list offers the derived layers too (Cord stubs, Port labels, Room lines, Other face). Noted only.
+11. A code edit hot-reloaded mid-round emptied the undo stack (memory: HMR clears undo): the round's writes (SW3, the six
+    outlets, 12 + 12 cords, R03's place, the Outlets B layer) stay in Round 9 test, a throwaway project.
+Good: Device library drag into a rack; Allocate this level; the Patch 12 cords preview (13 → 1 … 24 → 12) and 5 m
+lengths across the rows; Re-patch… "SW3:13" with the rest on the next ports; CHANGE status with "Was …" on hover; a
+port under a stub still taking the hover; a new layer's color applied to its outlets at once (1-007 … 1-012 red).
