@@ -4261,3 +4261,11 @@ User: "Yes, cords kept inside the set" (the ❓ entry of 2026-10-17).
   the Racks window's "↺ plan order". `handOrderDiffers` (domain/devices: a hand order that matches the plan is no
   difference; `racksInOrder(…, byHand)`). Help updated. Test: rackRow.test. Seen live: Row A (R03 before R01 since
   the round) → click → R01 … R04, the note gone.
+
+### Table hints on one line (2026-10-20)
+
+- User: "the instructions msg above patching table looks bad". The Patching hint wrapped and pushed the bar's right-hand
+  group (New cords · Planning / Surveying · Patch schedule) onto a second line. Every table's hint (TableFrame) now
+  takes one line in the room that's left, cut with … (all of it on hover), 10 px clear of the right-hand group; the
+  Patching hint is shorter ("… to install, remove, re-patch or restyle them — or right-click"). Seen live: Patching,
+  Outlets, Sheets bars on one line.

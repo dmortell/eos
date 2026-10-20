@@ -145,7 +145,7 @@
 <input bind:this={fileInput} type="file" accept=".xlsx" hidden onchange={(e) => importIds(e.currentTarget.files?.[0])} />
 <TableFrame label="Patch list" {t} view={inRoomView && roomId ? project.index.nameOf(roomId) : 'This view (all rooms)'} onkeydown={tableKey} {more}
 	count="{rows.length} of {all.length}{nSel ? ` · ${nSel} selected` : ''}" nSel={selCords.length}
-	hint="Select cords (click · Shift · Ctrl · Ctrl+A) to mark them installed, add, remove, restore or delete, or set their type / color — or right-click them">
+	hint="Select cords (click · Shift · Ctrl · Ctrl+A) to install, remove, re-patch or restyle them — or right-click">
 	{#snippet chips()}
 		{#each STATUSES as s (s)}
 			<StatusChip tone={s} label="{s} {count[s]}" off={!show[s]} onclick={() => (show[s] = !show[s])} title="Show / hide {s} cords" />

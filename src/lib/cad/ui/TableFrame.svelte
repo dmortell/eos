@@ -53,8 +53,8 @@
 		{@render chips?.()}
 		{#if count !== undefined}<span class="count" title={countTitle}>{count}</span>{/if}
 		{#if sel || hint}
-			<span class="sel">
-				{#if nSel && sel}{@render sel()}{:else if hint}<span class="hint">{hint}</span>{/if}
+			<span class="sel" class:hinting={!(nSel && sel) && !!hint}>
+				{#if nSel && sel}{@render sel()}{:else if hint}<span class="hint" title={hint}>{hint}</span>{/if}
 			</span>
 		{/if}
 		<span class="end">
@@ -77,7 +77,10 @@
 	.count { color: var(--cad-faint); white-space: nowrap; }
 	/* what acts on the selection: after a divider, so it reads as its own group */
 	.sel { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px; padding-left: 8px; border-left: 1px solid var(--cad-line); }
-	.hint { color: var(--cad-faint); }
+	/* the hint: one line in the room that's left, cut with … (the whole of it on hover) — it wrapped and pushed the
+	   bar's right-hand buttons onto a second line (User 2026-10-20: "looks bad") */
+	.sel.hinting { flex: 1 1 0; min-width: 6rem; flex-wrap: nowrap; margin-right: 10px; }
+	.hint { color: var(--cad-faint); min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 	.end { margin-left: auto; display: inline-flex; align-items: center; gap: 6px; }
 	/* the buttons the tables put in the bar */
 	.bar :global(.tb) { display: inline-flex; align-items: center; gap: 3px; min-height: 20px; border: 1px solid var(--cad-line); border-radius: 4px; padding: 0 6px; background: var(--cad-input); color: var(--cad-text); white-space: nowrap; }
