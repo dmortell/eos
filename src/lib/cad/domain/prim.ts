@@ -41,7 +41,9 @@ export type Prim = (
  *  highlight) keeps it.
  *  - `port` — a device's port CELL (closed; `src` = the device, `sub` = the port number): rack views, port grids
  *  - `port-label` — a port's label text over its cell (`src` / `sub` as the cell's when pickable)
- *  - `cord` — a patch cord's line, or its stub when the cords are drawn as stubs (`src` = the cord)
+ *  - `cord` — a patch cord's line (`src` = the cord)
+ *  - `cord-stub` — a cord to another row: its stub down from the port and the "→ far end" under it (`src` = the cord;
+ *    the Cord stubs layer, User 2026-10-20: too crowded to show all the time)
  *  - `device` — a device's body outline (`src` = the device)
  *  - `device-name` — a device's name drawn over its ports (no `src`: it takes no clicks)
  *  - `other-face` — a device on the rack's other face, outline and name (no `src`; the Other face layer)
@@ -60,7 +62,7 @@ export type Prim = (
  *  - `opening-pick` — an opening's pick band in its wall (`sub` = the opening; never drawn as selected)
  *  - `paper` / `margin` — a sheet's paper and its margin line (snapped to when a viewport is dragged)
  *  - `title-block` — the title block's text (snapped to when a viewport is dragged) */
-export type PrimRole = 'port' | 'port-label' | 'cord' | 'device' | 'device-name' | 'other-face' | 'rack' | 'room-line' | 'viewport'
+export type PrimRole = 'port' | 'port-label' | 'cord' | 'cord-stub' | 'device' | 'device-name' | 'other-face' | 'rack' | 'room-line' | 'viewport'
 	| 'riser' | 'run' | 'run-high' | 'run-pick' | 'fill' | 'datum' | 'label' | 'run-label' | 'dim' | 'dim-text' | 'opening-pick'
 	| 'paper' | 'margin' | 'title-block'
 

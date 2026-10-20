@@ -11,7 +11,7 @@ export interface CordEndGrip { cord: Id; end: 'a' | 'b'; at: Pt; other: Pt }
 
 /** The ends of a cord as drawn in this view (its line runs from end a to end b); none when it isn't drawn here. */
 export function cordEndGrips(prims: Prim[], cordId: Id): CordEndGrip[] {
-	const line = prims.find((p) => p.k === 'line' && p.src === cordId && p.role === 'cord')
+	const line = prims.find((p) => p.k === 'line' && p.src === cordId && (p.role === 'cord' || p.role === 'cord-stub'))
 	if (line?.k !== 'line' || line.pts.length < 2) return []
 	const a = line.pts[0], b = line.pts[line.pts.length - 1]
 	return [{ cord: cordId, end: 'a', at: a, other: b }, { cord: cordId, end: 'b', at: b, other: a }]

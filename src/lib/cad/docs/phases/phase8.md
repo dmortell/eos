@@ -4182,3 +4182,13 @@ User: "Yes, cords kept inside the set" (the ❓ entry of 2026-10-17).
 - User: "in Layers window, put the +Layer btn beside the Find input" — "+ Layer" moved from its own line above into
   the Find row (on the right; alone there while the list has ≤ 16 layers and no Find box), drawn as a button (the
   panel's `.btn`, User: "look like a button, not a link"). `LayersPanel`.
+
+### Cord stubs layer (2026-10-20, Round 12)
+
+- User: "those hanging stubs make the drawing too crowded and are not necessary to display all the time, add a toggle
+  for them, (or a layer?)" — a layer: the system layer **Cord stubs** (order 95, just above Patch cords, so no other
+  order moves). A rack view's stubs of the cords to another row, and their "→ far end", have a new prim role
+  `cord-stub` (was `cord`), which `primLayer` puts on it; a click where a stub crosses a port still takes the port
+  (`preferPort`), and a selected stub's end grip is still found (`cordEndGrips`). Hiding Patch cords no longer hides
+  the stubs, nor the reverse. Help (Patch ports in a rack view) names the layer. Test: layers.test (a cord to another
+  room). Seen live in Round 9 test: PP1's 24 stubs over PP2 / the U38 panel gone in both panes with the eye.

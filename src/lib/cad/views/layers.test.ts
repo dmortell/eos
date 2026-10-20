@@ -138,6 +138,21 @@ describe('port labels layer (User 2026-10-07)', () => {
 		expect(noLabels.some((p) => p.k === 'line' && p.cls.startsWith('port'))).toBe(true)
 		expect(labels(applyLayers(prims, index, { hidden: new Set(['sys:racks']) }).draw)).toBe(labels(prims))
 	})
+	it('a cord to another room / row is a stub on Cord stubs: hiding it keeps the cords in the row (User 2026-10-20)', () => {
+		const index = ix([
+			{ type: 'rack', id: 'R9', levelId: 'L33', spaceId: 'SR-X', order: 0, name: 'X01', kind: 'cabinet', heightU: 42, widthMm: 600, depthMm: 1000 },
+			{ type: 'device', id: 'SW9', rackId: 'R9', name: 'SW9', kind: 'switch', u: 40, heightU: 1, face: 'front', portCount: 24 },
+			{ type: 'cord', id: 'CX', kind: 'patch', a: { on: 'SW1', port: 40, face: 'front' }, b: { on: 'SW9', port: 1, face: 'front' }, cableType: 'cat6a', colour: '#3b82f6', lengthM: 5, lengthLocked: false, status: 'add' },
+		] as Entity[])
+		const prims = rackRowDisplayList(index, { spaceId: 'SR-A', face: 'front' })
+		const stubs = (ps: typeof prims) => ps.filter((p) => p.role === 'cord-stub' && p.src === 'CX').length
+		const cords = (ps: typeof prims) => ps.filter((p) => p.role === 'cord').length
+		expect(stubs(prims)).toBe(2)   // the stub and its "→ X01 · SW9 : 1"
+		const shown = applyLayers(prims, index, { hidden: new Set(['sys:cord-stubs']) }).draw
+		expect(stubs(shown)).toBe(0)
+		expect(cords(shown)).toBe(cords(prims))
+		expect(stubs(applyLayers(prims, index, { hidden: new Set(['sys:cords']) }).draw)).toBe(2)
+	})
 	it('a drawing tool says which layer its new shapes went on; paper shapes and other items say nothing', () => {
 		const ls = layersOf([{ type: 'layer', id: 'L-A', name: 'Comms', order: 500 } as Layer])
 		const geom = { kind: 'rect', x: 0, y: 0, w: 10, h: 10 }

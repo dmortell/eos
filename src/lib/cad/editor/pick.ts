@@ -53,7 +53,7 @@ function pickNear(prims: Prim[], p: Pt, tol: number, skip?: (src: Id) => boolean
 /** A rack view's click on a patch CORD where it crosses a port cell takes the PORT (W15 / B54: cords drawn over a
  *  panel's lower row hid its ports; patching more meant hiding the cords layer). Off the ports the cord is picked. */
 export function preferPort(prims: Prim[], hit: Prim | undefined, p: Pt): Prim | undefined {
-	if (!hit || hit.k !== 'line' || hit.role !== 'cord') return hit
+	if (!hit || hit.k !== 'line' || (hit.role !== 'cord' && hit.role !== 'cord-stub')) return hit
 	for (let i = prims.length - 1; i >= 0; i--) {
 		const pr = prims[i]
 		if (pr.k === 'line' && pr.src && pr.sub && pr.role === 'port' && pr.closed && inPolygon(p, pr.pts)) return pr

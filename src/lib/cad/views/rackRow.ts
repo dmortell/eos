@@ -263,9 +263,9 @@ export function rackRowDisplayList(ix: ProjectIndex, spec: RowSpec, o: RowOpts =
 		if ((a || b) && !(a && b)) {
 			// 3U long at least, so a click can find it (Round 11: 30 mm was ~7 px at a working zoom)
 			const p = (a ?? b)!, other = a ? c.b : c.a, y0 = p.y + p.hh, len = Math.max(3 * RU_MM, p.hh * 3)
-			stubs.push({ k: 'line', pts: [{ x: p.x, y: y0 }, { x: p.x, y: y0 + len }], cls: `cord cord-${c.status} cord-stub`, role: 'cord', src: c.id, color: c.colour })
+			stubs.push({ k: 'line', pts: [{ x: p.x, y: y0 }, { x: p.x, y: y0 + len }], cls: `cord cord-${c.status} cord-stub`, role: 'cord-stub', src: c.id, color: c.colour })
 			const size = Math.min(p.hh * 1.6, 14)
-			stubs.push({ k: 'text', at: { x: p.x + size * 0.35, y: y0 + len + size * 0.3 }, rot: 90, text: `→ ${ix.portPlace(other).replace(/ \((front|rear)\)$/, '')}`, size, anchor: 'start', cls: 'cord-stub-label', src: c.id, minPx: 7 })
+			stubs.push({ k: 'text', at: { x: p.x + size * 0.35, y: y0 + len + size * 0.3 }, rot: 90, text: `→ ${ix.portPlace(other).replace(/ \((front|rear)\)$/, '')}`, size, anchor: 'start', cls: 'cord-stub-label', role: 'cord-stub', src: c.id, minPx: 7 })
 			continue
 		}
 		if (!a || !b) continue

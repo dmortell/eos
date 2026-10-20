@@ -23,6 +23,9 @@ export const SYSTEM_LAYERS: LayerInfo[] = ([
 ] as const).map(([id, name, look], i): LayerInfo => ({ id, name, look, order: (i + 1) * 10, system: true }))
 	// ROOMS (W30): room / EPS outlines and names on the plan, just above Walls — order 25, so no other layer's order moves
 	.concat({ id: 'sys:rooms', name: 'Rooms', look: '#64748b', order: 25, system: true })
+	// CORD STUBS (User 2026-10-20: "too crowded … not necessary to display all the time"): a rack view's stubs of the
+	// cords to another row, just above Patch cords — order 95, so no other layer's order moves
+	.concat({ id: 'sys:cord-stubs', name: 'Cord stubs', look: '#3b82f6', order: 95, system: true })
 	.sort((a, b) => a.order - b.order)
 
 /** Colors for new project layers, in turn (distinct from the system defaults where possible). */
@@ -78,6 +81,7 @@ export function primLayer(role: PrimRole | undefined, e: Entity | undefined, kno
 	if (e.type === 'shape' && e.role?.kind === 'containment' && !e.layerId && role === 'riser') return 'sys:risers'
 	// a device's port labels have their own layer (User 2026-10-07): hidden / frozen apart from the racks
 	if (e.type === 'device' && role === 'port-label') return 'sys:port-labels'
+	if (e.type === 'cord' && role === 'cord-stub') return 'sys:cord-stubs'
 	return layerOf(e, known)
 }
 
