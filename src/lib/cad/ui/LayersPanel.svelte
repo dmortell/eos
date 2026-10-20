@@ -285,6 +285,7 @@
 
 <style>
 	.find { display: flex; align-items: center; justify-content: flex-end; gap: 0.5rem; margin-bottom: 0.25rem; padding-right: 0.25rem; }
+	.find .btn { align-self: stretch; }   /* as tall as the Find box beside it (User: it looked smaller) */
 	.search { flex: 1; min-width: 0; padding: 1px 4px; font-size: 12px; border: 1px solid var(--cad-line); background: var(--cad-input); color: var(--cad-text); border-radius: 3px; }
 	.note { padding: 0 0.25rem 0.25rem; font-size: 10px; color: var(--cad-faint); }
 	.row { display: flex; align-items: center; gap: 1px; padding: 0 2px; font-size: 12px; border-radius: 3px; }
@@ -312,7 +313,7 @@
 	@media (hover: none) { .ren { visibility: visible; } }
 	.presets { display: flex; align-items: center; gap: 2px; padding: 0 2px 3px; font-size: 12px; }
 	.presets select { flex: 1; min-width: 0; font-size: 11px; border: 1px solid var(--cad-line); background: var(--cad-input); color: var(--cad-text); border-radius: 3px; }
-	.btn { padding: 0 6px; font-size: 11px; border: 1px solid var(--cad-line); border-radius: 3px; background: var(--cad-input); color: var(--cad-text); }
+	.btn { min-height: 20px; padding: 0 6px; font-size: 11px; border: 1px solid var(--cad-line); border-radius: 3px; background: var(--cad-input); color: var(--cad-text); }
 	.row.pick { box-shadow: inset 2px 0 0 var(--cad-link); background: var(--cad-hover); }
 	.row.grp { font-weight: 600; color: var(--cad-muted, #71717a); margin-top: 3px; }
 	.row.ing { padding-left: 10px; }

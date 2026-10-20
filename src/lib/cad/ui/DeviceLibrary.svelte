@@ -81,8 +81,9 @@
 
 <style>
 	.top { display: flex; gap: 4px; align-items: center; margin: 2px 0 4px; }
-	.new { flex: 0 1 auto; max-width: 45%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; color: #2563eb; padding: 0 6px; border-radius: 3px; }
-	.new:hover { background: var(--cad-sel); }
+	/* a button as tall as the Find box, as the Layers window's + Layer (User 2026-10-20: a button, not a link) */
+	.new { flex: 0 1 auto; align-self: stretch; max-width: 45%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; padding: 0 6px; border: 1px solid var(--cad-line); border-radius: 3px; background: var(--cad-input); color: var(--cad-text); }
+	.new:hover { background: var(--cad-hover); }
 	.row { display: flex; align-items: center; }
 	.row .tpl { flex: 1; min-width: 0; }
 	/* ✎ / ⧉ / ✕: on hover, and on the armed row or one with the focus (keyboard); always on a touch screen */

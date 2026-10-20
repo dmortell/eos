@@ -5,7 +5,7 @@
 :where(.cad-props) .row { display: grid; grid-template-columns: 6.5rem minmax(0, 1fr); align-items: center; gap: 0.25rem; }
 :where(.cad-props) .inp { width: 100%; min-width: 0; border: 1px solid var(--cad-line); border-radius: 4px; padding: 1px 4px; background: var(--cad-input); color: var(--cad-text); }
 :where(.cad-props) textarea.inp { resize: vertical; font-family: inherit; }
-:where(.cad-props) .btn { border: 1px solid var(--cad-line); border-radius: 4px; padding: 0 6px; background: var(--cad-input); color: var(--cad-text); }
+:where(.cad-props) .btn { min-height: 20px; border: 1px solid var(--cad-line); border-radius: 4px; padding: 0 6px; background: var(--cad-input); color: var(--cad-text); }
 :where(.cad-props) .btn:hover:not(:disabled) { background: var(--cad-hover); }
 :where(.cad-props) .btn:disabled { opacity: 0.4; }
 :where(.cad-props) .btn.del:hover { color: #dc2626; }

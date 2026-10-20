@@ -555,7 +555,7 @@
 	.mini { margin-left: 4px; font-size: 11px; padding: 0 6px; border-radius: 4px; border: 1px dashed var(--cad-line, #d4d4d8); color: var(--cad-link, #1d4ed8); }
 	.chip.has { border-color: #2563eb; color: #1d4ed8; }
 	.chip.off { text-decoration: line-through; opacity: 0.45; }
-	.btn { border: 1px solid var(--cad-line, #d4d4d8); border-radius: 4px; padding: 1px 8px; background: var(--cad-input, white); }
+	.btn { min-height: 20px; border: 1px solid var(--cad-line, #d4d4d8); border-radius: 4px; padding: 1px 8px; background: var(--cad-input, white); }
 	.btn.pri { background: #2563eb; border-color: #2563eb; color: white; }
 	.btn:disabled { opacity: 0.45; cursor: default; }
 	table { border-collapse: collapse; }

@@ -135,7 +135,7 @@
 <style>
 	/* a strip over the top of the pane, above the drawing (User: rack labels showed through the buttons) */
 	.views { position: absolute; top: 0; left: 0; right: 0; z-index: 2; display: flex; align-items: center; gap: 2px; padding: 4px 6px; background: var(--cad-subtle, #fafafa); border-bottom: 1px solid var(--cad-line, #e4e4e7); white-space: nowrap; overflow: hidden; }
-	.views button { font-size: 11px; padding: 0 6px; border-radius: 4px; background: var(--cad-input, white); border: 1px solid var(--cad-line, #e4e4e7); color: var(--cad-muted, #52525b); }
+	.views button { align-self: stretch; font-size: 11px; padding: 0 6px; border-radius: 4px; background: var(--cad-input, white); border: 1px solid var(--cad-line, #e4e4e7); color: var(--cad-muted, #52525b); }
 	.views button.on { background: #2563eb; border-color: var(--cad-link, #2563eb); color: white; }
 	.rkey { display: inline-flex; align-items: center; gap: 3px; font-size: 11px; color: var(--cad-muted); margin-left: 4px; }
 	.rkey i { width: 10px; height: 4px; border-radius: 2px; }

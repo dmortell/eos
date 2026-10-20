@@ -40,6 +40,6 @@
 	.wide { grid-column: 1 / -1; margin: 0; display: flex; align-items: center; gap: 8px; color: var(--cad-muted); }
 	/* as Settings' own inputs and buttons (SettingsPanel.svelte; its styles are scoped to it) */
 	.num { width: 4.5rem; border: 1px solid var(--cad-line, #d4d4d8); border-radius: 4px; padding: 0 4px; background: var(--cad-input, white); color: inherit; }
-	.btn { border: 1px solid var(--cad-line); border-radius: 4px; padding: 0 6px; background: var(--cad-input); color: var(--cad-text); }
+	.btn { min-height: 20px; border: 1px solid var(--cad-line); border-radius: 4px; padding: 0 6px; background: var(--cad-input); color: var(--cad-text); }
 	.btn:disabled { opacity: 0.4; }
 </style>

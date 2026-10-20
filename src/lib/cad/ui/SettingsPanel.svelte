@@ -263,6 +263,6 @@
 	.form .wide { grid-column: 1 / -1; margin: 0; }
 	.foot { display: flex; gap: 12px; align-items: center; padding: 8px 12px; }
 	.foot + .foot { padding-top: 0; }
-	.btn { border: 1px solid var(--cad-line); border-radius: 4px; padding: 0 6px; background: var(--cad-input); color: var(--cad-text); }
+	.btn { min-height: 20px; border: 1px solid var(--cad-line); border-radius: 4px; padding: 0 6px; background: var(--cad-input); color: var(--cad-text); }
 	.btn:disabled { opacity: 0.4; }
 </style>

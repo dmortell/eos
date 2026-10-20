@@ -80,7 +80,7 @@
 	.title { display: flex; align-items: baseline; gap: 8px; }
 	.title .hint { flex: 1; }
 	.hint { color: var(--cad-muted, #71717a); font-size: 11px; }
-	.btn { border: 1px solid var(--cad-line, #d4d4d8); border-radius: 4px; padding: 0 8px; background: var(--cad-input, white); }
+	.btn { min-height: 20px; border: 1px solid var(--cad-line, #d4d4d8); border-radius: 4px; padding: 0 8px; background: var(--cad-input, white); }
 	table { width: 100%; border-collapse: collapse; margin-top: 6px; }
 	th { text-align: left; font-weight: 600; color: var(--cad-muted, #52525b); border-bottom: 1px solid var(--cad-line, #e4e4e7); padding: 2px 4px; }
 	td { padding: 1px 4px; border-bottom: 1px solid var(--cad-line-faint, #f4f4f5); }

@@ -108,7 +108,7 @@
 	.toggles button { padding: 1px 6px; border-radius: 4px; font-size: 10px; letter-spacing: 0.04em; color: var(--cad-faint); border: 1px solid transparent; }
 	.toggles button:hover { background: var(--cad-hover); }
 	.toggles button.on { color: var(--cad-link, #1d4ed8); background: var(--cad-sel, #dbeafe); border-color: var(--cad-sel-line, #93c5fd); }
-	.toggles .step { width: 4.5rem; font-size: 10px; padding: 0 2px; border: 1px solid var(--cad-line); border-radius: 4px; background: var(--cad-input); color: var(--cad-muted); margin-right: 4px; }
+	.toggles .step { width: 4.5rem; font-size: 10px; padding: 1px 2px; border: 1px solid var(--cad-line); border-radius: 4px; background: var(--cad-input); color: var(--cad-muted); margin-right: 4px; }
 	.scale { color: var(--cad-muted); }
 	.selc { padding: 0 6px; border-radius: 4px; color: var(--cad-link, #1d4ed8); background: var(--cad-sel, #dbeafe); font-weight: 600; }
 	.selc:hover { background: #bfdbfe; }

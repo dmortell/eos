@@ -50,7 +50,7 @@
 
 <style>
 	.hint { font-weight: 400; color: var(--cad-muted, #71717a); }
-	.btn { border: 1px solid var(--cad-line); border-radius: 4px; padding: 1px 8px; background: var(--cad-input); color: var(--cad-text); cursor: pointer; }
+	.btn { min-height: 20px; border: 1px solid var(--cad-line); border-radius: 4px; padding: 1px 8px; background: var(--cad-input); color: var(--cad-text); cursor: pointer; }
 	.btn:hover { background: var(--cad-hover); }
 	.up { display: inline-block; }
 	.busy { opacity: 0.6; }

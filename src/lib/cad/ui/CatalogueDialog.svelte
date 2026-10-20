@@ -104,7 +104,7 @@
 	.inp { border: 1px solid var(--cad-line, #d4d4d8); border-radius: 4px; background: var(--cad-input, white); color: inherit; padding: 0 4px; }
 	.inp.n { width: 3.5rem; }
 	.inp.q { width: 18rem; }
-	.btn { border: 1px solid var(--cad-line, #d4d4d8); border-radius: 4px; padding: 0 8px; background: var(--cad-input, white); white-space: nowrap; }
+	.btn { min-height: 20px; border: 1px solid var(--cad-line, #d4d4d8); border-radius: 4px; padding: 0 8px; background: var(--cad-input, white); white-space: nowrap; }
 	.btn.go { background: #2563eb; color: white; border-color: #2563eb; }
 	.btn.del:hover { color: #dc2626; }
 	.hint { color: var(--cad-muted, #71717a); }

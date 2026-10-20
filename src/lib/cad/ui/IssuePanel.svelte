@@ -150,7 +150,7 @@
 <style>
 	.panel { padding: 4px 8px 6px; border-bottom: 1px solid var(--cad-line); background: var(--cad-pick); }
 	.inp { border: 1px solid var(--cad-line); border-radius: 4px; padding: 0 4px; background: var(--cad-input); color: var(--cad-text); }
-	.btn { border: 1px solid var(--cad-line); border-radius: 4px; padding: 0 8px; background: var(--cad-input); color: var(--cad-text); }
+	.btn { min-height: 20px; border: 1px solid var(--cad-line); border-radius: 4px; padding: 0 8px; background: var(--cad-input); color: var(--cad-text); }
 	.btn:disabled { opacity: 0.4; }
 	.plan { margin-top: 4px; border-collapse: collapse; width: 100%; max-width: 60rem; }
 	.plan th { text-align: left; font-weight: 600; color: var(--cad-muted); padding: 0 6px; }

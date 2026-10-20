@@ -127,6 +127,6 @@
 	.modes { display: flex; gap: 2px; }
 	.modes button { flex: 1; border: 1px solid var(--cad-line, #d4d4d8); border-radius: 4px; padding: 0 6px; background: var(--cad-input, white); color: inherit; }
 	.modes button.on { background: var(--cad-sel, #dbeafe); font-weight: 600; }
-	.btn { border: 1px solid var(--cad-line, #d4d4d8); border-radius: 4px; padding: 0 6px; background: var(--cad-input, white); }
+	.btn { min-height: 20px; border: 1px solid var(--cad-line, #d4d4d8); border-radius: 4px; padding: 0 6px; background: var(--cad-input, white); }
 	.btn:disabled { opacity: 0.4; }
 </style>

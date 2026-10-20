@@ -120,7 +120,7 @@
 </PropGroup>
 
 <style>
-	.btn { justify-self: start; border: 1px solid var(--cad-line); border-radius: 4px; padding: 0 6px; background: var(--cad-input); color: var(--cad-text); }
+	.btn { min-height: 20px; justify-self: start; border: 1px solid var(--cad-line); border-radius: 4px; padding: 0 6px; background: var(--cad-input); color: var(--cad-text); }
 	.seg { display: inline-flex; border: 1px solid var(--cad-line); border-radius: 4px; overflow: hidden; width: fit-content; }
 	.seg button { padding: 0 8px; color: var(--cad-muted); }
 	.seg button.on { background: #2563eb; color: white; }

@@ -59,7 +59,7 @@
 	.n { width: 0.9rem; color: var(--cad-faint); text-align: right; }
 	.inp { width: 3.3rem; border: 1px solid var(--cad-line); border-radius: 4px; padding: 0 3px; background: var(--cad-input); color: var(--cad-text); font-size: 11px; }
 	.sel { width: 4rem; }
-	.btn { border: 1px solid var(--cad-line); border-radius: 4px; padding: 0 5px; background: var(--cad-input); color: var(--cad-text); font-size: 11px; }
+	.btn { min-height: 20px; border: 1px solid var(--cad-line); border-radius: 4px; padding: 0 5px; background: var(--cad-input); color: var(--cad-text); font-size: 11px; }
 	.btn:hover { background: var(--cad-hover); }
 	.del:hover { color: #dc2626; }
 </style>

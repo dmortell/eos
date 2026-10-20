@@ -71,7 +71,7 @@
 	.inp.w { width: 11rem; }
 	.del { color: var(--cad-faint); padding: 0 4px; }
 	.del:hover { color: #dc2626; }
-	.btn { border: 1px solid var(--cad-line); border-radius: 4px; padding: 0 6px; background: var(--cad-input); color: var(--cad-text); }
+	.btn { min-height: 20px; border: 1px solid var(--cad-line); border-radius: 4px; padding: 0 6px; background: var(--cad-input); color: var(--cad-text); }
 	.btn:hover:not(:disabled) { background: var(--cad-hover); }
 	.foot { display: flex; gap: 6px; align-items: center; padding: 6px; }
 </style>

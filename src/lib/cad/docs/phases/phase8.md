@@ -4197,3 +4197,14 @@ User: "Yes, cords kept inside the set" (the ❓ entry of 2026-10-17).
   paper's own notes / legends / change lists draw nothing on fold under "Not on this paper", as picked viewports do
   ("Not in this view"). New `paperLayers` (views/sheet.ts) beside `viewportLayers`. Help updated. Seen live on Journey
   (30F Sensaphone: no paper notes → all 23 folded).
+
+### Buttons as tall as the inputs beside them (2026-10-20)
+
+- User: "the +Layer button looks smaller vertically than the input beside it … (and check all other buttons too)",
+  "buttons in Properties window seem small too". Measured live (a page script comparing each button with the
+  inputs / selects in its row): + Layer 17.7 px by the 21 px Find box; the Device library's + New 16 px (a link, now
+  a button like + Layer); the view strip's buttons 16 px by 19 px selects; the status bar's snap step 16 px by 18 px
+  toggles; Properties' buttons (Renumber, Copy link, ⟲ 90°, + Note …) 16 px by 18–20 px inputs. Fixed: a button in
+  a Find row stretches to the box (`align-self: stretch`), the view strip's buttons stretch to its selects, the snap
+  step gets 1 px padding, and every small panel `.btn` (props.css and the 16 windows / tabs with their own copy) gets
+  `min-height: 20px`, as CordActions / IssuesList / PackagesList had. Dialog footers (2px 10px) were already 20 px.

@@ -65,7 +65,7 @@
 {/if}
 
 <style>
-	.btn { border: 1px solid var(--cad-line); border-radius: 4px; padding: 0 6px; background: var(--cad-input); color: var(--cad-text); white-space: nowrap; }
+	.btn { min-height: 20px; border: 1px solid var(--cad-line); border-radius: 4px; padding: 0 6px; background: var(--cad-input); color: var(--cad-text); white-space: nowrap; }
 	.link { display: block; width: 100%; text-align: left; padding: 0 4px; border-radius: 3px; color: var(--cad-link, #2563eb); }
 	.link:hover { background: var(--cad-hover); text-decoration: underline; }
 </style>
