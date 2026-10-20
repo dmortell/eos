@@ -14,6 +14,7 @@
 	import { specLabel, PLAN, isPaperSpec, type ViewSpec } from '../views/space'
 	import { FILL_LIMIT_PCT } from '../domain/fill'
 	import { exportPortMap } from '../render/exports'
+	import { handOrderDiffers, planOrder } from '../domain/devices'
 
 	export interface PaneNav { back?: string; fwd?: string; go: (dir: -1 | 1) => void }
 
@@ -43,6 +44,15 @@
 	 *  button in this strip, get one way up: "↑ 1F plan". */
 	const up = $derived(spec.kind === 'row' || spec.kind === 'portmap' ? `↑ ${project.index.nameOf(levelId)} plan` : '')
 	const rowsOf = (spaceId: string) => project.index.ofType('rackRow').filter((e) => e.spaceId === spaceId).sort((a, b) => a.order - b.order)
+	/** The rows shown here (one, or all of the room) whose racks stand otherwise than on the plan — moved by hand in a rack
+	 *  view or the Racks window (User 2026-10-20: say so, with a way back). */
+	const offPlan = (spaceId: string, rowId?: string): string[] => { void project.rev; return handOrderDiffers(project.index, spaceId).filter((k) => !rowId || k === rowId) }
+	function toPlanOrder(spaceId: string, keys: string[]) {
+		const s = project.index.getOf('space', spaceId)
+		if (!s || !keys.length) return
+		project.store.transact(`${keys.length === 1 ? (project.index.nameOf(keys[0]) || 'Racks') : `${keys.length} rows`}: rack order from the plan`, (tx) => tx.put(keys.reduce(planOrder, s)))
+		ws.say('Racks back in the plan’s order — Ctrl+Z undoes')
+	}
 	/** W7: this level has a floorplan with something to compare with (a replaced revision, or one picked in Floors…). */
 	const comparable = $derived.by(() => { void project.rev; return project.index.ofType('underlay').some((u) => u.levelId === levelId && (u.prevFileId || ws.compareWith[u.id])) })
 </script>
@@ -82,6 +92,8 @@
 				{#each rows as r (r.id)}<option value={r.id}>{r.name}</option>{/each}
 			</select>
 		{/if}
+		{@const off = offPlan(row.spaceId, row.rowId)}
+		{#if off.length}<button class="offplan" title="{off.length === 1 ? `${project.index.nameOf(off[0]) || 'These racks'} — the racks were` : `${off.length} rows — their racks were`} put in order by hand, so this view doesn’t match the plan. Click: back to the plan’s order (left to right as drawn)" onclick={() => toPlanOrder(row.spaceId, off)}>Order ≠ plan · ↺</button>{/if}
 		<button class="disp" class:on={dispOpen} title="What this rack view shows on your screen" onclick={openDisplay}>Display ▾</button>
 	{:else if spec.kind === 'portmap'}
 		{@const ids = spec.deviceIds}
@@ -152,6 +164,7 @@
 	.views button.crumb.link { border: 0; background: none; color: var(--cad-link, #1d4ed8); font-weight: 600; padding: 0 2px; }
 	.views button.crumb.link:hover { text-decoration: underline; }
 	.views .tosheet { margin-left: auto; max-width: 9rem; }
+	.views button.offplan { color: #b45309; border-color: #f59e0b; background: rgb(245 158 11 / 0.12); }   /* a note to act on, amber (both themes) */
 	.dback { position: fixed; inset: 0; z-index: 40; background: transparent; cursor: default; }
 	.dpop { position: fixed; z-index: 41; display: flex; flex-direction: column; gap: 4px; min-width: 11rem; padding: 6px 8px; font-size: 12px; color: var(--cad-text); background: var(--cad-panel, white); border: 1px solid var(--cad-line, #e4e4e7); border-radius: 6px; box-shadow: 0 4px 14px rgb(0 0 0 / 0.15); }
 	.dpop label { display: flex; align-items: center; gap: 6px; white-space: nowrap; }

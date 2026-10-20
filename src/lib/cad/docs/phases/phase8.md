@@ -4252,3 +4252,12 @@ User: "Yes, cords kept inside the set" (the ❓ entry of 2026-10-17).
   (domain/layers) leave them out of that list (unless an item is already on one) and out of the Layers window's
   click-to-make-current (it allowed any layer). The Layer chip already listed only Drawing, Walls and own layers.
   Test: layers.test. Seen live: 1-007's list is Floorplans … Sections, Outlets B.
+
+### "Order ≠ plan · ↺" in a rack view (2026-10-20, Round 12 #6)
+
+- User: "do … reset plan order". A row put in order by hand (a rack view drag, or the Racks window) drew otherwise
+  than the plan with no sign of it. Now the rack view's strip shows an amber **Order ≠ plan · ↺** while the shown row
+  (or any row, in All rows) differs from the plan; a click puts them back in the plan's order (one undo step) — as
+  the Racks window's "↺ plan order". `handOrderDiffers` (domain/devices: a hand order that matches the plan is no
+  difference; `racksInOrder(…, byHand)`). Help updated. Test: rackRow.test. Seen live: Row A (R03 before R01 since
+  the round) → click → R01 … R04, the note gone.

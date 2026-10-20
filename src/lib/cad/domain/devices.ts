@@ -119,7 +119,7 @@ export const roomFloor = (ix: ProjectIndex, spaceId: Id | undefined): number => 
 	return s?.type === 'space' ? (s.floorMm ?? 0) : 0
 }
 
-export function racksInOrder(ix: ProjectIndex, spaceId: Id, rowId?: Id): Rack[] {
+export function racksInOrder(ix: ProjectIndex, spaceId: Id, rowId?: Id, byHand = true): Rack[] {
 	const racks = ix.racks.filter((r) => r.spaceId === spaceId && (!rowId || r.rowId === rowId))
 	const rowOrder = (r: Rack) => { const row = r.rowId ? ix.get(r.rowId) : undefined; return row?.type === 'rackRow' ? row.order : 1e6 }
 	// A row can turn a corner (racks along one wall, a frame and its managers along the next — User's IDF 2), so each
@@ -155,7 +155,7 @@ export function racksInOrder(ix: ProjectIndex, spaceId: Id, rowId?: Id): Rack[] 
 		return pa ? -1 : pb ? 1 : 0
 	}
 	// a row's order set by hand (Space.rackOrder) wins: its listed racks first, in that order
-	const space = ix.get(spaceId), hand = space?.type === 'space' ? space.rackOrder : undefined
+	const space = ix.get(spaceId), hand = byHand && space?.type === 'space' ? space.rackOrder : undefined
 	const handRank = (r: Rack) => { const i = hand?.[rowKey(r)]?.indexOf(r.id) ?? -1; return i < 0 ? 1e6 : i }
 	return racks.sort((a, b) => rowOrder(a) - rowOrder(b) || (a.rowId ?? '').localeCompare(b.rowId ?? '') || handRank(a) - handRank(b) || cmp(a, b) || a.order - b.order || naturalCompare(a.name, b.name))
 }
@@ -217,6 +217,19 @@ export function rowOrderFor(ix: ProjectIndex, rackIds: Id[], targetId: Id, anyRo
 	if (!t || !space || !rackIds.length || rackIds.includes(targetId)) return null
 	if (!rackIds.every((id) => { const r = ix.getOf('rack', id); return r?.spaceId === t.spaceId && (anyRow || rowKey(r) === rowKey(t)) })) return null
 	return { space, key: rowKey(t), ids: racksInOrder(ix, t.spaceId).filter((x) => rowKey(x) === rowKey(t)).map((x) => x.id) }
+}
+
+/** The rows of a room (`rowKey`s) whose hand order puts its racks otherwise than the plan does — a rack view says so,
+ *  with "↺ Plan order" (User 2026-10-20: R03 drawn before R01 in Row A while the plan still had R01 … R04). A hand
+ *  order that matches the plan is not a difference. */
+export function handOrderDiffers(ix: ProjectIndex, spaceId: Id): string[] {
+	const space = ix.getOf('space', spaceId)
+	const keys = Object.keys(space?.rackOrder ?? {})
+	if (!keys.length) return []
+	const by = (hand: boolean) => racksInOrder(ix, spaceId, undefined, hand)
+	const seq = (racks: Rack[], key: string) => racks.filter((r) => rowKey(r) === key).map((r) => r.id).join()
+	const hand = by(true), plan = by(false)
+	return keys.filter((k) => seq(hand, k) !== seq(plan, k))
 }
 
 /** Back to the plan's order for a row (drops the hand order). */

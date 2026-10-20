@@ -7,7 +7,7 @@ import { demoProject } from '../domain/fixtures'
 import { layersOf, primLayer } from '../domain/layers'
 import type { Entity } from '../domain/drawing'
 import type { Device, Rack } from '../domain/types'
-import { moveRack, planOrder } from '../domain/devices'
+import { moveRack, planOrder, handOrderDiffers } from '../domain/devices'
 
 const ix = (extra: Entity[] = []) => new ProjectIndex([...demoProject(), ...extra])
 const view = (face: 'front' | 'rear', extra: Entity[] = []) => rackRowDisplayList(ix(extra), { spaceId: 'SR-A', face })
@@ -147,6 +147,15 @@ describe('row order comes from the plan', () => {
 		expect(moveRack(ix(after), 'A', 'A', true)).toBeNull()
 		expect(names([...after, mk('D', 500)])).toEqual(['A', 'C', 'B', 'D'])                  // a new rack: after the hand order
 		expect(planOrder(moved, 'ROW').rackOrder).toBeUndefined()
+	})
+	it('a rack view says when a row is out of the plan’s order — not for a hand order that matches it (User 2026-10-20)', () => {
+		const mk = (id: string, x: number): Rack => ({ type: 'rack', id, levelId: 'L33', spaceId: 'SR-B', rowId: 'ROW', order: 0, name: id, kind: 'cabinet', heightU: 42, widthMm: 600, depthMm: 1000, at: { x, y: 0 } })
+		const row = { type: 'rackRow' as const, id: 'ROW', spaceId: 'SR-B', name: 'Row 1', order: 0 }
+		const room = { type: 'space' as const, id: 'SR-B', levelId: 'L33', kind: 'server room', name: 'IDF-B', order: 2 }
+		const racks = [mk('A', 1000), mk('B', 2000), mk('C', 3000)]
+		expect(handOrderDiffers(ix([room, row, ...racks]), 'SR-B')).toEqual([])
+		expect(handOrderDiffers(ix([{ ...room, rackOrder: { ROW: ['A', 'C', 'B'] } }, row, ...racks]), 'SR-B')).toEqual(['ROW'])
+		expect(handOrderDiffers(ix([{ ...room, rackOrder: { ROW: ['A', 'B', 'C'] } }, row, ...racks]), 'SR-B')).toEqual([])   // dragged back
 	})
 })
 
