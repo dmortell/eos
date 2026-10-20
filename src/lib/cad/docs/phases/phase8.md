@@ -4208,3 +4208,11 @@ User: "Yes, cords kept inside the set" (the ❓ entry of 2026-10-17).
   a Find row stretches to the box (`align-self: stretch`), the view strip's buttons stretch to its selects, the snap
   step gets 1 px padding, and every small panel `.btn` (props.css and the 16 windows / tabs with their own copy) gets
   `min-height: 20px`, as CordActions / IssuesList / PackagesList had. Dialog footers (2px 10px) were already 20 px.
+
+### Patch list: a Was column for moved cords (2026-10-20, Round 12 #2)
+
+- User: "for cutovers, we need the From details in the patch list and export to excel — its ok for the old ports to
+  look free". The list showed a moved end only as ↶ (hover); now a **Was** column, while any cord in the list has a
+  moved end, gives them in words ("To R02 · SW1 : 1 (front)", "From … · To …" when both moved), in the CHANGE amber;
+  Find and sort use it, Ctrl+C copies it. The Excel schedule already has Was From / Was To (exports.test). Help
+  (patch list) names it. Seen live: the 12 PP1 cords re-patched SW1 → SW3 read "To R02 · SW1 : n (front)".

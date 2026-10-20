@@ -8,7 +8,7 @@
 	import { untrack } from 'svelte'
 	import type { Cord } from '../domain/types'
 	import { cableTypeLabel } from '../domain/cableTypes'
-	import { patchList } from '../domain/reports'
+	import { patchList, type PatchRow } from '../domain/reports'
 	import { importCordIds } from '../render/exports'
 	import PatchScheduleDialog from './PatchScheduleDialog.svelte'
 	import CordLabelsDialog from './CordLabelsDialog.svelte'
@@ -59,8 +59,12 @@
 		return list.filter((r) => ids.has(r.id))
 	})
 	const count = $derived(Object.fromEntries(STATUSES.map((s) => [s, all.filter((r) => r.status === s).length])) as Record<Cord['status'], number>)
-	const rows = $derived(t.apply(all.filter((r) => show[r.status]), (r) => `${r.from} ${r.fromLabel} ${r.to} ${r.toLabel} ${r.cordId} ${r.notes} ${typeLabel(r.cableType)}`,
-		{ from: (r) => r.from, fromLabel: (r) => r.fromLabel, to: (r) => r.to, toLabel: (r) => r.toLabel, type: (r) => typeLabel(r.cableType), len: (r) => r.lengthM, cordId: (r) => r.cordId, status: (r) => STATUSES.indexOf(r.status), notes: (r) => r.notes }))
+	/** A moved cord's old ends in words (User 2026-10-20, cutovers: the installer needs where to unplug it, not just a ↶
+	 *  tip) — a "Was" column while any cord in the list has moved. */
+	const wasText = (r: PatchRow) => [r.wasFrom && `From ${r.wasFrom}`, r.wasTo && `To ${r.wasTo}`].filter(Boolean).join(' · ')
+	const hasWas = $derived(all.some((r) => r.wasFrom || r.wasTo))
+	const rows = $derived(t.apply(all.filter((r) => show[r.status]), (r) => `${r.from} ${r.fromLabel} ${r.to} ${r.toLabel} ${wasText(r)} ${r.cordId} ${r.notes} ${typeLabel(r.cableType)}`,
+		{ from: (r) => r.from, fromLabel: (r) => r.fromLabel, to: (r) => r.to, toLabel: (r) => r.toLabel, was: wasText, type: (r) => typeLabel(r.cableType), len: (r) => r.lengthM, cordId: (r) => r.cordId, status: (r) => STATUSES.indexOf(r.status), notes: (r) => r.notes }))
 	const nSel = $derived(rows.filter((r) => selected.has(r.id)).length)
 	/** The selected rows' cords — what the action bar and the right-click act on (patch-list-plan.md Slice 2). */
 	const selCords = $derived(rows.filter((r) => selected.has(r.id)).map((r) => project.index.get(r.id)).filter((c): c is Cord => c?.type === 'cord'))
@@ -93,7 +97,7 @@
 	function tableKey(e: KeyboardEvent) {
 		if (arrowSelect(e, rows.map((r) => r.id), ws.selection, ws.selectAndReveal) || ed.tableKey(e, ws.selection)) { e.preventDefault(); e.stopPropagation(); return }
 		if (selectAllRows(e, rows.map((r) => r.id), ws.select)) { e.preventDefault(); e.stopPropagation(); return }
-		if (copyRows(e, ['From', 'Label', 'To', 'Label', 'Type', 'Length (m)', 'Cord ID', 'Status', 'Notes'], rows.map((r) => [r.from, r.fromLabel, r.to, r.toLabel, typeLabel(r.cableType), r.lengthM, r.cordId, r.status, r.notes]), ws.say)) { e.preventDefault(); e.stopPropagation() }
+		if (copyRows(e, ['From', 'Label', 'To', 'Label', ...(hasWas ? ['Was'] : []), 'Type', 'Length (m)', 'Cord ID', 'Status', 'Notes'], rows.map((r) => [r.from, r.fromLabel, r.to, r.toLabel, ...(hasWas ? [wasText(r)] : []), typeLabel(r.cableType), r.lengthM, r.cordId, r.status, r.notes]), ws.say)) { e.preventDefault(); e.stopPropagation() }
 	}
 	const selected = $derived(new Set(ws.selection))
 	/** The cords on the ports picked in a rack view: shown like selected rows. */
@@ -152,7 +156,7 @@
 	{/snippet}
 	<table class="w-full border-collapse">
 		<thead>
-			<tr><SortTh {t} key="from" cls="px-2 py-1">From</SortTh><SortTh {t} key="fromLabel">Label</SortTh><SortTh {t} key="to">To</SortTh><SortTh {t} key="toLabel">Label</SortTh><SortTh {t} key="type">Type</SortTh><SortTh {t} key="len">Len (m)</SortTh><SortTh {t} key="cordId">Cord ID</SortTh><SortTh {t} key="status">Status</SortTh><SortTh {t} key="notes">Notes</SortTh></tr>
+			<tr><SortTh {t} key="from" cls="px-2 py-1">From</SortTh><SortTh {t} key="fromLabel">Label</SortTh><SortTh {t} key="to">To</SortTh><SortTh {t} key="toLabel">Label</SortTh>{#if hasWas}<SortTh {t} key="was">Was</SortTh>{/if}<SortTh {t} key="type">Type</SortTh><SortTh {t} key="len">Len (m)</SortTh><SortTh {t} key="cordId">Cord ID</SortTh><SortTh {t} key="status">Status</SortTh><SortTh {t} key="notes">Notes</SortTh></tr>
 		</thead>
 		<tbody>
 			{#each rows as r (r.id)}
@@ -164,6 +168,7 @@
 						<td class="ed"><input class="ed-box" value={r.to} use:focusCell onkeydown={(e) => ed.key(e, r.id, 'to')} onblur={(e) => ed.blur(r.id, 'to', e.currentTarget.value)} onclick={(e) => e.stopPropagation()} /></td>
 					{:else}<td class="px-2" title="Double-click to re-patch: type device : port (SW1:41), or just the port · several cords at once: select them, Re-patch… (the rest go to the next free ports)" ondblclick={(e) => ed.start(r.id, 'to', e)}>{r.to}{#if r.wasTo}<span class="was" title="Was {r.wasTo}">↶</span>{/if}</td>{/if}
 					<td class="px-2 font-mono muted">{r.toLabel || '—'}</td>
+					{#if hasWas}<td class="px-2 was-txt">{wasText(r)}</td>{/if}
 					<td class="px-2"><span class="sw" style:background={r.colour}></span>{typeLabel(r.cableType)}{#if rep}<span class="was" title="Replaces the cord there now — {rep}">↶</span>{/if}</td>
 					<td class="px-2">{r.lengthM}</td>
 					{#if ed.is(r.id, 'cordId')}
@@ -179,7 +184,7 @@
 					{:else}<td class="clip px-2 muted" title={r.notes ? `${r.notes} — double-click to edit` : 'Double-click to add a note'} ondblclick={(e) => ed.start(r.id, 'notes', e)}>{r.notes}</td>{/if}
 				</tr>
 			{:else}
-				<tr><td colspan="9" class="px-2 py-3 faint">No cords{all.length ? ' match' : ' yet — use the Cord tool in a rack view'}.</td></tr>
+				<tr><td colspan={hasWas ? 10 : 9} class="px-2 py-3 faint">No cords{all.length ? ' match' : ' yet — use the Cord tool in a rack view'}.</td></tr>
 			{/each}
 		</tbody>
 	</table>
@@ -194,5 +199,6 @@
 	.gone td { text-decoration: line-through; opacity: 0.6; }
 	.gone td:nth-child(8) { text-decoration: none; }
 	.was { margin-left: 4px; color: #d97706; font-weight: 600; cursor: help; }
+	.was-txt { color: #b45309; white-space: nowrap; }   /* the CHANGE amber, as the ↶ */
 	.sw { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 4px; vertical-align: -1px; border: 1px solid #0002; }
 </style>

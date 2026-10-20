@@ -965,3 +965,10 @@ stubs** layer — the stubs of cords to another row hide apart from the cords (b
 Good: Device library drag into a rack; Allocate this level; the Patch 12 cords preview (13 → 1 … 24 → 12) and 5 m
 lengths across the rows; Re-patch… "SW3:13" with the rest on the next ports; CHANGE status with "Was …" on hover; a
 port under a stub still taking the hover; a new layer's color applied to its outlets at once (1-007 … 1-012 red).
+
+**User's answers (2026-10-20):** 1 (rack drag across the split) — fine as is: racks are rarely moved between rows;
+copy / cut + paste would be the way. 2 — old ports may look free (new cords can go there), but the patch list needs
+the old ends in words and the Excel too → a **Was** column in the patch list while any cord has moved ("To R02 · SW1 :
+1 (front)"; Find, sort and Ctrl+C take it); the schedule already had Was From / Was To. 3 — the picked ports are lit in
+the rack view, so that's enough. 4 — a re-patch re-estimates the length on purpose (the installer prepares cords by
+length; they update the cord ID after installing).
