@@ -53,8 +53,9 @@
 	.notes { border-top: 1px solid var(--cad-line); padding: 6px 12px; font-size: 11px; color: var(--cad-muted); }
 	.notes > summary { cursor: pointer; font-weight: 600; }
 	.when { font-weight: 400; color: var(--cad-faint); }
-	.clear { float: right; font-weight: 400; color: var(--cad-link); }
-	.clear:hover { text-decoration: underline; }
+	/* a button, as + Layer (User: an action is a button, not a link) */
+	.clear { float: right; min-height: 18px; padding: 0 6px; font-size: 11px; font-weight: 400; border: 1px solid var(--cad-line); border-radius: 3px; background: var(--cad-input); color: var(--cad-text); }
+	.clear:hover { border-color: var(--cad-muted); }
 	.group summary { cursor: pointer; margin-top: 4px; }
 	.n { color: var(--cad-faint); }
 	ul { margin: 2px 0 0 10px; padding: 0; list-style: disc; max-height: 14rem; overflow: auto; }
