@@ -4283,3 +4283,12 @@ User: "Yes, cords kept inside the set" (the ❓ entry of 2026-10-17).
     reads "New cords (all users)" (Patching bar, tool options); Help says so.
   - "Patch schedule · cord BOM…" → **Patch List**, its tip "Export the patch list to Excel" (the dialog unchanged).
   Seen live after a reload (a hot reload had kept the Sheets table's old frame): Patching, Sheets.
+- **Three outlet symbols; legend measures** (User 2026-10-20, Journey 3303 legend review). `defaultOutletBlock` goes
+  by mount only: wall → triangle (Outlet - wall), a LOW floor outlet → square (Outlet - floor box), everything else →
+  circle (Outlet - box) — APs, high-level and ceiling outlets included (the circle-with-a-cross ceiling symbol and the
+  AP ring stay in the library, no longer defaults; a device symbol is placed beside the outlet when a client wants
+  one). Legend rows (`domain/legend.ts`) carry a `value`: outlets with ports ("56 · 284 ports"; one port each = the
+  count), a trunk layer's metres (`runLengths`, 3D), racks counted, any other layer a key only; the drawn value column
+  sizes to fit and Properties shows the same. Help: new "Outlet symbols and the legend"; the {COUNT:…} example now
+  names Outlet - wall. Tests: legend / blocks / fields. Seen live on Journey 3303 Outlets: box 117 · 575 ports, wall
+  6 · 12; layers 56 · 284, 46 · 261, 13 · 26, 8 · 16 (123 outlets, 587 ports both ways).

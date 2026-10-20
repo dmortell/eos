@@ -12,8 +12,11 @@ const lib = new Map<string, Block>(BUILTIN_BLOCKS.map((b) => [b.id, b]))
 
 describe('outlet symbols', () => {
 	it('the default symbol follows usage, then tier, then mount', () => {
-		expect(defaultOutletBlock({ usage: 'AP', tier: 'high', mount: 'ceiling' })).toBe('builtin:ap')
-		expect(defaultOutletBlock({ usage: 'desk', tier: 'high', mount: 'floor' })).toBe('builtin:outlet-ceiling')
+		// three symbols, by mount only (User 2026-10-20): an AP, a ceiling or a high outlet is a box (circle)
+		expect(defaultOutletBlock({ usage: 'AP', tier: 'high', mount: 'ceiling' })).toBe('builtin:outlet-box')
+		expect(defaultOutletBlock({ usage: 'AP', tier: 'high', mount: 'box' })).toBe('builtin:outlet-box')
+		expect(defaultOutletBlock({ usage: 'TV', tier: 'high', mount: 'box' })).toBe('builtin:outlet-box')
+		expect(defaultOutletBlock({ usage: 'desk', tier: 'high', mount: 'floor' })).toBe('builtin:outlet-box')   // no high floor boxes
 		expect(defaultOutletBlock({ usage: 'desk', tier: 'low', mount: 'wall' })).toBe('builtin:outlet-wall')
 		expect(defaultOutletBlock({ usage: 'ACS', tier: 'high', mount: 'wall' })).toBe('builtin:outlet-wall')   // W11: fed from the ceiling, still a wall plate
 		expect(defaultOutletBlock({ usage: 'desk', tier: 'low', mount: 'floor' })).toBe('builtin:outlet-floor')

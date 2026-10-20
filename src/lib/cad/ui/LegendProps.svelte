@@ -42,7 +42,7 @@
 		<label class="pick" title={r.kind === 'block' ? 'A symbol in use' : 'A layer with items on it'}>
 			<input type="checkbox" checked={shown.has(r.key)} onchange={(e) => toggle(r.key, e.currentTarget.checked)} />
 			{#if r.kind === 'layer'}<span class="sw" style:background={r.color ?? '#888'}></span>{/if}
-			<span class="nm">{r.name}</span><span class="ct">{r.count}</span>
+			<span class="nm">{r.name}</span><span class="ct">{r.value ?? ''}</span>
 		</label>
 	{:else}
 		<p class="text-zinc-500">Nothing on {s.sheetId ? 'the levels its viewports show' : 'this level'} yet.</p>

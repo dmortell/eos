@@ -15,7 +15,8 @@ describe('text fields (T092)', () => {
 	it('fills project, level, sheet and date; counts a block by name or id on the level (outlets drawn with it too)', () => {
 		const ctx = fieldCtx(ix, { project: 'Tourney', levels: ['L1'], blocks, today: '2026-10-09' })
 		expect(fillFields('{PROJECT} · {LEVEL} · {DATE}', ctx)).toBe('Tourney · 1F · 2026-10-09')
-		expect(fillFields('{COUNT:smoke detector} detectors, {COUNT:B1} by id, {COUNT:Wireless AP} APs, {COUNT:nothing}', ctx)).toBe('2 detectors, 2 by id, 1 APs, 0')
+		// an AP outlet draws with the box symbol (three symbols by mount, User 2026-10-20)
+		expect(fillFields('{COUNT:smoke detector} detectors, {COUNT:B1} by id, {COUNT:Outlet - box} boxes, {COUNT:nothing}', ctx)).toBe('2 detectors, 2 by id, 1 boxes, 0')
 		// no sheet here: {SHEET} stays as written; the whole project when no levels are given
 		expect(fillFields('{SHEET} {LABEL}', ctx)).toBe('{SHEET} {LABEL}')
 		const all = fieldCtx(ix, { blocks, sheet: { number: 'E-101', title: 'Ceiling plan' } as Sheet })

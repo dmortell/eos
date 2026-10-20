@@ -28,6 +28,21 @@ describe('legends', () => {
 		expect(legendShown(all, undefined)).toEqual(blocks)
 		expect(legendShown(all, [layers[0].key])).toEqual([layers[0]])
 	})
+	it('each row its own measure (User 2026-10-20): outlets with their ports, a trunk layer in metres, lines a key only', () => {
+		const all = legendCandidates(ix, new Set(['L33']), blockOf)
+		const outlets = ix.outlets.filter((o) => o.levelId === 'L33' && o.tier === 'low' && !(o as { layerId?: string }).layerId)
+		const ports = outlets.reduce((n, o) => n + o.ports.length, 0)
+		expect(ports).toBeGreaterThan(outlets.length)
+		expect(all.find((r) => r.key === 'layer:sys:outlets-low')?.value).toBe(`${outlets.length} · ${ports} ports`)
+		expect(all.find((r) => r.key === 'layer:sys:cont-high')?.value).toMatch(/^\d+(\.\d)? m$/)
+		expect(all.find((r) => r.key === 'layer:sys:racks')?.value).toBe('1')
+		const lines = all.find((r) => r.key === 'layer:sys:drawing')
+		expect(lines?.count).toBe(1)
+		expect(lines?.value).toBeUndefined()
+		const placed = ix.outlets.filter((o) => o.levelId === 'L33' && o.at)
+		const symbolPorts = all.filter((r) => r.kind === 'block').reduce((n, r) => n + Number(/(\d+) ports/.exec(r.value ?? '')?.[1] ?? r.count), 0)
+		expect(symbolPorts).toBe(placed.reduce((n, o) => n + Math.max(o.ports.length, 1), 0))
+	})
 	it('a legend on the plan draws its rows (a name and count each), all its own', () => {
 		const lg = { type: 'shape', id: 'LG', levelId: 'L33', geom: { kind: 'legend', at: { x: 0, y: 0 }, title: 'Key' } } as unknown as Shape
 		const ps = planDisplayList(new ProjectIndex([...ents, lg]), 'L33', { scale: 100, blocks: blockOf }).filter((p) => p.src === 'LG')

@@ -1,6 +1,6 @@
 // A LEGEND drawn (backlog "Legend on the drawing", User 2026-10-05): a framed table from its top-left point — its
 // title, then a row per symbol (the block's own drawing, fitted in a square) or layer (a color swatch), its name and
-// how many. Paper mm × k (1 on a sheet, the plot scale on a plan). Every prim is the legend's (picked / dragged as one).
+// its measure (outlets · ports, a trunk layer's metres, a count — domain/legend.ts; none = a key only). Paper mm × k (1 on a sheet, the plot scale on a plan). Every prim is the legend's (picked / dragged as one).
 import type { Pt } from '../domain/types'
 import type { Prim } from './display'
 import type { Block } from '../domain/blocks'
@@ -24,7 +24,8 @@ function place(p: Prim, f: number, at: Pt, src: string): Prim {
 export function legendPrims(id: string, at: Pt, title: string, rows: LegendRow[], k: number, blockOf: (id: string) => Block | undefined, sizeMm = 2.5): Prim[] {
 	const size = sizeMm * k, rowH = size * 2.2, pad = size * 0.6, icon = rowH * 0.8
 	const nameW = Math.max(size * 8, ...rows.map((r) => r.name.length * size * 0.6))
-	const w = pad + icon + pad + nameW + pad + size * 4 + pad
+	const valueW = Math.max(size * 4, ...rows.map((r) => (r.value?.length ?? 0) * size * 0.6))
+	const w = pad + icon + pad + nameW + pad + valueW + pad
 	const h = rowH * 1.3 + rows.length * rowH + pad
 	const out: Prim[] = [
 		{ k: 'line', pts: [at, { x: at.x + w, y: at.y }, { x: at.x + w, y: at.y + h }, { x: at.x, y: at.y + h }], closed: true, fill: true, cls: 'legend', src: id },
@@ -47,7 +48,7 @@ export function legendPrims(id: string, at: Pt, title: string, rows: LegendRow[]
 			out.push({ k: 'line', pts: sq, closed: true, cls: 'legend-rule', src: id })
 		}
 		out.push({ k: 'text', at: { x: at.x + pad + icon + pad, y: cy + size * 0.35 }, text: r.name, size, cls: 'legend-text', src: id })
-		out.push({ k: 'text', at: { x: at.x + w - pad, y: cy + size * 0.35 }, text: String(r.count), size, anchor: 'end', cls: 'legend-text', src: id })
+		if (r.value) out.push({ k: 'text', at: { x: at.x + w - pad, y: cy + size * 0.35 }, text: r.value, size, anchor: 'end', cls: 'legend-text', src: id })
 	})
 	if (!rows.length) out.push({ k: 'text', at: { x: at.x + pad, y: at.y + rowH * 1.3 + rowH * 0.6 }, text: 'Nothing to list — choose rows in Properties', size: size * 0.8, cls: 'legend-text', src: id })
 	return out

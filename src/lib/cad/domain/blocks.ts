@@ -169,14 +169,13 @@ function power(cy: number): BlockShape[] { return [seg(-6.35, cy - 9, -6.35, cy 
 /** A data socket: a small rectangle for its RJ45 jack. */
 function rj45(cy: number): BlockShape[] { return [sh({ kind: 'rect', centre: { x: 0, y: cy }, size: { x: 14, y: 12 } })] }
 
-/** The block that draws an outlet when it names none: by usage, then mount (a wall outlet is a wall faceplate whatever
- *  feeds it — W11: a high wall outlet said "Auto: Outlet – ceiling"), then tier: a HIGH "floor" outlet is a ceiling one
- *  (imported high ports come in as floor, the default mount). */
+/** The block that draws an outlet when it names none: THREE symbols, by mount only (User 2026-10-20) — a wall faceplate
+ *  (triangle), a floor box (square), else an outlet box / rosette (circle), whatever its usage or height; the IDF and
+ *  high level show by layer color, and a device (AP, CCTV …) is its own symbol placed beside it when wanted. A HIGH
+ *  "floor" outlet is a box (there are no high floor boxes; imported high ports come in as floor, the default mount). */
 export function defaultOutletBlock(o: Pick<Outlet, 'mount' | 'tier' | 'usage'>): Id {
-	if (o.usage === 'AP') return 'builtin:ap'
 	if (o.mount === 'wall') return 'builtin:outlet-wall'
-	if (o.tier === 'high' || o.mount === 'ceiling') return 'builtin:outlet-ceiling'
-	if (o.mount === 'floor') return 'builtin:outlet-floor'
+	if (o.mount === 'floor' && o.tier !== 'high') return 'builtin:outlet-floor'
 	return 'builtin:outlet-box'
 }
 
