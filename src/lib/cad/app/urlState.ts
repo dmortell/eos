@@ -1,6 +1,6 @@
 // What the cad page shows, in its URL, so a refresh (or a shared link) opens the same place (User): the active pane's
 // level, each pane's view, the active pane and — split on two levels — each pane's level.
-// `?level=<id>&v=plan,front&a=1[&levels=<id0>,<id1>]` — views: plan | front | rear | left | right |
+// `?level=<id>&v=plan,front&a=1[&levels=<id0>,<id1>]` — views: plan | front | rear | left | right | riser[.compact][.b~<buildingId>] |
 // row.<spaceId>.<face>[.<rowId>] | sheet.<sheetId> | portmap.<deviceId>~<deviceId>… | ports.<rackId>[.<deviceId>] |
 // schedule.patch.<spaceId|all>[.<start>] | fill.<shapeId>.<segId>. Cameras (pan / zoom) stay per session.
 import type { ViewSpec } from '../views/space'
@@ -14,7 +14,7 @@ export function encodeSpec(s: ViewSpec): string {
 		case 'elevation': return s.dir
 		case 'row': return ['row', s.spaceId, s.face, ...(s.rowId ? [s.rowId] : [])].join('.')
 		case 'sheet': return `sheet.${s.sheetId}`
-		case 'riser': return s.hideEmpty ? 'riser.compact' : 'riser'
+		case 'riser': return ['riser', ...(s.hideEmpty ? ['compact'] : []), ...(s.buildingId ? [`b~${s.buildingId}`] : [])].join('.')
 		case 'section': return `section.${s.sectionId}`
 		case 'portmap': return `portmap.${s.deviceIds.join('~')}`
 		case 'ports': return ['ports', s.rackId, ...(s.deviceId ? [s.deviceId] : [])].join('.')
@@ -25,10 +25,13 @@ export function encodeSpec(s: ViewSpec): string {
 
 export function decodeSpec(t: string): ViewSpec | null {
 	if (t === 'plan') return { kind: 'plan' }
-	if (t === 'riser') return { kind: 'riser' }
-	if (t === 'riser.compact') return { kind: 'riser', hideEmpty: true }
 	if (DIRS.has(t)) return { kind: 'elevation', dir: t as ElevDir }
 	const [k, a, b, c] = t.split('.')
+	// riser[.compact][.b~<buildingId>] (an id may hold a '.': nanoid's alphabet doesn't, but keep the rest whole)
+	if (k === 'riser') {
+		const rest = t.split('.').slice(1), compact = rest[0] === 'compact', bld = rest.slice(compact ? 1 : 0).join('.')
+		return { kind: 'riser', ...(compact ? { hideEmpty: true } : {}), ...(bld.startsWith('b~') && bld.length > 2 ? { buildingId: bld.slice(2) } : {}) }
+	}
 	if (k === 'row' && a && (b === 'front' || b === 'rear')) return { kind: 'row', spaceId: a, face: b, ...(c ? { rowId: c } : {}) }
 	if (k === 'sheet' && a) return { kind: 'sheet', sheetId: a }
 	if (k === 'section' && a) return { kind: 'section', sectionId: a }

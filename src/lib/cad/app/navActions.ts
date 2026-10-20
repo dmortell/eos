@@ -18,7 +18,7 @@ export function applyRename(project: CadProject, id: string, name: string, field
 		if (name !== e[f]) project.store.transact(f === 'number' ? `Renumber ${e.number} → ${name}` : `Retitle ${e.number}`, (tx) => tx.put({ ...e, [f]: name }))
 		return
 	}
-	if ((e.type === 'level' || e.type === 'space' || e.type === 'section') && name !== e.name)
+	if ((e.type === 'level' || e.type === 'space' || e.type === 'section' || e.type === 'building') && name !== e.name)
 		project.store.transact(`Rename ${e.type === 'space' ? 'room' : e.type} ${e.name} → ${name}`, (tx) => tx.put({ ...e, name }))
 }
 export function deleteLevel(project: CadProject, ws: Workspace, id: string): void {

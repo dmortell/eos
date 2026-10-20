@@ -28,6 +28,8 @@ import type { Prim } from './display'
 const ROOM_H = 2200, LANE = 180, MARGIN = 3000, BREAK_H = 1200, EPS_PAD = 450
 
 export interface RiserOpts { scale?: number; routes?: Map<Id, Route>; hideEmpty?: boolean
+	/** Only this building's floors, server rooms and risers (absent: the whole project). */
+	buildingId?: Id
 	/** The runs' fills (project.fills, with estimates): each riser's cables and fill % (W30). Absent: worked out from
 	 *  the routes. */
 	fills?: Map<string, SegFill> }
@@ -115,17 +117,20 @@ export function riserDisplayList(ix: ProjectIndex, o: RiserOpts = {}): Prim[] {
 	const fills = o.fills ?? fillBySegment(ix, routes)
 	// the floor range (Riser view control): floors outside it aren't drawn; risers are cut at its ends
 	const rs = settingsOf(ix)?.riser, inRange = (l: Level) => (rs?.from == null || l.number >= rs.from) && (rs?.to == null || l.number <= rs.to)
+	// one building's (its Navigator row): its floors, and the rooms and risers drawn on them
+	const bid = o.buildingId, inBuilding = (l: Level | undefined) => !bid || l?.buildingId === bid
+	const levelOf = (id: Id | undefined) => (id ? ix.getOf('level', id) : undefined) as Level | undefined
 	// W33: the building's floors with no level (no model) are drawn too, as plain floors in their storey
-	const noModel = ix.ofType('building').flatMap((b) => floorsWithoutLevel(ix.levels, b))
-	const levels = [...ix.levels, ...noModel].filter(inRange), elevIn = new Set(levels.map((l) => l.elevationMm))
+	const noModel = ix.ofType('building').filter((b) => !bid || b.id === bid).flatMap((b) => floorsWithoutLevel(ix.levels, b))
+	const levels = [...ix.levels.filter(inBuilding), ...noModel].filter(inRange), elevIn = new Set(levels.map((l) => l.elevationMm))
 	const storeyH = (l: Level | undefined) => { const h = l?.heights; return h ? h.raisedFloorMm + h.slabMm + h.clearHeightMm + h.plenumMm : 3800 }
 	const lowest = levels.reduce<Level | undefined>((m, l) => (!m || l.elevationMm < m.elevationMm ? l : m), undefined)
 	const highest = levels.reduce<Level | undefined>((m, l) => (!m || l.elevationMm > m.elevationMm ? l : m), undefined)
 	const zMin = lowest ? lowest.elevationMm - (lowest.heights?.raisedFloorMm ?? 300) - (lowest.heights?.slabMm ?? 200) : -Infinity
 	const zMax = highest ? highest.elevationMm + storeyH(highest) - (highest.heights?.raisedFloorMm ?? 300) : Infinity
-	const shafts = riserShafts(ix).flatMap((s) => (s.z1 <= zMin || s.z0 >= zMax ? [] : [{ ...s, z0: Math.max(s.z0, zMin), z1: Math.min(s.z1, zMax) }]))
+	const shafts = riserShafts(ix).flatMap((s) => (s.z1 <= zMin || s.z0 >= zMax || !inBuilding(levelOf(s.s.levelId)) ? [] : [{ ...s, z0: Math.max(s.z0, zMin), z1: Math.min(s.z1, zMax) }]))
 	// rooms at the x of their placed racks
-	const rooms = ix.spaces.filter((sp) => sp.kind === 'server room' && elevIn.has(levelElevation(ix, sp.levelId))).flatMap((sp) => {
+	const rooms = ix.spaces.filter((sp) => sp.kind === 'server room' && inBuilding(levelOf(sp.levelId)) && elevIn.has(levelElevation(ix, sp.levelId))).flatMap((sp) => {
 		const racks = ix.racks.filter((r) => r.spaceId === sp.id && r.at)
 		if (!racks.length) return []
 		const xs = racks.flatMap((r) => [r.at!.x - r.widthMm / 2, r.at!.x + r.widthMm / 2])

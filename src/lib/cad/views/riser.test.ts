@@ -132,3 +132,20 @@ describe('riser view: floors with no model (W33)', () => {
 		expect(ps.some((p) => p.k === 'text' && /^2F {2}FFL 3\.80$/.test(p.text))).toBe(true)
 	})
 })
+
+describe('riser view of one building (its Navigator row, User 2026-10-20)', () => {
+	it('only its floors, server rooms and risers; absent = the whole project', () => {
+		const two = [...ents.map((e) => (e.type === 'level' ? { ...e, buildingId: 'B1' } : e)),
+			{ type: 'building', id: 'B1', name: 'Tower', order: 0 }, { type: 'building', id: 'B2', name: 'Annex', order: 1 },
+			{ ...level('X1', 'Annex 1F', 0), buildingId: 'B2' },
+			{ type: 'space', id: 'SX', levelId: 'X1', name: 'Annex IDF', kind: 'server room' },
+			{ type: 'rack', id: 'RX', levelId: 'X1', spaceId: 'SX', order: 1, name: 'X01', kind: '2-post', heightU: 45, widthMm: 600, depthMm: 520, at: { x: 50000, y: 0 } },
+		] as Entity[]
+		const rooms = (o: { buildingId?: string }) => riserDisplayList(new ProjectIndex(two), o).filter((p) => p.k === 'line' && p.cls === 'riser-room').map((p) => p.src)
+		expect(rooms({})).toEqual(expect.arrayContaining(['S1', 'S4', 'SX']))
+		expect(rooms({ buildingId: 'B1' })).toEqual(['S1', 'S4'])
+		const annex = riserDisplayList(new ProjectIndex(two), { buildingId: 'B2' })
+		expect(annex.filter((p) => p.k === 'line' && p.cls === 'riser-room').map((p) => p.src)).toEqual(['SX'])
+		expect(annex.some((p) => p.k === 'line' && p.cls === 'riser-shaft')).toBe(false)   // Riser A is the Tower's
+	})
+})

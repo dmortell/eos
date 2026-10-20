@@ -145,12 +145,12 @@
 		if (sh?.type === 'sheet') project.store.transact(`Archive ${sh.number}`, (tx) => tx.put({ ...sh, status: 'archived' }))
 		if (sh?.type === 'sheet') ws.say(`${sh.number} archived — Undo brings it back (Tables › Sheets shows archived ones)`)
 	}
-	const renameSection = (id: string) => { ws.navRename = { id } }
+	const renameInRow = (id: string) => { ws.navRename = { id } }
 	/** F2 on a focused row renames it (UX review L4). */
 	function renameOf(n: NavNode): (() => void) | null {
 		const id = n.id
 		if (!id) return null
-		return n.kind === 'level' ? () => renameLevel(id) : n.kind === 'room' || n.kind === 'space' ? () => renameRoom(id) : n.kind === 'sheet' ? () => renameSheet(id) : n.kind === 'section' ? () => renameSection(id) : null
+		return n.kind === 'level' ? () => renameLevel(id) : n.kind === 'room' || n.kind === 'space' ? () => renameRoom(id) : n.kind === 'sheet' ? () => renameSheet(id) : n.kind === 'section' || n.kind === 'building' ? () => renameInRow(id) : null
 	}
 	/** A row's commands (empty = no ⋮). */
 	function rowMenu(n: NavNode): MenuItem[] {
@@ -161,10 +161,10 @@
 			...(n.kind === 'room' ? [{ label: 'Rows on sheets', title: 'Every row of this room on new sheets — two rows a sheet, fronts then rears', run: () => { const ids = roomRowsToSheets(project, ws, id); if (ids.length) ws.select([ids[0]]) } }, '-' as const] : []),
 			{ label: 'Rename…', key: 'F2', run: () => renameRoom(id) }, { label: 'Delete room…', run: () => deleteRoom(id) }]
 		if (n.kind === 'sheet' && id) return [{ label: 'Rename…', key: 'F2', run: () => renameSheet(id) }, { label: 'Renumber…', run: () => renumberSheet(id) }, { label: 'PDF', run: () => onpdf(id) }, { label: 'Duplicate', run: () => ws.select(duplicateSheets(project, [id])) }, '-', { label: 'Archive', run: () => archiveSheet(id) }]
-		if (n.kind === 'section' && id) return [{ label: 'Rename…', key: 'F2', run: () => renameSection(id) }, { label: 'Delete section', run: () => { ws.select([id]); ws.remove() } }]
+		if (n.kind === 'section' && id) return [{ label: 'Rename…', key: 'F2', run: () => renameInRow(id) }, { label: 'Delete section', run: () => { ws.select([id]); ws.remove() } }]
 		if (n.kind === 'sheets') return [{ label: 'New sheet', run: onnewsheet }, { label: 'PDF of all sheets', run: onpdfall }, '-',
 			...(['place', 'category', 'level', 'package'] as const).map((b) => ({ label: `Group by ${b}`, checked: sheetsBy === b, run: () => groupSheets(b) }))]
-		if (n.kind === 'building') return [{ label: 'Floors…', run: onfloors }, { label: 'Settings…', run: onsettings }]
+		if (n.kind === 'building') return [...(id ? [{ label: 'Rename…', key: 'F2', run: () => renameInRow(id) }, '-' as const] : []), { label: 'Floors…', run: onfloors }, { label: 'Settings…', run: onsettings }]
 		return []
 	}
 	// a building of a project group names itself too, "Group – Annex" (Round 8: every building's tree said the group)

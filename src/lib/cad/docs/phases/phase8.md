@@ -4304,3 +4304,11 @@ User: "Yes, cords kept inside the set" (the ❓ entry of 2026-10-17).
 - **Import notes: Clear** (User 2026-10-20: the legacy import's notes stayed in Properties with no way to remove
   them). A Clear link on the Import notes heading takes `importNotes` off the settings record, one undo step. Seen
   live on Journey: cleared, then Undo — the 81 notes are back in Firestore (left for User to clear).
+- **Building row opens its risers** (User 2026-10-20: the project row did nothing; a separate "Riser view (building)"
+  row). The Navigator's building row opens that building's riser view (empty floors hidden when it has tenant floors);
+  the riser row is gone ("Levels", with no buildings at all, opens the project's). The riser spec takes `buildingId`:
+  `riserDisplayList` then draws only that building's floors (and its floors with no model), its server rooms and the
+  risers drawn on its levels; the strip's Riser button opens the current level's building; Hide empty floors keeps it;
+  the URL says `riser[.compact][.b~<id>]`; the tab reads "<building> risers". A building renames in its row (F2 / ⋮ ›
+  Rename…). Journey: its empty duplicate building record (no references) deleted. Help updated. Tests: navTree,
+  riser (one building of two), urlState. svelte-check clean (baseline 10, none in cad). Seen live on Journey.

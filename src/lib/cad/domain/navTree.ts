@@ -1,6 +1,6 @@
 // The NAVIGATOR's tree (UX review S3; User: "Pages' tree is the right idea, but it must make models and drawings
 // easier to find"): the building side is the model — buildings › levels › their plan and sections (no elevation rows: User 2026-10-15, use sections; the view strip switches), the
-// server rooms (rack view, rows, racks) — then the riser view; the sheets after it, grouped by place, each unfolding to
+// server rooms (rack view, rows, racks) — a building's own row opens its riser view; the sheets after, grouped by place, each unfolding to
 // its viewports. A search filters as you type and keeps each match's parents. Pure; tested in navTree.test.ts.
 import { categoryOf, DEFAULT_SHEET_CATEGORIES, type SheetCategory } from './sheetCategories'
 import { sheetPlaces, sheetRows } from './sheetList'
@@ -20,7 +20,7 @@ export interface NavNode {
 	/** A small note on the right (outlet count, scale, "frame"). */
 	detail?: string
 	kind: 'building' | 'level' | 'view' | 'section' | 'room' | 'space' | 'row' | 'rack' | 'riser' | 'sheets' | 'place' | 'sheet' | 'viewport'
-	/** What a click opens: a view of a level (the riser view has no level). */
+	/** What a click opens: a view of a level (a building's riser view has no level). */
 	open?: { levelId?: Id; spec: ViewSpec }
 	/** What a click selects (a rack, a sheet, a section). */
 	select?: Id
@@ -79,12 +79,13 @@ export function navTree(ix: ProjectIndex, o: NavOpts = {}): NavNode[] {
 	const byBuilding = new Map<Id, Level[]>()
 	for (const l of levels) byBuilding.set(l.buildingId, [...(byBuilding.get(l.buildingId) ?? []), l])
 	const known = new Set(buildings.map((b) => b.id))
-	for (const b of buildings) out.push({ key: `bld:${b.id}`, label: b.name, kind: 'building', id: b.id, children: (byBuilding.get(b.id) ?? []).map(levelNode) })
+	// a building's row opens ITS riser view (User 2026-10-20: the project row did nothing, and the separate "Riser view"
+	// row went) — with the empty floors hidden when it has tenant floors (R7-19: 20 storeys, the client's 3)
+	for (const b of buildings) out.push({ key: `bld:${b.id}`, label: b.name, kind: 'building', id: b.id,
+		open: { spec: { kind: 'riser', buildingId: b.id, ...(b.floors?.tenant ? { hideEmpty: true } : {}) } }, children: (byBuilding.get(b.id) ?? []).map(levelNode) })
+	// levels in no building: with no buildings at all, their row opens the project's riser view
 	const loose = levels.filter((l) => !known.has(l.buildingId))
-	if (loose.length) out.push({ key: 'bld:none', label: buildings.length ? 'Other levels' : 'Levels', kind: 'building', children: loose.map(levelNode) })
-	// a building with tenant floors opens its riser view with the empty floors hidden (R7-19: 20 storeys, the client's 3)
-	const tenant = buildings.some((b) => !!b.floors?.tenant)
-	out.push({ key: 'riser', label: 'Riser view (building)', kind: 'riser', open: { spec: { kind: 'riser', ...(tenant ? { hideEmpty: true } : {}) } } })
+	if (loose.length) out.push({ key: 'bld:none', label: buildings.length ? 'Other levels' : 'Levels', kind: 'building', ...(buildings.length ? {} : { open: { spec: { kind: 'riser' } } }), children: loose.map(levelNode) })
 
 	// the sheets, grouped by PLACE (its filed place, else the levels its viewports show) — or, chosen in the Sheets row's
 	// ⋮ (sheets-organising slice 4), by category (list order), level (level order; a sheet under each of its levels)
@@ -136,7 +137,7 @@ export function viewName(ix: ProjectIndex, spec: ViewSpec, levelId?: Id): string
 			const room = ix.get(spec.spaceId) as { levelId?: Id } | undefined
 			return `${room?.levelId ? `${ix.nameOf(room.levelId)} · ` : ''}${ix.nameOf(spec.spaceId) || '(room gone)'} racks${spec.rowId ? ` · ${ix.nameOf(spec.rowId)}` : ''}${spec.face === 'rear' ? ' (rear)' : ''}`
 		}
-		case 'riser': return 'Riser view'
+		case 'riser': return spec.buildingId ? `${ix.nameOf(spec.buildingId) || '(building gone)'} risers` : 'Riser view'
 		case 'sheet': return ix.nameOf(spec.sheetId)
 		case 'portmap': return portMapTitle(ix, spec.deviceIds)
 		case 'ports': return `${ix.nameOf(spec.rackId) || '(rack gone)'}${spec.deviceId ? ` · ${ix.nameOf(spec.deviceId) || '(gone)'}` : ''} port grid`

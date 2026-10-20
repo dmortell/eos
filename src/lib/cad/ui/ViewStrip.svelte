@@ -53,6 +53,13 @@
 		project.store.transact(`${keys.length === 1 ? (project.index.nameOf(keys[0]) || 'Racks') : `${keys.length} rows`}: rack order from the plan`, (tx) => tx.put(keys.reduce(planOrder, s)))
 		ws.say('Racks back in the plan’s order — Ctrl+Z undoes')
 	}
+	/** Riser: the risers of THIS level's building (its Navigator row opens the same view, User 2026-10-20), its own tab
+	 *  (W32); the empty floors hidden when the building has tenant floors (R7-19). */
+	function openRiser() {
+		const lv = project.index.getOf('level', levelId), b = lv?.type === 'level' ? project.index.getOf('building', lv.buildingId) : undefined
+		const bld = b?.type === 'building' ? b : undefined
+		ws.openInTab({ levelId, spec: { kind: 'riser', ...(bld ? { buildingId: bld.id } : {}), ...(bld?.floors?.tenant || (!bld && project.store.ofType('building').some((x) => !!x.floors?.tenant)) ? { hideEmpty: true } : {}) } })
+	}
 	/** W7: this level has a floorplan with something to compare with (a replaced revision, or one picked in Floors…). */
 	const comparable = $derived.by(() => { void project.rev; return project.index.ofType('underlay').some((u) => u.levelId === levelId && (u.prevFileId || ws.compareWith[u.id])) })
 </script>
@@ -71,7 +78,7 @@
 			<option value="">Elevation…</option>
 			{#each DIRS as d (d)}<option value={d}>{specLabel({ kind: 'elevation', dir: d })}</option>{/each}
 		</select>
-		<button class:on={spec.kind === 'riser'} title="The building's risers and backbone, floor by floor" onclick={() => { if (spec.kind !== 'riser') ws.openInTab({ levelId, spec: { kind: 'riser', ...(project.store.ofType('building').some((b) => !!b.floors?.tenant) ? { hideEmpty: true } : {}) } }) }}>Riser</button><!-- its own tab (W32), not over the plan's -->
+		<button class:on={spec.kind === 'riser'} title="The building's risers and backbone, floor by floor" onclick={() => { if (spec.kind !== 'riser') openRiser() }}>Riser</button><!-- its own tab (W32), not over the plan's -->
 		{#if sections.length || section}
 			<select class="secs" class:on={!!section} value={section?.id ?? ''} title="Sections on this level (draw one with the Section tool on the plan)"
 				onchange={(e) => { if (e.currentTarget.value) go({ kind: 'section', sectionId: e.currentTarget.value }) }}>
@@ -133,7 +140,8 @@
 			{/if}
 		{:else if spec.kind === 'riser'}
 			{@const hide = !!spec.hideEmpty}
-			<label title="Squeeze the floors that have no server room into break marks"><input type="checkbox" checked={hide} onchange={() => go({ kind: 'riser', ...(hide ? {} : { hideEmpty: true }) })} /> Hide empty floors</label>
+			{@const bid = spec.buildingId}
+			<label title="Squeeze the floors that have no server room into break marks"><input type="checkbox" checked={hide} onchange={() => go({ kind: 'riser', ...(hide ? {} : { hideEmpty: true }), ...(bid ? { buildingId: bid } : {}) })} /> Hide empty floors</label>
 			<!-- the floor range is the project's (everyone's riser view), so it lives in Properties, not here -->
 			<span class="dnote">Which floors: Properties, with nothing selected (for everyone)</span>
 		{:else if spec.kind === 'row'}

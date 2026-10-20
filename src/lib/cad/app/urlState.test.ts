@@ -4,7 +4,8 @@ import type { ViewSpec } from '../views/space'
 
 describe('view state in the URL', () => {
 	it('every view kind round-trips', () => {
-		const specs: ViewSpec[] = [{ kind: 'plan' }, { kind: 'elevation', dir: 'left' }, { kind: 'row', spaceId: 'S1', face: 'rear' }, { kind: 'row', spaceId: 'S1', face: 'front', rowId: 'R9' }, { kind: 'sheet', sheetId: 'SH' }, { kind: 'portmap', deviceIds: ['d-1', 'Xy_2'] }]
+		const specs: ViewSpec[] = [{ kind: 'plan' }, { kind: 'elevation', dir: 'left' }, { kind: 'row', spaceId: 'S1', face: 'rear' }, { kind: 'row', spaceId: 'S1', face: 'front', rowId: 'R9' }, { kind: 'sheet', sheetId: 'SH' }, { kind: 'portmap', deviceIds: ['d-1', 'Xy_2'] },
+			{ kind: 'riser' }, { kind: 'riser', hideEmpty: true }, { kind: 'riser', buildingId: 'Am0-8_x' }, { kind: 'riser', hideEmpty: true, buildingId: 'B1' }]
 		for (const s of specs) expect(decodeSpec(encodeSpec(s))).toEqual(s)
 		expect(decodeSpec('nonsense')).toBeNull()
 	})
