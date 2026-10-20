@@ -99,6 +99,28 @@ export class EntityStore {
 		return step
 	}
 
+	/** The last `transactJoined` step: what it joins on, when. */
+	#joined: { key: string; step: Step; at: number } | null = null
+	/** As `transact`, but a run of quick edits with the same `key` (each within `windowMs` of the last, nothing else done
+	 *  in between) is ONE undo step — e.g. wheel steps of a viewport's scale (User 2026-10-20: one undo per notch). */
+	transactJoined(label: string, key: string, fn: (tx: Txn) => void, windowMs = 1000, now = Date.now()): Step | null {
+		const prev = this.#joined, top = this.#undo.at(-1)
+		const step = this.transact(label, fn)
+		if (!step) return null
+		if (prev && prev.key === key && prev.step === top && now - prev.at <= windowMs && this.#undo.at(-1) === step) {
+			this.#undo.pop(); this.#undo.pop()
+			// the first edit's `before`, the latest `after`, per entity
+			const ops = new Map(prev.step.ops.map((o) => [o.id, o]))
+			for (const o of step.ops) { const was = ops.get(o.id); ops.set(o.id, was ? { id: o.id, before: was.before, after: o.after } : o) }
+			const merged: Step = { label, ops: [...ops.values()], ...(prev.step.sel ? { sel: prev.step.sel } : {}) }
+			this.#undo.push(merged)
+			this.#joined = { key, step: merged, at: now }
+			return merged
+		}
+		this.#joined = { key, step, at: now }
+		return step
+	}
+
 	/** A drag is open (begin … commit / rollback): undo / redo wait, and edits queue until it ends. */
 	get busy(): boolean { return !!this.#gesture }
 	#afterGesture: (() => void)[] = []

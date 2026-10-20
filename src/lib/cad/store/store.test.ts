@@ -11,6 +11,30 @@ const xOf = (s: EntityStore, id: string) => {
 }
 const moved = (e: Shape, x: number): Shape => (e.geom.kind === 'rect' ? { ...e, geom: { ...e.geom, centre: { ...e.geom.centre, x } } } : e)
 
+describe('joined steps (wheel notches of a viewport scale)', () => {
+	const step = (s: EntityStore, x: number, at: number, key = 'k') => s.transactJoined(`Move ${x}`, key, (tx) => tx.put(moved(tx.get('a') as Shape, x)), 1000, at)
+	it('quick edits with one key are one undo step back to the start; the label is the latest', () => {
+		const s = new EntityStore()
+		s.transact('Add', (tx) => tx.put(box('a')))
+		step(s, 100, 0); step(s, 200, 500); step(s, 300, 1400)
+		expect(s.undoLabels).toEqual(['Add', 'Move 300'])
+		s.undo()
+		expect(xOf(s, 'a')).toBe(0)
+		s.redo()
+		expect(xOf(s, 'a')).toBe(300)
+	})
+	it('a pause, another key, another edit in between or an undo starts a new step', () => {
+		const s = new EntityStore()
+		s.transact('Add', (tx) => tx.put(box('a')))
+		step(s, 100, 0); step(s, 200, 2000)                       // a pause
+		step(s, 300, 2100, 'other')                               // another key
+		s.transact('Other', (tx) => tx.put(box('b')))
+		step(s, 400, 2200, 'other')                               // another edit in between
+		s.undo(); step(s, 500, 2300, 'other')                     // an undo in between
+		expect(s.undoLabels).toEqual(['Add', 'Move 100', 'Move 200', 'Move 300', 'Other', 'Move 500'])
+	})
+})
+
 describe('transactions and undo', () => {
 	it('an edit is one undo step; undo and redo restore exactly', () => {
 		const s = new EntityStore()

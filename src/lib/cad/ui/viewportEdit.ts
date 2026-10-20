@@ -34,7 +34,8 @@ export function rescaleViewport(project: CadProject, ws: Workspace, sheet: Sheet
 	const vp = sheet?.viewports.find((v) => v.id === (editedVpId ?? ws.viewportId))
 	if (!sheet || !vp || vp.locked || p.x < vp.rect.x || p.x > vp.rect.x + vp.rect.w || p.y < vp.rect.y || p.y > vp.rect.y + vp.rect.h) return false
 	const scale = nextScale(vp.scale, dir), s = sheet
-	if (scale !== vp.scale) project.store.transact(`Viewport scale 1:${scale}`, (tx) => tx.put({ ...s, viewports: s.viewports.map((v) => (v.id === vp.id ? { ...v, scale } : v)) }))
+	// a run of wheel notches is one undo step
+	if (scale !== vp.scale) project.store.transactJoined(`Viewport scale 1:${scale}`, `vp-scale:${s.id}:${vp.id}`, (tx) => tx.put({ ...s, viewports: s.viewports.map((v) => (v.id === vp.id ? { ...v, scale } : v)) }))
 	ws.say(`1:${scale} — the wheel steps the viewport's scale with Pan / zoom content on (or Alt+wheel)`)
 	return true
 }

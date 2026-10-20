@@ -4223,3 +4223,8 @@ User: "Yes, cords kept inside the set" (the ❓ entry of 2026-10-17).
   leaving an edited viewport (double-click outside, Esc — `leaveViewport`) turns it off, and so does unpicking the
   viewport or picking another (`Workspace.select` / `selectViewports`, outside an edited one — entering keeps it).
   Help updated. Test: workspace.test. Seen live on Journey 3303 Outlets (both paths; no drags, nothing written).
+- **Viewport wheel scale: one undo step per run** (User 2026-10-20: each wheel notch was its own undo). New
+  `EntityStore.transactJoined(label, key, fn, windowMs = 1000)`: an edit with the same key as the last undo step,
+  within a second of it and with nothing done in between (no other edit, no undo), folds into that step (first
+  `before`, latest `after`, latest label). `rescaleViewport` uses it, keyed by sheet + viewport. Test: store.test.
+  Seen live on Journey 3303 Outlets: 1:100 → 150 → 200 → 250, one Ctrl+Z back to 1:100.
