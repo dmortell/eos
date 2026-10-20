@@ -4292,3 +4292,9 @@ User: "Yes, cords kept inside the set" (the ❓ entry of 2026-10-17).
   sizes to fit and Properties shows the same. Help: new "Outlet symbols and the legend"; the {COUNT:…} example now
   names Outlet - wall. Tests: legend / blocks / fields. Seen live on Journey 3303 Outlets: box 117 · 575 ports, wall
   6 · 12; layers 56 · 284, 46 · 261, 13 · 26, 8 · 16 (123 outlets, 587 ports both ways).
+- Then (User: "make the tables consistent, move chips below table"): every table's status chips and counts are in
+  its foot — Links (RUN / TIE / BACKBONE … and DESIGN / INSTALLED …), Log (OPEN / DONE / REJECTED / SUPERSEDED),
+  Packages (Archived), Sheets (Active / Archived), Outlets (No panel yet, no route + why, routed, over 90 m). What
+  stays in the bar: pick-lists (Sheets' Category / Level / Room / Tag / State open downward) and actions (Outlets'
+  Allocate this level, its allocation-issues list). Seen live after a reload: all five bars one line (30 px).
+  Recommended keeping the Patch List button on the bar (the table's main output; ⋯ holds the rarer jobs).

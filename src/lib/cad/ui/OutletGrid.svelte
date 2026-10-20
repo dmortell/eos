@@ -174,12 +174,15 @@
 <TableFrame label="Outlets" {t} view={project.index.nameOf(levelId) || 'This level'} onkeydown={tableKey} {more}
 	count="{rows.length} of {all.length}{nSel ? ` · ${nSel} selected` : ''}" nSel={selectedOutlets}
 	hint="Select outlets (click · Shift · Ctrl) to allocate, assign or rename them — or drag them onto a panel · ⋯ for the whole level">
-	{#snippet chips()}
+	<!-- status chips and counts under the table, as every table (User 2026-10-20); Allocate and the issues stay in the bar -->
+	{#snippet foot()}
 		<StatusChip tone="warn" label="No panel yet{unassigned ? ` (${rows.length})` : ''}" upper={false} off={!unassigned} title="Show only the outlets with a port that isn't on a panel port yet (e.g. added after install)" onclick={() => (unassigned = !unassigned)} />
-		{#if unallocated && !selectedOutlets}<button class="tb pri" title="Cable every unallocated outlet port on this level to a panel of its server room: racks in row order, top U down. Existing links stay. (Also ⋯ › Allocate this level, and Cabling › Allocate this level.)" onclick={() => runAllocate(false, true)}>Allocate this level ({unallocated} port{unallocated === 1 ? '' : 's'})</button>{/if}
 		{#if routed.none}<StatusChip tone="bad" label="{routed.none} no route" upper={false} off={!noRoute} title="Show only the outlets with a port that has no route over the containment — why: {routed.why.join(" · ")}" onclick={() => (noRoute = !noRoute)} /><span class="why" title={routed.why.join(' · ')}>{routed.why[0]}{routed.why.length > 1 ? ` (+${routed.why.length - 1} more reasons)` : ""}</span>{/if}
 		{#if routed.n}<span class="muted" title="Cabled ports on this level">{routed.n - routed.none} routed</span>{/if}
 		{#if routed.over}<b class="over90">{routed.over} over 90 m</b>{/if}
+	{/snippet}
+	{#snippet chips()}
+		{#if unallocated && !selectedOutlets}<button class="tb pri" title="Cable every unallocated outlet port on this level to a panel of its server room: racks in row order, top U down. Existing links stay. (Also ⋯ › Allocate this level, and Cabling › Allocate this level.)" onclick={() => runAllocate(false, true)}>Allocate this level ({unallocated} port{unallocated === 1 ? '' : 's'})</button>{/if}
 		{#if issues.length}
 			<details class="issues"><summary>{issues.length} allocation issue{issues.length > 1 ? 's' : ''}</summary><ul>{#each issues as t, i (i)}<li>{t}</li>{/each}</ul></details>
 		{/if}

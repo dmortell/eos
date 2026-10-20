@@ -206,9 +206,12 @@
 <TableFrame label="Sheets" {t} lead={seg} top={issuePanel} onkeydown={tableKey} {more} countTitle="Shown · sheets · selected"
 	count="{rows.length} of {sheets.length}{picked.length ? ` · ${picked.length} selected` : ''}" nSel={picked.length}
 	hint="Select sheets (click · Shift · Ctrl) to print, release, order, archive or delete them — double-click one to open it">
-	{#snippet chips()}
+	<!-- status chips under the table, as every table (User 2026-10-20); the pick-lists stay in the bar (they open down) -->
+	{#snippet foot()}
 		<StatusChip tone="active" label="Active {statusCount.active}" off={!showStatus.active} upper={false} title="Show / hide the active sheets" onclick={() => (showStatus.active = !showStatus.active)} />
 		<StatusChip tone="archived" label="Archived {statusCount.archived}" off={!showStatus.archived} upper={false} title="Show / hide the archived sheets" onclick={() => (showStatus.archived = !showStatus.archived)} />
+	{/snippet}
+	{#snippet chips()}
 		<ChipPick label="Category" options={catOptions} bind:picked={fCats} />
 		<ChipPick label="Level" options={levelOptions} bind:picked={fLevels} />
 		<ChipPick label="Room" options={roomOptions} bind:picked={fRooms} />

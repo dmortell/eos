@@ -94,7 +94,7 @@
 
 <TableFrame label="Packages" lead={seg} count="{list.length} package{list.length === 1 ? '' : 's'}" countTitle="Packages shown" nSel={selectedSheets.length} {more}
 	hint="Select sheets in the register for a package of them — or ⋯ › + From chips for a rule">
-	{#snippet chips()}
+	{#snippet foot()}
 		<StatusChip tone="archived" label="Archived {all.length - all.filter((p) => !p.archived).length}" upper={false} off={!showArchived} title="Show / hide the archived packages" onclick={() => (showArchived = !showArchived)} />
 	{/snippet}
 	{#snippet sel()}

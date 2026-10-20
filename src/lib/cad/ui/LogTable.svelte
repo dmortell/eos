@@ -81,7 +81,7 @@
 
 <TableFrame label="Log" {t} view="All" count="{rows.length} of {all.length}{nSel ? ` · ${nSel} selected` : ''}" nSel={selChanges.length}
 	hint="The design log: what changed, why, who asked — click a change for all its fields, double-click What / Asked / Status to edit">
-	{#snippet chips()}
+	{#snippet foot()}
 		{#each STATUSES as [s, label] (s)}
 			<StatusChip tone={TONE[s]} label="{label} {count[s]}" off={!show[s]} onclick={() => (show[s] = !show[s])} title="Show / hide the {label.toLowerCase()} changes" />
 		{/each}

@@ -81,7 +81,7 @@
 <TableFrame label="Links" {t} view={levelId ? project.index.nameOf(levelId) : 'This view'} onkeydown={tableKey}
 	count="{rows.length} of {all.length}{nSel ? ` · ${nSel} selected` : ''}" nSel={selLinks.length}
 	hint="Select links (click · Shift · Ctrl) to remove them — double-click a cable type or status to change it">
-	{#snippet chips()}
+	{#snippet foot()}
 		{#each KINDS as k (k)}
 			<StatusChip tone={k} label="{k} {count[k]}" off={!show[k]} onclick={() => (show[k] = !show[k])} title="Show / hide {k}s" />
 		{/each}

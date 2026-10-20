@@ -1,6 +1,6 @@
 <!-- Every table's frame (review R79): one bar of a fixed layout over a scrolling table —
        [scope] [Find] [filter chips] · count | what acts on the selection (only with one) | ⋯
-     and a line under the table: the `foot` snippet (Patching: its status chips), then the hint.
+     and a line under the table: the `foot` snippet (every table's status chips and counts — pick-lists and actions stay in the bar), then the hint.
      The bar stays put while the table scrolls under it (its header row sticks to the top of the scroll). The keys
      (↑ / ↓, F2, Ctrl+A, Ctrl+C …) go to `onkeydown` on the whole frame. -->
 <script lang="ts">
@@ -32,7 +32,7 @@
 		more?: MenuItem[]
 		/** Above the table, under the bar (a panel such as Issue…). */
 		top?: Snippet
-		/** Under the table, before the hint (the Patching table's status chips — User 2026-10-20). */
+		/** Under the table, before the hint: the status chips and counts (User 2026-10-20: every table alike). */
 		foot?: Snippet
 		onkeydown?: (e: KeyboardEvent) => void
 		children: Snippet
