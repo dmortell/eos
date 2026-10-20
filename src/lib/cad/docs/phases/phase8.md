@@ -4176,3 +4176,8 @@ User: "Yes, cords kept inside the set" (the ❓ entry of 2026-10-17).
   of its run, lined up with it and facing as it does (`runEndPlaces`, shared with the Ctrl copies, which now go to the
   end of the target's run too). The racks list still moves a rack only within its row. Tested (move and copy into
   another row); seen live on 33IDF2 (R313 put in Row B, R312 dragged onto it: Row B, Y −10093 past R313 — both undone).
+
+### Layers window: + Layer beside Find (2026-10-20)
+
+- User: "in Layers window, put the +Layer btn beside the Find input" — "+ Layer" moved from its own line above into
+  the Find row (on the right; alone there while the list has ≤ 16 layers and no Find box). `LayersPanel`.
