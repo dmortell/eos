@@ -4319,3 +4319,8 @@ User: "Yes, cords kept inside the set" (the ❓ entry of 2026-10-17).
   1F / B1F / GF) big and bold outside the left wall, sized to the storey (0.45 × ceiling height, max 1.6 m —
   `rv-floor`); the small "name FFL" label inside stays. Screen + PDF styles. Tests: riser.test (walls, break,
   numbers). Seen live on Journey: 12F / 30F / 33F readable at the whole-building fit.
+- **Viewport wheel scale about the cursor; riser viewport choices keep the building** (User 2026-10-21, sheet 006
+  Riser). `rescaleViewport` moved only the scale, so the wheel zoomed about the viewport's middle: now the view point
+  under the cursor stays put (centre shifted by (p − middle) × (old − new scale)) — every viewport, not just risers.
+  The viewport View list's two riser choices carry the viewport level's building (picking one dropped `buildingId`
+  and showed the whole project); `viewKey` tells them apart. Test: viewportEdit.test (new).

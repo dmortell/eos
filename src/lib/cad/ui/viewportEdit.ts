@@ -34,8 +34,11 @@ export function rescaleViewport(project: CadProject, ws: Workspace, sheet: Sheet
 	const vp = sheet?.viewports.find((v) => v.id === (editedVpId ?? ws.viewportId))
 	if (!sheet || !vp || vp.locked || p.x < vp.rect.x || p.x > vp.rect.x + vp.rect.w || p.y < vp.rect.y || p.y > vp.rect.y + vp.rect.h) return false
 	const scale = nextScale(vp.scale, dir), s = sheet
+	// about the cursor (User 2026-10-21: it zoomed about the viewport's middle): the view point under `p` stays under it
+	const mx = vp.rect.x + vp.rect.w / 2, my = vp.rect.y + vp.rect.h / 2
+	const centre = { x: vp.centre.x + (p.x - mx) * (vp.scale - scale), y: vp.centre.y + (p.y - my) * (vp.scale - scale) }
 	// a run of wheel notches is one undo step
-	if (scale !== vp.scale) project.store.transactJoined(`Viewport scale 1:${scale}`, `vp-scale:${s.id}:${vp.id}`, (tx) => tx.put({ ...s, viewports: s.viewports.map((v) => (v.id === vp.id ? { ...v, scale } : v)) }))
+	if (scale !== vp.scale) project.store.transactJoined(`Viewport scale 1:${scale}`, `vp-scale:${s.id}:${vp.id}`, (tx) => tx.put({ ...s, viewports: s.viewports.map((v) => (v.id === vp.id ? { ...v, scale, centre } : v)) }))
 	ws.say(`1:${scale} — the wheel steps the viewport's scale with Pan / zoom content on (or Alt+wheel)`)
 	return true
 }

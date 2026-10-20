@@ -85,7 +85,7 @@
 		switch (s.kind) {
 			case 'row': return `row:${s.spaceId}:${s.face}${s.rowId ? `:${s.rowId}` : ''}`
 			case 'plan': return 'plan'
-			case 'riser': return s.hideEmpty ? 'riser:compact' : 'riser'
+			case 'riser': return `${s.hideEmpty ? 'riser:compact' : 'riser'}${s.buildingId ? `:${s.buildingId}` : ''}`
 			case 'section': return `section:${s.sectionId}`
 			case 'portmap': return `portmap:${s.deviceIds.join('~')}`
 			case 'ports': return `ports:${s.rackId}`
@@ -111,8 +111,10 @@
 			for (const row of rowsOf(r.id)) for (const face of ['front', 'rear'] as const) add({ kind: 'row', spaceId: r.id, face, rowId: row.id }, `${r.name} · ${row.name} racks ${face}`)
 		}
 		for (const sc of sectionsOn(project.index, vp.view.levelId)) add({ kind: 'section', sectionId: sc.id }, `Section ${sc.name}`)
-		add({ kind: 'riser' }, 'Risers (building)')
-		add({ kind: 'riser', hideEmpty: true }, 'Risers (floors with server rooms)')
+		// the risers of the viewport's level's building (User 2026-10-21: picking one dropped the building)
+		const lv = project.index.getOf('level', vp.view.levelId), bid = lv?.type === 'level' && project.index.getOf('building', lv.buildingId) ? lv.buildingId : undefined
+		add({ kind: 'riser', ...(bid ? { buildingId: bid } : {}) }, 'Risers (building)')
+		add({ kind: 'riser', hideEmpty: true, ...(bid ? { buildingId: bid } : {}) }, 'Risers (floors with server rooms)')
 		const cur = vp.view.spec
 		if (cur.kind === 'portmap') add(cur, portMapTitle(project.index, cur.deviceIds))
 		// paper: drawn at 1:1, from the window's top-left
