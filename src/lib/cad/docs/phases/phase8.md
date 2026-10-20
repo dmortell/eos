@@ -4301,3 +4301,6 @@ User: "Yes, cords kept inside the set" (the ❓ entry of 2026-10-17).
 - **Legend totals** (User 2026-10-20): two more rows in a legend's Rows list, last and off unless ticked — Total
   outlets and Total ports, over the outlets drawn on its levels (the ones the symbol rows count); drawn without an icon
   under a rule. Help updated. Test: legend.test. Seen in Properties on Journey 3303 Outlets: 123 / 587 (not ticked).
+- **Import notes: Clear** (User 2026-10-20: the legacy import's notes stayed in Properties with no way to remove
+  them). A Clear link on the Import notes heading takes `importNotes` off the settings record, one undo step. Seen
+  live on Journey: cleared, then Undo — the 81 notes are back in Firestore (left for User to clear).
