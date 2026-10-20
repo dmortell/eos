@@ -1,6 +1,6 @@
 // Re-patch in bulk (W17): a typed To cell, and selected cords onto the next free ports.
 import { describe, it, expect } from 'vitest'
-import { portFromText, repatchRun, endFor } from './repatchText'
+import { portFromText, repatchRun, endFor, repatchPreview } from './repatchText'
 import { ProjectIndex } from './project'
 import { demoProject } from './fixtures'
 import type { Entity } from './drawing'
@@ -61,5 +61,23 @@ describe('repatchRun', () => {
 		const i = ix()
 		expect(repatchRun(i, [C(i, 'C1'), C(i, 'C2')], 'b', { on: 'SW1', port: 48 })).toHaveProperty('problem')
 		expect(repatchRun(i, [C(i, 'C1')], 'b', { on: 'SW1', port: 2 })).toHaveProperty('problem')   // C2 is there
+	})
+})
+
+describe('repatchPreview', () => {
+	it('each cord’s moved end before → after, the end that stays — without " (front)"; nothing changes', () => {
+		const i = ix(), cs = [C(i, 'C1'), C(i, 'C2')]
+		const r = repatchPreview(i, cs, 'b', 'Switch 1:2', cs[0].b)
+		if ('problem' in r) throw new Error(r.problem)
+		expect(r.lines.map((l) => l.now)).toEqual(['A01 · Switch 1 : 2', 'A01 · Switch 1 : 3'])
+		expect(r.lines.map((l) => l.was)).toEqual(cs.map((c) => i.portPlace(c.b).replace(/ \(front\)$/, '')))
+		expect(r.lines[0].stays).toBe(i.portPlace(cs[0].a).replace(/ \(front\)$/, ''))
+		expect(r.lines.every((l) => !/\(front\)/.test(l.stays + l.was + l.now))).toBe(true)
+		expect(i.getOf('cord', 'C1')!.b).toEqual(cs[0].b)   // a preview only
+	})
+	it('says why not, and nothing for an empty box', () => {
+		const i = ix(), cs = [C(i, 'C1')]
+		expect(repatchPreview(i, cs, 'b', 'Nope:3', cs[0].b)).toHaveProperty('problem')
+		expect(repatchPreview(i, cs, 'b', '  ', cs[0].b)).toEqual({ lines: [] })
 	})
 })

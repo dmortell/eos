@@ -47,6 +47,7 @@ import type { PageCalibUsed } from './pdf.svelte'
 import type { ToolDefaults } from '../domain/toolDefaults'
 import type { WinId } from './windows.svelte'
 import type { SettingsTab } from '../ui/SettingsDialog.svelte'
+import type { TextPreview } from '../ui/TextDialog.svelte'
 
 export type ToolId = 'select' | 'move' | 'copy' | 'array' | 'room' | 'measure' | 'rotate' | 'mirror' | 'insert' | 'shape' | 'box' | 'image' | 'legend' | 'changelist' | 'dimension' | 'outlet' | 'rack' | 'device' | 'assign' | 'cord' | 'opening' | 'section' | 'renumber' | 'viewport' | 'match' | 'calibrate' | 'guide' | NoteKind | PathKind
 
@@ -477,8 +478,8 @@ export class Workspace {
 	}
 	askText = (label: string, value: string, apply: (t: string) => void): void => { this.prompt = { label, value, text: true, apply } }
 	/** Free text asked in a dialog, not the status bar (User 2026-10-15: names, port targets — see TextDialog). */
-	textAsk = $state<{ title: string; label: string; value: string; hint?: string; ok: string; apply: (t: string) => void } | null>(null)
-	askInDialog = (o: { title: string; label: string; value: string; hint?: string; ok?: string }, apply: (t: string) => void): void => { this.textAsk = { ok: 'OK', ...o, apply } }
+	textAsk = $state<{ title: string; label: string; value: string; hint?: string; ok: string; preview?: TextPreview; apply: (t: string) => void } | null>(null)
+	askInDialog = (o: { title: string; label: string; value: string; hint?: string; ok?: string; preview?: TextPreview }, apply: (t: string) => void): void => { this.textAsk = { ok: 'OK', ...o, apply } }
 	/** The text being edited in place on the drawing (double-click / F2; backlog "Text options"). */
 	textEdit = $state<Id | null>(null)
 	editText = (id: Id): void => { this.textEdit = id }

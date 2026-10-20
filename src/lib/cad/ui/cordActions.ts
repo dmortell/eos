@@ -5,7 +5,8 @@ import type { CadProject } from '../app/project.svelte'
 import type { Workspace } from '../app/workspace.svelte'
 import type { Cord } from '../domain/types'
 import { cordAction, type CordAction } from '../domain/cords'
-import { portFromText, repatchRun } from '../domain/repatchText'
+import { portFromText, repatchRun, repatchPreview } from '../domain/repatchText'
+import type { TextPreview } from './TextDialog.svelte'
 import type { MenuItem } from './cadMenus'
 
 const ACTIONS: { a: CordAction; label: string; title: string }[] = [
@@ -80,10 +81,15 @@ export const REPATCH_TITLE = 'Move the cords’ switch ends (whichever column) t
 /** Asks for the port the cords' switch ends start from (the first one's as it is now), then re-patches them. */
 export function askRepatch(project: CadProject, ws: Workspace, cords: Cord[]): void {
 	if (!cords.length) return
-	const n = cords.length
-	// a dialog, not the status bar (User 2026-10-15)
+	const n = cords.length, near = cords[0][switchEnd(project, cords[0])]
+	// a dialog, not the status bar (User 2026-10-15); every cord before → after as it's typed, as Patch N cords lists
+	// its pairs first (User 2026-10-20)
+	const preview: TextPreview = (t) => {
+		const r = repatchPreview(project.index, cords, 'kind', t, near)
+		return 'problem' in r ? r : { head: ['Stays', 'Was', 'Now'], rows: r.lines.map((l) => [l.stays, l.was, l.now]) }
+	}
 	ws.askInDialog({ title: n === 1 ? 'Re-patch cord' : `Re-patch ${n} cords`, label: n === 1 ? 'To port (device : port)' : 'From port (device : port)',
-		value: project.index.portPlace(cords[0][switchEnd(project, cords[0])]), ok: 'Re-patch',
+		value: project.index.portPlace(near), ok: 'Re-patch', preview,
 		hint: n === 1 ? 'e.g. SW1:41 — the cord’s switch end moves there.' : 'e.g. SW1:41 — the first cord goes there, the rest on to the next free ports of that device.' },
 		(t) => repatchFrom(project, ws, cords, t))
 }

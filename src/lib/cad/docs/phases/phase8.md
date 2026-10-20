@@ -4228,3 +4228,11 @@ User: "Yes, cords kept inside the set" (the ❓ entry of 2026-10-17).
   within a second of it and with nothing done in between (no other edit, no undo), folds into that step (first
   `before`, latest `after`, latest label). `rescaleViewport` uses it, keyed by sheet + viewport. Test: store.test.
   Seen live on Journey 3303 Outlets: 1:100 → 150 → 200 → 250, one Ctrl+Z back to 1:100.
+
+### Re-patch… previews every cord (2026-10-20, Round 12 #7)
+
+- User: "do … preview". The Re-patch dialog lists each cord as it's typed — Stays · Was · Now (places without
+  "(front)", the new one in the CHANGE amber), or why not in red ("SW1 has no free port left for …"), with Re-patch
+  greyed out then. `repatchPreview` (domain/repatchText, the same `portFromText` + `repatchRun` the apply uses; changes
+  nothing; tested); `askInDialog` / TextDialog take an optional `preview` (rows, or a problem). Help updated. Seen
+  live: 12 cords, "SW1:30" → 30, 31, 33 … 42 (32 and 39–41 taken); cancelled.

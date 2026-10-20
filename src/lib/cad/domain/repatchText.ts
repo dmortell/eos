@@ -66,3 +66,24 @@ export function repatchRun(ix: ProjectIndex, cords: Cord[], which: 'a' | 'b' | '
 	}
 	return { cords: out }
 }
+
+/** One line of a re-patch preview: the end that stays, and the moved end before → after (places as the list shows
+ *  them, without " (front)"). */
+export interface RepatchLine { stays: string; was: string; now: string }
+
+/** What a typed re-patch would do (User 2026-10-20: Patch N cords lists every pair first, Re-patch didn't): each
+ *  cord's moved end, before → after, or why it can't. `near` = the end the typed port is read against (a bare number
+ *  is another port of its device). Nothing is changed. */
+export function repatchPreview(ix: ProjectIndex, cords: Cord[], which: 'b' | 'kind', text: string, near: PortRef): { lines: RepatchLine[] } | { problem: string } {
+	if (!text.trim()) return { lines: [] }
+	const p = portFromText(ix, text, near)
+	if ('problem' in p) return p
+	const r = repatchRun(ix, cords, which, p.to)
+	if ('problem' in r) return r
+	const place = (x: PortRef) => ix.portPlace(x).replace(/ \(front\)$/, '')
+	const moved = (a: PortRef, b: PortRef) => a.on !== b.on || a.port !== b.port || (a.face ?? 'front') !== (b.face ?? 'front')
+	return { lines: r.cords.map((c, i) => {
+		const old = cords[i], end = moved(old.a, c.a) ? 'a' : 'b', other = end === 'a' ? 'b' : 'a'
+		return { stays: place(old[other]), was: place(old[end]), now: place(c[end]) }
+	}) }
+}

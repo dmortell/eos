@@ -917,7 +917,7 @@
 	{#if backupOpen}<BackupDialog {project} mode={backupOpen} source={backupOpen === 'restore' ? restoreSource : undefined} onclose={() => { backupOpen = false; restoreSource = undefined }} say={(m) => ws.say(m)} />{/if}
 	{#if legacyOpen}<LegacyDrawingsDialog {project} onclose={() => (legacyOpen = false)} say={(m) => ws.say(m)} />{/if}
 	{#if saveAs}<FileNameDialog name={saveAs.name} ext={saveAs.ext} type={saveAs.type} ondone={saveAs.done} bump={saveBump} />{/if}
-	{#if ws.textAsk}{@const q = ws.textAsk}<TextDialog title={q.title} label={q.label} value={q.value} hint={q.hint} ok={q.ok} ondone={(t) => { const apply = q.apply; ws.textAsk = null; if (t != null) apply(t) }} />{/if}
+	{#if ws.textAsk}{@const q = ws.textAsk}<TextDialog title={q.title} label={q.label} value={q.value} hint={q.hint} ok={q.ok} preview={q.preview} ondone={(t) => { const apply = q.apply; ws.textAsk = null; if (t != null) apply(t) }} />{/if}
 	{#if helpOpen}<HelpDialog start={helpOpen === 'help' ? undefined : helpOpen} hints={HINT} onclose={() => (helpOpen = false)} ontool={helpTool} />{/if}
 	{#if tabMenu}<ContextMenu x={tabMenu.x} y={tabMenu.y} items={tabMenuItems} onclose={() => (tabMenu = null)} />{/if}
 	{#if ws.contextMenu}<ContextMenu x={ws.contextMenu.x} y={ws.contextMenu.y} items={contextItems} onclose={() => (ws.contextMenu = null)} />{/if}
