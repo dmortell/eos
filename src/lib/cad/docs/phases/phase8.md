@@ -4192,3 +4192,8 @@ User: "Yes, cords kept inside the set" (the ❓ entry of 2026-10-17).
   (`preferPort`), and a selected stub's end grip is still found (`cordEndGrips`). Hiding Patch cords no longer hides
   the stubs, nor the reverse. Help (Patch ports in a rack view) names the layer. Test: layers.test (a cord to another
   room). Seen live in Round 9 test: PP1's 24 stubs over PP2 / the U38 panel gone in both panes with the eye.
+- **Layers: "Not on this paper"** (User 2026-10-20: the sheet's eye showed Outlets IDF1 as shown while its viewport
+  froze it — no viewport was picked, so the eye was the paper's). With a sheet open and no viewport picked, layers the
+  paper's own notes / legends / change lists draw nothing on fold under "Not on this paper", as picked viewports do
+  ("Not in this view"). New `paperLayers` (views/sheet.ts) beside `viewportLayers`. Help updated. Seen live on Journey
+  (30F Sensaphone: no paper notes → all 23 folded).
