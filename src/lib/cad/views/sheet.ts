@@ -118,6 +118,18 @@ export function viewportLayers(ix: ProjectIndex, sheet: Sheet, vp: Viewport, o: 
 	return out
 }
 
+/** The layers a sheet's own paper draws anything on — its notes, legends and change lists not tied to a viewport, with
+ *  nothing hidden (Layers: the others are folded away while the sheet is open with no viewport picked, User 2026-10-20). */
+export function paperLayers(ix: ProjectIndex, sheet: Sheet, o: SheetOpts = {}): Set<Id> {
+	const out = new Set<Id>(), shown = new Set(sheet.viewports.map((v) => v.view.levelId))
+	for (const s of ix.shapes) {
+		if (s.sheetId !== sheet.id || s.vpId) continue
+		const prims = s.geom.kind === 'legend' ? legendShapePrims(ix, s, shown, 1, o.blocks) : s.geom.kind === 'changeList' ? changeListPrims(ix, s, sheet) : shapePrims(s, 1, o.blocks)
+		for (const p of applyLayers(prims, ix).draw) if (p.layer) out.add(p.layer)
+	}
+	return out
+}
+
 const paperFitOf = (vp: Viewport) => vp.rect.h * vp.scale - 2 * PAPER_PAD
 
 /** Where a patch schedule viewport starts: its own From cord, or — when it continues another viewport — the cord that

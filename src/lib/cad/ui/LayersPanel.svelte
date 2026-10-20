@@ -3,7 +3,7 @@
      picked on a sheet (or edited inside), the eye is THAT viewport's (User 2026-10-13: apart from the model's eye;
      stored on the sheet, so it prints and everyone sees it); Shift = every viewport on the sheet. Several viewports
      picked: one eye for all of them, half-shown where they differ; layers none of them draws are folded away (User 2026-10-14). On a sheet with no
-     viewport picked, the eye is the sheet's own (its paper notes and legends; stored too) — a sheet prints as it shows. Click a name to make it the current layer (highlighted like the open level), where new lines go.
+     viewport picked, the eye is the sheet's own (its paper notes and legends; stored too) — a sheet prints as it shows; layers its paper doesn't draw on are folded away the same way (User 2026-10-20). Click a name to make it the current layer (highlighted like the open level), where new lines go.
      Ctrl-click / Shift-click names to pick several: the eye, lock, color and line type then change all of them (one undo
      step). Layers sit under group headings (a group field, or a name like "IDF1/Outlets"); a group's eye hides its layers.
      Presets save the eye states under a name (this browser, this project); with a viewport picked they set its layers. -->
@@ -14,7 +14,7 @@
 	import type { Layer, Sheet } from '../domain/drawing'
 	import { layersOf, layerOf, nextLayerColour, freezeInExisting, groupLayers, targetIds, togglePick, rangePick, type LayerInfo } from '../domain/layers'
 	import { layerCounts } from '../views/layers'
-	import { viewportLayers } from '../views/sheet'
+	import { viewportLayers, paperLayers } from '../views/sheet'
 	import { newId } from '../domain/ids'
 	import { DASHES, WEIGHTS } from '../views/display'
 	import { Icon, DragReorder } from '$lib'
@@ -46,23 +46,26 @@
 	const sheet = $derived(ws.vpEdit ? project.index.getOf('sheet', ws.vpEdit.sheetId) : ws.viewportId && ws.selection.length === 1 ? project.index.getOf('sheet', ws.selection[0]) : undefined)
 	const vps = $derived(sheet?.type === 'sheet' ? (ws.vpEdit ? [ws.vpEdit.vpId] : ws.pickedViewports).flatMap((id) => sheet.viewports.filter((v) => v.id === id)) : [])
 	const vp = $derived(vps[0])
-	// what the picked viewports draw on (final changes only, with the look the sheet draws in)
+	// the sheet the active pane shows, when no viewport is picked: its own paper's layers
+	const paper = $derived(!vp && sheetId ? project.index.getOf('sheet', sheetId) : undefined)
+	const onPaper = $derived(paper?.type === 'sheet' ? paper : undefined)
+	// what the picked viewports draw on — or, none picked, the sheet's own paper (final changes only, with the look the
+	// sheet draws in)
 	const inViews = $derived.by(() => {
+		if (onPaper) return paperLayers(project.dataIndex, onPaper, { blocks: project.blockOf })
 		if (!vps.length || sheet?.type !== 'sheet') return null
 		const o = { underlay: project.pdf.placement, blocks: project.blockOf, ...project.sheetBase, routes: project.routes, fills: project.fills, cords: project.settings?.cordRoute, gray: !!project.settings?.grayFloorplans }
 		const out = new Set<Id>()
 		for (const v of vps) for (const id of viewportLayers(project.dataIndex, sheet, v, o)) out.add(id)
 		return out
 	})
-	// with viewports picked, the layers none of them draws are folded under "Not in these views" (still settable there)
+	// with viewports picked (or the paper), the layers none of them draws are folded under "Not in these views" (still
+	// settable there) — User 2026-10-20: the paper's eye showed a layer frozen in its viewport as shown
 	let showIdle = $state(false)
 	const rows = $derived(inViews ? found.filter((l) => inViews.has(l.id)) : found)
 	const idle = $derived(inViews ? found.filter((l) => !inViews.has(l.id)) : [])
 	const groups = $derived(groupLayers(rows))
 	const flat = $derived([...groups.flatMap((g) => g.layers.map((l) => l.id)), ...(showIdle ? idle.map((l) => l.id) : [])])   // the order on screen, for Shift-click ranges
-	// the sheet the active pane shows, when no viewport is picked: its own paper's layers
-	const paper = $derived(!vp && sheetId ? project.index.getOf('sheet', sheetId) : undefined)
-	const onPaper = $derived(paper?.type === 'sheet' ? paper : undefined)
 	/** Where the eye points, for the titles and the note. */
 	const eyeOf = $derived(vps.length > 1 ? `in the ${vps.length} picked viewports (Shift: every viewport on the sheet)` : vp ? 'in this viewport (Shift: every viewport on the sheet)' : onPaper ? 'on this sheet’s paper (its own notes; not in viewports)' : '(only for you)')
 	/** Any layer can be current (User: clicking a name did nothing on most); new lines go on it. */
@@ -272,8 +275,8 @@
 {#each g.layers as l (l.id)}{@render layerRow(l, !!g.name)}{/each}
 {/each}
 {#if idle.length}
-	<button class="row grp idle" title="Layers none of the picked viewports draws anything on — set here too (e.g. hide one before drawing on it)" onclick={() => (showIdle = !showIdle)}>
-		<span class="nm">{showIdle ? '▾' : '▸'} Not in {vps.length > 1 ? 'these views' : 'this view'}</span><span class="ct">{idle.length}</span>
+	<button class="row grp idle" title="Layers {onPaper ? 'the sheet’s paper' : 'none of the picked viewports'} draws anything on — set here too (e.g. hide one before drawing on it)" onclick={() => (showIdle = !showIdle)}>
+		<span class="nm">{showIdle ? '▾' : '▸'} Not {onPaper ? 'on this paper' : `in ${vps.length > 1 ? 'these views' : 'this view'}`}</span><span class="ct">{idle.length}</span>
 	</button>
 	{#if showIdle}{#each idle as l (l.id)}{@render layerRow(l, true)}{/each}{/if}
 {/if}
