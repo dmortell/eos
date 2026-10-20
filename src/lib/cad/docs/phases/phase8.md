@@ -4335,3 +4335,12 @@ User: "Yes, cords kept inside the set" (the ❓ entry of 2026-10-17).
   it. Help updated. Tests: riser (implied floors, hidden run, label), urlState (runs). svelte-check clean. Live on
   Journey 006 Riser: Hide empty off, 14F–28F unticked → 7 of 22 shown, the band reads right (the viewport at 1:100 is
   now taller than its window — User's to rescale).
+- **Wheel during a viewport right-drag** (User 2026-10-21: "you broke wheel zoom in pan/zoom mode … after right-drag
+  right-wheel does not work"). A right-drag inside a viewport (Pan / zoom content) holds an open store gesture; a wheel
+  notch meanwhile went through `transact`, which waits for the gesture to end — nothing showed, and on release the
+  notch replayed on the view as it was mid-drag (undoing part of the pan; since fd0650e8 also shifting it about the
+  cursor). Now a notch while `vpPan` is active goes INTO that gesture: the scale steps about the cursor at once
+  (`scaledAbout`, shared with `rescaleViewport`), the drag carries on from the new scale, and the release commits pan +
+  scale as one undo step. Seen live (synthetic right-drag on Journey 001): 1:100 → 50 → 25 while held, kept on
+  release, no menu; one Ctrl+Z → 1:100 at the old centre (Firestore checked). Plain wheel (no drag) unchanged and
+  checked live: about the cursor.

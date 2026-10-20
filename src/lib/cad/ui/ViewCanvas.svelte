@@ -45,7 +45,7 @@
 	import { pageKey } from '../app/pdf.svelte'
 	import { gridLines as gridLines_, readoutText, CameraMemory, ClickCounter, RESTORED } from './canvasInfo'
 	import { viewToSheet } from '../app/sheetActions'
-	import { enterViewport, leaveViewport as leaveVp, rescaleViewport, libraryDrop, dropTakes } from './viewportEdit'
+	import { enterViewport, leaveViewport as leaveVp, rescaleViewport, scaledAbout, libraryDrop, dropTakes } from './viewportEdit'
 	import { activeSheets } from '../app/shellActions'
 	import TextEditBox from './TextEditBox.svelte'
 	import PortTip from './PortTip.svelte'
@@ -734,6 +734,23 @@
 			// a wheel turned with the right button held: its release isn't a right CLICK (it opened the menu, User 2026-10-17)
 			if (panning && !panning.moved) panning = { ...panning, moved: true }
 			if (a.kind === 'pan') { cam = panBy(cam, a.dx, a.dy); return }
+			// mid-drag of a viewport's view (Pan / zoom content, right-drag): the notch goes into that gesture — a separate edit
+			// would wait for the drag to end and then land on the view as it was (User 2026-10-21: "after right-drag
+			// right-wheel does not work") — and the drag goes on from the new scale; the release commits both, one undo step
+			if (vpPan && sheet) {
+				const live = sheet.viewports.find((v) => v.id === vpPan!.vp.id)
+				if (live && !live.locked) {
+					const q = paperAt(e), n = scaledAbout(live, e.deltaY < 0 ? -1 : 1, q), sh = sheet
+					if (n.scale !== live.scale) {
+						vpPan.g ??= project.store.begin('Pan / scale viewport')
+						vpPan.g.update((tx) => tx.put({ ...sh, viewports: sh.viewports.map((v) => (v.id === live.id ? { ...v, ...n } : v)) }))
+						vpPan = { ...vpPan, at: q, vp: { ...live, ...n } }
+						if (panning) panning = { ...panning, moved: true }
+						ws.say(`1:${n.scale}`)
+					}
+					return
+				}
+			}
 			if (!((e.altKey || ws.vpContentNav) && rescale(e.deltaY < 0 ? -1 : 1, paperAt(e)))) cam = zoomAt(cam, local(e), a.factor)
 		}
 		el.addEventListener('wheel', onWheel, { passive: false })

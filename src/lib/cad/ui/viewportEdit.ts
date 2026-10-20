@@ -6,7 +6,7 @@
 // source puts the old tool back when the drag ends.
 import type { CadProject } from '../app/project.svelte'
 import { toolWorksIn, type Workspace } from '../app/workspace.svelte'
-import type { Sheet } from '../domain/drawing'
+import type { Sheet, Viewport } from '../domain/drawing'
 import type { ViewSpec } from '../views/space'
 import type { Pt } from '../domain/types'
 import type { PointerIn, ToolCtx } from '../editor/tools'
@@ -29,14 +29,18 @@ export function leaveViewport(ws: Workspace, sheet: Sheet | undefined): void {
 	if (e && sheet) { ws.select([sheet.id]); ws.selectViewport(e.vpId) }
 }
 
+/** A viewport's next standard scale (`dir`), about the paper point `p` (User 2026-10-21: it zoomed about the viewport's
+ *  middle): the view point under `p` stays under it. */
+export function scaledAbout(vp: Viewport, dir: 1 | -1, p: Pt): { scale: number; centre: Pt } {
+	const scale = nextScale(vp.scale, dir), mx = vp.rect.x + vp.rect.w / 2, my = vp.rect.y + vp.rect.h / 2
+	return { scale, centre: { x: vp.centre.x + (p.x - mx) * (vp.scale - scale), y: vp.centre.y + (p.y - my) * (vp.scale - scale) } }
+}
+
 /** Alt+wheel over the picked (or edited), unlocked viewport: the next standard scale. False = not over one. */
 export function rescaleViewport(project: CadProject, ws: Workspace, sheet: Sheet | undefined, editedVpId: string | undefined, dir: 1 | -1, p: Pt): boolean {
 	const vp = sheet?.viewports.find((v) => v.id === (editedVpId ?? ws.viewportId))
 	if (!sheet || !vp || vp.locked || p.x < vp.rect.x || p.x > vp.rect.x + vp.rect.w || p.y < vp.rect.y || p.y > vp.rect.y + vp.rect.h) return false
-	const scale = nextScale(vp.scale, dir), s = sheet
-	// about the cursor (User 2026-10-21: it zoomed about the viewport's middle): the view point under `p` stays under it
-	const mx = vp.rect.x + vp.rect.w / 2, my = vp.rect.y + vp.rect.h / 2
-	const centre = { x: vp.centre.x + (p.x - mx) * (vp.scale - scale), y: vp.centre.y + (p.y - my) * (vp.scale - scale) }
+	const { scale, centre } = scaledAbout(vp, dir, p), s = sheet
 	// a run of wheel notches is one undo step
 	if (scale !== vp.scale) project.store.transactJoined(`Viewport scale 1:${scale}`, `vp-scale:${s.id}:${vp.id}`, (tx) => tx.put({ ...s, viewports: s.viewports.map((v) => (v.id === vp.id ? { ...v, scale, centre } : v)) }))
 	ws.say(`1:${scale} — the wheel steps the viewport's scale with Pan / zoom content on (or Alt+wheel)`)
