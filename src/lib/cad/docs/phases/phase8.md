@@ -4180,4 +4180,5 @@ User: "Yes, cords kept inside the set" (the ❓ entry of 2026-10-17).
 ### Layers window: + Layer beside Find (2026-10-20)
 
 - User: "in Layers window, put the +Layer btn beside the Find input" — "+ Layer" moved from its own line above into
-  the Find row (on the right; alone there while the list has ≤ 16 layers and no Find box). `LayersPanel`.
+  the Find row (on the right; alone there while the list has ≤ 16 layers and no Find box), drawn as a button (the
+  panel's `.btn`, User: "look like a button, not a link"). `LayersPanel`.

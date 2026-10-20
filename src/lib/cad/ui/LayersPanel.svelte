@@ -237,7 +237,7 @@
 <!-- + Layer beside the Find box (User 2026-10-20), not on a line of its own above it -->
 <div class="find">
 	{#if all.length > 16}<input class="search" placeholder="Find a layer" bind:value={q} />{/if}
-	<button class="add" title="A new layer of this project (at the end of the list: drawn on top; drag to move it)" onclick={() => (adding = true)}>+ Layer</button>
+	<button class="btn" title="A new layer of this project (at the end of the list: drawn on top; drag to move it)" onclick={() => (adding = true)}>+ Layer</button>
 </div>
 {#if vps.length > 1}<p class="note">👁 = shown in the {vps.length} picked viewports (half: in some) · Shift = every viewport on the sheet</p>
 {:else if vp}<p class="note">👁 = shown in this viewport (prints; apart from the model) · Shift = every viewport on the sheet</p>
@@ -282,8 +282,6 @@
 
 <style>
 	.find { display: flex; align-items: center; justify-content: flex-end; gap: 0.5rem; margin-bottom: 0.25rem; padding-right: 0.25rem; }
-	.add { flex: none; font-size: 11px; color: var(--cad-link, #2563eb); }
-	.add:hover { text-decoration: underline; }
 	.search { flex: 1; min-width: 0; padding: 1px 4px; font-size: 12px; border: 1px solid var(--cad-line); background: var(--cad-input); color: var(--cad-text); border-radius: 3px; }
 	.note { padding: 0 0.25rem 0.25rem; font-size: 10px; color: var(--cad-faint); }
 	.row { display: flex; align-items: center; gap: 1px; padding: 0 2px; font-size: 12px; border-radius: 3px; }
