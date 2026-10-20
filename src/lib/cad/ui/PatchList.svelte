@@ -146,7 +146,8 @@
 <TableFrame label="Patch list" {t} view={inRoomView && roomId ? project.index.nameOf(roomId) : 'This view (all rooms)'} onkeydown={tableKey} {more}
 	count="{rows.length} of {all.length}{nSel ? ` · ${nSel} selected` : ''}" nSel={selCords.length}
 	hint="Select cords (click · Shift · Ctrl · Ctrl+A) to install, remove, re-patch or restyle them — or right-click">
-	{#snippet chips()}
+	<!-- the status chips (filters, with their counts) under the table with the hint (User 2026-10-20: the bar was too full) -->
+	{#snippet foot()}
 		{#each STATUSES as s (s)}
 			<StatusChip tone={s} label="{s} {count[s]}" off={!show[s]} onclick={() => (show[s] = !show[s])} title="Show / hide {s} cords" />
 		{/each}
@@ -154,8 +155,8 @@
 	{#snippet sel()}<CordActions {project} {ws} cords={selCords} />{/snippet}
 	{#snippet tail()}
 		<!-- what new cords start as, shown where cords are listed (D1); the patch list out (User 2026-10-12: easy to find) -->
-		<span class="muted" title="What new cords start as (a project setting)">New cords</span><CordMode {project} />
-		<button class="tb" title="The patch list (schedule) as Excel for the installer — all rooms (a sheet each), a room, the selected or shown rows; every cord or only the changes — with the cord BOM" onclick={() => (bomOpen = true)}><Icon name="download" size={12} /> Patch schedule · cord BOM…</button>
+		<span class="muted" title="What new cords start as — a project setting: switching it changes it for everyone on this project">New cords (all users)</span><CordMode {project} />
+		<button class="tb" title="Export the patch list to Excel" onclick={() => (bomOpen = true)}><Icon name="download" size={12} /> Patch List</button>
 	{/snippet}
 	<table class="w-full border-collapse">
 		<thead>

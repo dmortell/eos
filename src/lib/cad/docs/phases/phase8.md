@@ -4269,3 +4269,17 @@ User: "Yes, cords kept inside the set" (the ❓ entry of 2026-10-17).
   takes one line in the room that's left, cut with … (all of it on hover), 10 px clear of the right-hand group; the
   Patching hint is shorter ("… to install, remove, re-patch or restyle them — or right-click"). Seen live: Patching,
   Outlets, Sheets bars on one line.
+
+### Patching bar tidied: status chips and hints under the tables (2026-10-20)
+
+- User: "Should the New cords planning / surveying toggles look like the SNAP / OSNAP in statusbar? … change the Patch
+  schedule button label to Patch List and shorten the tooltip … The add / change / replace indicators could go under
+  the table, along with instructions? And the 'for everyone' meaning is not clear".
+  - Every table (TableFrame) has a line UNDER it: a `foot` snippet, then the hint (one line, … , all of it on hover);
+    the bar above keeps scope · Find · filters · count · the selection's actions · the right-hand group. The Patching
+    table's ADD / CHANGE / REPLACE / REMOVE / INSTALLED chips (filters with counts) go in its foot.
+  - Planning · Surveying (CordMode) look like the status bar's SNAP / OSNAP (faint, light blue with a blue edge when
+    on) — an either / or pair still, no longer a solid-blue primary button; "for everyone" after it is gone: the label
+    reads "New cords (all users)" (Patching bar, tool options); Help says so.
+  - "Patch schedule · cord BOM…" → **Patch List**, its tip "Export the patch list to Excel" (the dialog unchanged).
+  Seen live after a reload (a hot reload had kept the Sheets table's old frame): Patching, Sheets.

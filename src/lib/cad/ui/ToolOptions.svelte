@@ -107,7 +107,7 @@
 		</select></label>
 	{/if}
 	{#if ws.bulkFrom?.kind !== 'link'}<span class="opt" role="group" aria-label="Color">Color <ColorPick value={ws.cordDefaults.colour} onchange={(v) => { if (v) ws.cordDefaults.colour = v }} /></span>
-		<span class="opt" title="What new cords start as: ADD (planning) or INSTALLED (surveying a built site) — a project setting">New cords <CordMode {project} /></span>{/if}
+		<span class="opt" title="What new cords start as: ADD (planning) or INSTALLED (surveying a built site) — a project setting, for everyone on this project">New cords (all users) <CordMode {project} /></span>{/if}
 	{#if ws.bulkFrom}<span class="ml-2 text-xs text-blue-700">{ws.bulkFrom.kind === 'link' ? `Link ${linkPorts} port(s) from ${project.index.nameOf(ws.bulkFrom.on)}${ws.bulkFrom.more?.length ? ` + ${ws.bulkFrom.more.length} more panel(s)` : ''}${linkCores > 1 ? ` in ${Math.ceil(linkPorts / linkCores)} × ${linkCores}-core cable(s)` : ''} — open the other room's rack view (any floor) and click the first port · Esc cancels` : `Bulk: ${ws.bulkFrom.ports.length} port(s) — click the first port to patch them to (${ws.patchFill ? 'filling free ports' : 'in step'}; Ctrl-click: ${ws.patchFill ? 'in step' : 'fill free ports'}) · Esc cancels`}</span>{/if}
 {/if}
 

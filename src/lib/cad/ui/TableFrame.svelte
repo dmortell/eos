@@ -1,5 +1,6 @@
 <!-- Every table's frame (review R79): one bar of a fixed layout over a scrolling table —
-       [scope] [Find] [filter chips] · count | what acts on the selection (only with one; a hint without) | ⋯
+       [scope] [Find] [filter chips] · count | what acts on the selection (only with one) | ⋯
+     and a line under the table: the `foot` snippet (Patching: its status chips), then the hint.
      The bar stays put while the table scrolls under it (its header row sticks to the top of the scroll). The keys
      (↑ / ↓, F2, Ctrl+A, Ctrl+C …) go to `onkeydown` on the whole frame. -->
 <script lang="ts">
@@ -10,7 +11,7 @@
 	import MoreMenu from './MoreMenu.svelte'
 	import { typingIn } from './keyGuards'
 
-	let { label, t, view, lead, chips, count, countTitle = 'Shown · in this scope · selected', nSel = 0, sel, hint, tail, more = [], top, onkeydown, children }: {
+	let { label, t, view, lead, chips, count, countTitle = 'Shown · in this scope · selected', nSel = 0, sel, hint, tail, more = [], top, foot, onkeydown, children }: {
 		/** The table's name, for screen readers. */
 		label: string
 		/** Its sort / Find / scope: the scope select and the Find box (none: neither). */
@@ -31,6 +32,8 @@
 		more?: MenuItem[]
 		/** Above the table, under the bar (a panel such as Issue…). */
 		top?: Snippet
+		/** Under the table, before the hint (the Patching table's status chips — User 2026-10-20). */
+		foot?: Snippet
 		onkeydown?: (e: KeyboardEvent) => void
 		children: Snippet
 	} = $props()
@@ -52,11 +55,7 @@
 		{/if}
 		{@render chips?.()}
 		{#if count !== undefined}<span class="count" title={countTitle}>{count}</span>{/if}
-		{#if sel || hint}
-			<span class="sel" class:hinting={!(nSel && sel) && !!hint}>
-				{#if nSel && sel}{@render sel()}{:else if hint}<span class="hint" title={hint}>{hint}</span>{/if}
-			</span>
-		{/if}
+		{#if nSel && sel}<span class="sel">{@render sel()}</span>{/if}
 		<span class="end">
 			{@render tail?.()}
 			{#if more.length}<MoreMenu items={more} />{/if}
@@ -66,6 +65,13 @@
 		{@render top?.()}
 		{@render children()}
 	</div>
+	<!-- under the table (User 2026-10-20): the how-to line, out of the bar it crowded -->
+	{#if foot || hint}
+		<div class="foot">
+			{@render foot?.()}
+			{#if hint}<span class="hint" title={hint}>{hint}</span>{/if}
+		</div>
+	{/if}
 </div>
 
 <style>
@@ -77,10 +83,9 @@
 	.count { color: var(--cad-faint); white-space: nowrap; }
 	/* what acts on the selection: after a divider, so it reads as its own group */
 	.sel { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px; padding-left: 8px; border-left: 1px solid var(--cad-line); }
-	/* the hint: one line in the room that's left, cut with … (the whole of it on hover) — it wrapped and pushed the
-	   bar's right-hand buttons onto a second line (User 2026-10-20: "looks bad") */
-	.sel.hinting { flex: 1 1 0; min-width: 6rem; flex-wrap: nowrap; margin-right: 10px; }
-	.hint { color: var(--cad-faint); min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+	/* the line under the table: chips, then the hint — one line, cut with … (the whole of it on hover) */
+	.foot { flex: 0 0 auto; display: flex; align-items: center; gap: 4px 6px; min-height: 24px; padding: 2px 8px; border-top: 1px solid var(--cad-line); background: var(--cad-panel); white-space: nowrap; overflow: hidden; }
+	.hint { flex: 1 1 0; min-width: 0; margin-left: 4px; color: var(--cad-faint); overflow: hidden; text-overflow: ellipsis; }
 	.end { margin-left: auto; display: inline-flex; align-items: center; gap: 6px; }
 	/* the buttons the tables put in the bar */
 	.bar :global(.tb) { display: inline-flex; align-items: center; gap: 3px; min-height: 20px; border: 1px solid var(--cad-line); border-radius: 4px; padding: 0 6px; background: var(--cad-input); color: var(--cad-text); white-space: nowrap; }
