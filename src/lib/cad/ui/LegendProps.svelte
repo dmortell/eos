@@ -39,7 +39,7 @@
 		<button class="lnk" onclick={() => setGeom('Legend: all symbols', { rows: undefined })}>All symbols</button>
 		<button class="lnk" onclick={() => setGeom('Legend: no rows', { rows: [] })}>None</button></p>
 	{#each all as r (r.key)}
-		<label class="pick" title={r.kind === 'block' ? 'A symbol in use' : 'A layer with items on it'}>
+		<label class="pick" title={r.kind === 'block' ? 'A symbol in use' : r.kind === 'total' ? 'A total of the outlets drawn here (the symbol rows’ outlets)' : 'A layer with items on it'}>
 			<input type="checkbox" checked={shown.has(r.key)} onchange={(e) => toggle(r.key, e.currentTarget.checked)} />
 			{#if r.kind === 'layer'}<span class="sw" style:background={r.color ?? '#888'}></span>{/if}
 			<span class="nm">{r.name}</span><span class="ct">{r.value ?? ''}</span>

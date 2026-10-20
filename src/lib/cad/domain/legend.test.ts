@@ -43,6 +43,13 @@ describe('legends', () => {
 		const symbolPorts = all.filter((r) => r.kind === 'block').reduce((n, r) => n + Number(/(\d+) ports/.exec(r.value ?? '')?.[1] ?? r.count), 0)
 		expect(symbolPorts).toBe(placed.reduce((n, o) => n + Math.max(o.ports.length, 1), 0))
 	})
+	it('the totals come last, off unless ticked: the outlets drawn and their ports (User 2026-10-20)', () => {
+		const all = legendCandidates(ix, new Set(['L33']), blockOf)
+		const placed = ix.outlets.filter((o) => o.levelId === 'L33' && o.at)
+		expect(all.slice(-2).map((r) => [r.key, r.value])).toEqual([['total:outlets', String(placed.length)], ['total:ports', String(placed.reduce((n, o) => n + o.ports.length, 0))]])
+		expect(legendShown(all, undefined).some((r) => r.kind === 'total')).toBe(false)
+		expect(legendCandidates(ix, new Set(['nowhere']), blockOf)).toEqual([])
+	})
 	it('a legend on the plan draws its rows (a name and count each), all its own', () => {
 		const lg = { type: 'shape', id: 'LG', levelId: 'L33', geom: { kind: 'legend', at: { x: 0, y: 0 }, title: 'Key' } } as unknown as Shape
 		const ps = planDisplayList(new ProjectIndex([...ents, lg]), 'L33', { scale: 100, blocks: blockOf }).filter((p) => p.src === 'LG')

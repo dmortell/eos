@@ -34,7 +34,9 @@ export function legendPrims(id: string, at: Pt, title: string, rows: LegendRow[]
 	]
 	rows.forEach((r, i) => {
 		const top = at.y + rowH * 1.3 + i * rowH, cx = at.x + pad + icon / 2, cy = top + rowH / 2
-		if (r.kind === 'block') {
+		// the totals: no icon, a rule above the first
+		if (r.kind === 'total') { if (rows[i - 1]?.kind !== 'total') out.push({ k: 'line', pts: [{ x: at.x, y: top }, { x: at.x + w, y: top }], cls: 'legend-rule', src: id }) }
+		else if (r.kind === 'block') {
 			const b = blockOf(r.id)
 			const ps = b ? blockPrims(b, { at: { x: 0, y: 0 } }, 1, insertAttrs(b), id, b.category === 'outlet' ? 'outlet outlet-low' : 'shape') : []   // its {TAGS} blank
 			const bb = unionBounds(ps.map(primBounds))

@@ -4298,3 +4298,6 @@ User: "Yes, cords kept inside the set" (the ❓ entry of 2026-10-17).
   stays in the bar: pick-lists (Sheets' Category / Level / Room / Tag / State open downward) and actions (Outlets'
   Allocate this level, its allocation-issues list). Seen live after a reload: all five bars one line (30 px).
   Recommended keeping the Patch List button on the bar (the table's main output; ⋯ holds the rarer jobs).
+- **Legend totals** (User 2026-10-20): two more rows in a legend's Rows list, last and off unless ticked — Total
+  outlets and Total ports, over the outlets drawn on its levels (the ones the symbol rows count); drawn without an icon
+  under a rule. Help updated. Test: legend.test. Seen in Properties on Journey 3303 Outlets: 123 / 587 (not ticked).

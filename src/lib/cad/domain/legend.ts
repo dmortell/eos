@@ -13,7 +13,7 @@ import { runLengths } from './reports'
 /** `count` = items in the row; `value` = what the legend prints beside it (User 2026-10-20: each kind its own measure)
  *  — outlets and their ports, a trunk layer's metres, racks counted, a symbol placed as a block counted; absent = a key
  *  only (walls, furniture, notes …). */
-export interface LegendRow { key: string; kind: 'block' | 'layer'; id: Id; name: string; count: number; value?: string; color?: string }
+export interface LegendRow { key: string; kind: 'block' | 'layer' | 'total'; id: Id; name: string; count: number; value?: string; color?: string }
 
 /** Outlets with their ports ("56 · 284 ports"); one port each prints as just the count. */
 const outletValue = (n: number, ports: number) => (ports > n ? `${n} · ${ports} ports` : String(n))
@@ -23,7 +23,7 @@ interface Tally { n: number; outlets: number; ports: number; racks: number; trun
 const tally = (): Tally => ({ n: 0, outlets: 0, ports: 0, racks: 0, trunkM: 0 })
 
 /** Everything a legend over `levelIds` could list: the symbols in use (outlet symbols and inserts, A → Z), then the
- *  layers with items on them (in layer order). */
+ *  layers with items on them (in layer order), then the outlet and port totals. */
 export function legendCandidates(ix: ProjectIndex, levelIds: ReadonlySet<Id>, blockOf: (id: Id) => Block | undefined): LegendRow[] {
 	const blocks = new Map<Id, Tally>()
 	const at = (m: Map<Id, Tally>, id: Id) => { let t = m.get(id); if (!t) m.set(id, (t = tally())); return t }
@@ -49,7 +49,14 @@ export function legendCandidates(ix: ProjectIndex, levelIds: ReadonlySet<Id>, bl
 	// a layer's measure: its outlets (with ports), else its trunks' metres, else its racks; else a key only
 	const layerValue = (t: Tally) => (t.outlets ? outletValue(t.outlets, t.ports) : t.trunkM ? metres(t.trunkM) : t.racks ? String(t.racks) : undefined)
 	const layerRows = layers.filter((l) => perLayer.has(l.id)).map((l): LegendRow => { const t = perLayer.get(l.id)!; const value = layerValue(t); return { key: `layer:${l.id}`, kind: 'layer', id: l.id, name: l.name, count: t.n, ...(value ? { value } : {}), color: l.color ?? l.look } })
-	return [...symbolRows, ...layerRows]
+	// the totals (User 2026-10-20): the outlets drawn on its levels — the ones the symbol rows count — and their ports
+	let outlets = 0, ports = 0
+	for (const t of blocks.values()) { outlets += t.outlets; ports += t.ports }
+	const totalRows: LegendRow[] = outlets ? [
+		{ key: 'total:outlets', kind: 'total', id: 'outlets', name: 'Total outlets', count: outlets, value: String(outlets) },
+		{ key: 'total:ports', kind: 'total', id: 'ports', name: 'Total ports', count: ports, value: String(ports) },
+	] : []
+	return [...symbolRows, ...layerRows, ...totalRows]
 }
 
 /** The rows a legend shows: those it chose (in the candidates' order; ones no longer in use drop out), else every
