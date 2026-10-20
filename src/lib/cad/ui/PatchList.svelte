@@ -61,7 +61,10 @@
 	const count = $derived(Object.fromEntries(STATUSES.map((s) => [s, all.filter((r) => r.status === s).length])) as Record<Cord['status'], number>)
 	/** A moved cord's old ends in words (User 2026-10-20, cutovers: the installer needs where to unplug it, not just a ↶
 	 *  tip) — a "Was" column while any cord in the list has moved. */
-	const wasText = (r: PatchRow) => [r.wasFrom && `From ${r.wasFrom}`, r.wasTo && `To ${r.wasTo}`].filter(Boolean).join(' · ')
+	const wasText = (r: PatchRow) => [r.wasFrom && `From ${shown(r.wasFrom)}`, r.wasTo && `To ${shown(r.wasTo)}`].filter(Boolean).join(' · ')
+	/** A port's place as the list shows it: "(front)" left off (User 2026-10-20: not needed), "(rear)" kept. The raw
+	 *  place stays in the To edit box (a blur compares it with the cord's). */
+	const shown = (place: string) => place.replace(/ \(front\)$/, '')
 	const hasWas = $derived(all.some((r) => r.wasFrom || r.wasTo))
 	const rows = $derived(t.apply(all.filter((r) => show[r.status]), (r) => `${r.from} ${r.fromLabel} ${r.to} ${r.toLabel} ${wasText(r)} ${r.cordId} ${r.notes} ${typeLabel(r.cableType)}`,
 		{ from: (r) => r.from, fromLabel: (r) => r.fromLabel, to: (r) => r.to, toLabel: (r) => r.toLabel, was: wasText, type: (r) => typeLabel(r.cableType), len: (r) => r.lengthM, cordId: (r) => r.cordId, status: (r) => STATUSES.indexOf(r.status), notes: (r) => r.notes }))
@@ -97,7 +100,7 @@
 	function tableKey(e: KeyboardEvent) {
 		if (arrowSelect(e, rows.map((r) => r.id), ws.selection, ws.selectAndReveal) || ed.tableKey(e, ws.selection)) { e.preventDefault(); e.stopPropagation(); return }
 		if (selectAllRows(e, rows.map((r) => r.id), ws.select)) { e.preventDefault(); e.stopPropagation(); return }
-		if (copyRows(e, ['From', 'Label', 'To', 'Label', ...(hasWas ? ['Was'] : []), 'Type', 'Length (m)', 'Cord ID', 'Status', 'Notes'], rows.map((r) => [r.from, r.fromLabel, r.to, r.toLabel, ...(hasWas ? [wasText(r)] : []), typeLabel(r.cableType), r.lengthM, r.cordId, r.status, r.notes]), ws.say)) { e.preventDefault(); e.stopPropagation() }
+		if (copyRows(e, ['From', 'Label', 'To', 'Label', ...(hasWas ? ['Was'] : []), 'Type', 'Length (m)', 'Cord ID', 'Status', 'Notes'], rows.map((r) => [shown(r.from), r.fromLabel, shown(r.to), r.toLabel, ...(hasWas ? [wasText(r)] : []), typeLabel(r.cableType), r.lengthM, r.cordId, r.status, r.notes]), ws.say)) { e.preventDefault(); e.stopPropagation() }
 	}
 	const selected = $derived(new Set(ws.selection))
 	/** The cords on the ports picked in a rack view: shown like selected rows. */
@@ -162,11 +165,11 @@
 			{#each rows as r (r.id)}
 				{@const rep = r.status === 'replace' ? replacedText(project.index.getOf('cord', r.id)!, typeLabel) : ''}
 				<tr bind:this={rowEls[r.id]} class="hov" class:row-sel={selected.has(r.id) || onPorts.has(r.id)} class:gone={r.status === 'remove'} oncontextmenu={(e) => rowMenu(r.id, e)} onmousedown={noTextPick} onclick={(e) => pick(r.id, e)}>
-					<td class="px-2 py-0.5">{r.from}{#if r.wasFrom}<span class="was" title="Was {r.wasFrom}">↶</span>{/if}</td>
+					<td class="px-2 py-0.5">{shown(r.from)}{#if r.wasFrom}<span class="was" title="Was {shown(r.wasFrom)}">↶</span>{/if}</td>
 					<td class="px-2 font-mono muted">{r.fromLabel || '—'}</td>
 					{#if ed.is(r.id, 'to')}
 						<td class="ed"><input class="ed-box" value={r.to} use:focusCell onkeydown={(e) => ed.key(e, r.id, 'to')} onblur={(e) => ed.blur(r.id, 'to', e.currentTarget.value)} onclick={(e) => e.stopPropagation()} /></td>
-					{:else}<td class="px-2" title="Double-click to re-patch: type device : port (SW1:41), or just the port · several cords at once: select them, Re-patch… (the rest go to the next free ports)" ondblclick={(e) => ed.start(r.id, 'to', e)}>{r.to}{#if r.wasTo}<span class="was" title="Was {r.wasTo}">↶</span>{/if}</td>{/if}
+					{:else}<td class="px-2" title="Double-click to re-patch: type device : port (SW1:41), or just the port · several cords at once: select them, Re-patch… (the rest go to the next free ports)" ondblclick={(e) => ed.start(r.id, 'to', e)}>{shown(r.to)}{#if r.wasTo}<span class="was" title="Was {shown(r.wasTo)}">↶</span>{/if}</td>{/if}
 					<td class="px-2 font-mono muted">{r.toLabel || '—'}</td>
 					{#if hasWas}<td class="px-2 was-txt">{wasText(r)}</td>{/if}
 					<td class="px-2"><span class="sw" style:background={r.colour}></span>{typeLabel(r.cableType)}{#if rep}<span class="was" title="Replaces the cord there now — {rep}">↶</span>{/if}</td>
