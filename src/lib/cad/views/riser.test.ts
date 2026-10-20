@@ -133,6 +133,33 @@ describe('riser view: floors with no model (W33)', () => {
 	})
 })
 
+describe('riser view: the building’s side walls (User 2026-10-20)', () => {
+	const wallsOf = (ps: ReturnType<typeof riserDisplayList>) => ps.filter((p) => p.k === 'line' && p.cls === 'riser-wall').map((p) => (p.k === 'line' ? p.pts : []))
+	const z = (w: { y: number }[]) => [-Math.max(...w.map((q) => q.y)), -Math.min(...w.map((q) => q.y))]
+	it('one wall either side, outside the floors, from the lowest slab to the top — through the floors between', () => {
+		const ps = riserDisplayList(new ProjectIndex(ents))
+		const walls = wallsOf(ps)
+		expect(walls).toHaveLength(2)
+		const ffl = ps.find((p) => p.k === 'line' && p.cls === 'riser-ffl')
+		const [fx0, fx1] = ffl?.k === 'line' ? [ffl.pts[0].x, ffl.pts[1].x] : [0, 0]
+		for (const w of walls) expect(Math.min(...w.map((q) => q.x)) >= fx1 || Math.max(...w.map((q) => q.x)) <= fx0).toBe(true)
+		// 1F's slab bottom (−500) to the roof slab over 4F (11400 + 2600 + 700 + 200)
+		expect(z(walls[0])).toEqual([-500, 14900])
+	})
+	it('each floor’s number big outside the left wall, sized to its storey (readable zoomed out)', () => {
+		const ps = riserDisplayList(new ProjectIndex(ents))
+		const nums = ps.filter((p) => p.k === 'text' && p.cls === 'rv-floor')
+		expect(nums.map((p) => p.k === 'text' && p.text)).toEqual(['1F', '1F'])        // both test levels are number 1: the default names
+		const wallX = Math.min(...wallsOf(ps).flatMap((w) => w.map((q) => q.x)))
+		for (const p of nums) expect(p.k === 'text' && p.anchor === 'end' && p.at.x < wallX && p.size).toBe(Math.min(2600 * 0.45, 1600))
+	})
+	it('cut where floors are left out (a break)', () => {
+		const more = [...ents, level('L2', '2F', 3800), level('L3', '3F', 7600)] as Entity[]
+		const walls = wallsOf(riserDisplayList(new ProjectIndex(more), { hideEmpty: true }))
+		expect(walls).toHaveLength(4)                                                    // below and above the break, both sides
+	})
+})
+
 describe('riser view of one building (its Navigator row, User 2026-10-20)', () => {
 	it('only its floors, server rooms and risers; absent = the whole project', () => {
 		const two = [...ents.map((e) => (e.type === 'level' ? { ...e, buildingId: 'B1' } : e)),

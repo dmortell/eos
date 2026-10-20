@@ -14,7 +14,7 @@
 // hop drawn in the ceiling plenum (high runs) or the floor void (low runs) — the route's runs on that floor.
 import type { Id, Level, Rack, Device, Link, ProjectSettings } from '../domain/types'
 import { cableMedia } from '../domain/cableTypes'
-import { heightsOf, floorsWithoutLevel } from '../domain/floors'
+import { heightsOf, floorsWithoutLevel, floorName, DEFAULT_NAMES } from '../domain/floors'
 import type { Shape, PathNode } from '../domain/shapes'
 import type { ProjectIndex } from '../domain/project'
 import type { Route } from '../domain/routing'
@@ -25,7 +25,7 @@ import { inPolygon } from './primGeom'
 import { fillBySegment, segKey, fillTone, cableCountText, type SegFill } from '../domain/fill'
 import type { Prim } from './display'
 
-const ROOM_H = 2200, LANE = 180, MARGIN = 3000, BREAK_H = 1200, EPS_PAD = 450
+const ROOM_H = 2200, LANE = 180, MARGIN = 3000, BREAK_H = 1200, EPS_PAD = 450, WALL = 300
 
 export interface RiserOpts { scale?: number; routes?: Map<Id, Route>; hideEmpty?: boolean
 	/** Only this building's floors, server rooms and risers (absent: the whole project). */
@@ -155,6 +155,7 @@ export function riserDisplayList(ix: ProjectIndex, o: RiserOpts = {}): Prim[] {
 	// directly above (the top floor, a floor under a break). Heights: ADR 0004 (slab top at FFL − raised floor).
 	const elevs = [...byElev.keys()].sort((a, b) => a - b)
 	const strip = (za: number, zb: number, cls: string): Prim => ({ k: 'line', pts: [{ x: x0, y: -za }, { x: x1, y: -za }, { x: x1, y: -zb }, { x: x0, y: -zb }], closed: true, fill: true, cls })
+	const walls: { bot: number; top: number; e: number }[] = []
 	for (const [e, ls] of [...byElev].sort((a, b) => a[0] - b[0])) {
 		if (!shown(e)) continue
 		const h = heightsOf(ls[0]), slab = h.slabMm, rf = h.raisedFloorMm, ceil = h.clearHeightMm, plenum = h.plenumMm, v = zv(e)
@@ -162,12 +163,26 @@ export function riserDisplayList(ix: ProjectIndex, o: RiserOpts = {}): Prim[] {
 		// the slab above, unless the next floor up is shown and its own slab starts where this storey ends
 		const above = elevs[elevs.indexOf(e) + 1], ha = above === undefined ? undefined : byElev.get(above)?.[0]?.heights
 		const nextSlabAt = above === undefined ? Infinity : above - (ha?.raisedFloorMm ?? 300) - (ha?.slabMm ?? 200)
-		if (above === undefined || !shown(above) || Math.abs(nextSlabAt - (e + ceil + plenum)) > 1) out.push(strip(v + ceil + plenum, v + ceil + plenum + slab, 'riser-slab'))
+		const roof = above === undefined || !shown(above) || Math.abs(nextSlabAt - (e + ceil + plenum)) > 1
+		if (roof) out.push(strip(v + ceil + plenum, v + ceil + plenum + slab, 'riser-slab'))
+		// this storey's stretch of the side walls: slab bottom to the top of its storey (through the slab above when drawn here)
+		const wb = v - rf - slab, wt = v + ceil + plenum + (roof ? slab : 0), prev = walls.at(-1)
+		// one wall up through floors shown one after another (no floors between: still one building); a break ends it
+		if (prev && prev.e === elevs[elevs.indexOf(e) - 1]) { prev.top = Math.max(prev.top, wt); prev.e = e }
+		else walls.push({ bot: wb, top: wt, e })
 		out.push({ k: 'line', pts: [{ x: x0, y: -v }, { x: x1, y: -v }], cls: 'riser-ffl' })
 		out.push({ k: 'line', pts: [{ x: x0, y: -(v + ceil) }, { x: x1, y: -(v + ceil) }], cls: 'riser-ceiling' })
 		const names = [...new Set(ls.map((l) => l.name))].join(' / ')
 		out.push({ k: 'text', at: { x: x0 + 200, y: -v - 300 }, text: `${names}  FFL ${(e / 1000).toFixed(2)}`, size: txt, cls: 'rv-label' })
+		// the floor's number big outside the left wall, sized to the storey (User 2026-10-20: readable zoomed out — the label
+		// above is paper-sized and shrinks to nothing over a whole building); area levels of one floor share it
+		const fb = ix.getOf('building', ls[0].buildingId), big = Math.min(ceil * 0.45, 1600)
+		out.push({ k: 'text', at: { x: x0 - WALL - 500, y: -(v + ceil / 2) + big * 0.36 }, text: floorName(ls[0].number, fb?.type === 'building' && fb.floors ? fb.floors : DEFAULT_NAMES), size: big, anchor: 'end', cls: 'rv-floor' })
 	}
+	// the building's side walls (User 2026-10-20: "make it look like a building"), the slabs' concrete, either side of
+	// the floors — from the lowest slab to the top, cut only where floors are left out (a break)
+	for (const w of walls) for (const [a, b] of [[x0 - WALL, x0], [x1, x1 + WALL]])
+		out.push({ k: 'line', pts: [{ x: a, y: -w.bot }, { x: b, y: -w.bot }, { x: b, y: -w.top }, { x: a, y: -w.top }], closed: true, fill: true, cls: 'riser-wall' })
 	// a break mark across each run of left-out floors, naming them
 	const nameAt = (e: number) => [...new Set((byElev.get(e) ?? []).map((l) => l.name))].join(' / ')
 	for (const b of bands) {

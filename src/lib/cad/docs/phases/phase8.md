@@ -4312,3 +4312,10 @@ User: "Yes, cords kept inside the set" (the ❓ entry of 2026-10-17).
   the URL says `riser[.compact][.b~<id>]`; the tab reads "<building> risers". A building renames in its row (F2 / ⋮ ›
   Rename…). Journey: its empty duplicate building record (no references) deleted. Help updated. Tests: navTree,
   riser (one building of two), urlState. svelte-check clean (baseline 10, none in cad). Seen live on Journey.
+- **Riser view: side walls and big floor numbers** (User 2026-10-20: "make it look like a building"; "floor numbers
+  need to be readable even when zoomed out"). A 300 mm wall (`riser-wall`, the slabs' concrete with a thin outline)
+  either side of the floors, from the lowest slab to the roof, through floors with no model between (Journey: 12F up to
+  33F in one), cut only at a hidden-floors break. Each floor's number (`floorName` with its building's names, else
+  1F / B1F / GF) big and bold outside the left wall, sized to the storey (0.45 × ceiling height, max 1.6 m —
+  `rv-floor`); the small "name FFL" label inside stays. Screen + PDF styles. Tests: riser.test (walls, break,
+  numbers). Seen live on Journey: 12F / 30F / 33F readable at the whole-building fit.

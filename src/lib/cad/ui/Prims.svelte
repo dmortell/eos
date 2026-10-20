@@ -220,6 +220,8 @@
 	.rack-door { stroke: #475569; fill: none; }
 	.opening-hole { fill: #ffffff; stroke: #475569; }
 	.riser-slab { fill: #e7e5e4; stroke: none; }
+	/* the building's side walls: the slabs' concrete, so walls and slabs read as one frame */
+	.riser-wall { fill: #e7e5e4; stroke: #a8a29e; stroke-width: 1; }
 	/* the raised-floor void and the ceiling plenum, lighter than the slab */
 	.riser-ffl { stroke: #57534e; stroke-width: 1.5; }
 	.riser-ceiling { stroke: #a8a29e; stroke-dasharray: 6 4; }
@@ -227,6 +229,8 @@
 	.riser-room { fill: #eff6ff; stroke: #2563eb; }
 	.riser-shaft { fill: #fef3c7; stroke: #b45309; }
 	text.rv-label { fill: #44403c; }
+	/* the riser view's floor numbers, outside the building: readable over a whole building */
+	text.rv-floor { fill: #57534e; font-weight: 700; }
 	.backbone { stroke: #7c3aed; stroke-width: 2; fill: none; }
 	.backbone-none { stroke: #dc2626; stroke-dasharray: 5 4; }
 	text.backbone-label { fill: #5b21b6; }
