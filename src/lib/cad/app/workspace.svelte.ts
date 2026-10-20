@@ -421,7 +421,7 @@ export class Workspace {
 		if (this.pathSel && !(ids.length === 1 && ids[0] === this.pathSel.shape)) this.pathSel = null
 		this.selection = ids
 		if (this.portSel && !ids.includes(this.portSel.on)) this.portSel = null
-		if (ids.length !== 1) { this.viewportId = null; this.vpMore = [] }   // viewports are picked within ONE selected sheet
+		if (ids.length !== 1) { this.viewportId = null; this.vpMore = []; if (!this.vpEdit) this.vpContentNav = false }   // viewports are picked within ONE selected sheet
 		if (!ids.length) this.renumberMode = 'number'   // Find / replace lasts while its items stay selected
 	}
 	/** Bumped by a pick in a table: the active view pans the selection into view when it's off-screen (review R52 —
@@ -459,7 +459,12 @@ export class Workspace {
 		if (toggle && id) this.selectViewports(this.pickedViewports.includes(id) ? this.pickedViewports.filter((x) => x !== id) : [...this.pickedViewports, id])
 		else this.selectViewports(id ? [id] : [])
 	}
-	selectViewports = (ids: Id[]): void => { this.viewportId = ids[0] ?? null; this.vpMore = ids.slice(1) }
+	/** Pan / zoom content ends with the viewport it was on (User 2026-10-20: a click back on it after leaving it still
+	 *  dragged its content): a different viewport, or none, picked outside an edited one. */
+	selectViewports = (ids: Id[]): void => {
+		if ((ids[0] ?? null) !== this.viewportId && !this.vpEdit) this.vpContentNav = false
+		this.viewportId = ids[0] ?? null; this.vpMore = ids.slice(1)
+	}
 	/** A question in the tool bar with a yes button (e.g. changing labels that were already printed). */
 	confirm = $state<{ msg: string; yes: string; apply: () => void; alt?: { label: string; apply: () => void }; revert?: true } | null>(null)
 	/** `alt` = a second answer (two ways to go on, e.g. keep a section's viewports as elevations, or delete them). */

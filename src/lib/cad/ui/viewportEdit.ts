@@ -25,6 +25,7 @@ export function enterViewport(ws: Workspace, sheet: Sheet, id: string): boolean 
 export function leaveViewport(ws: Workspace, sheet: Sheet | undefined): void {
 	const e = ws.vpEdit
 	ws.vpEdit = null
+	ws.vpContentNav = false   // leaving ends Pan / zoom content too (User 2026-10-20)
 	if (e && sheet) { ws.select([sheet.id]); ws.selectViewport(e.vpId) }
 }
 

@@ -4216,3 +4216,8 @@ User: "Yes, cords kept inside the set" (the ❓ entry of 2026-10-17).
   moved end, gives them in words ("To R02 · SW1 : 1 (front)", "From … · To …" when both moved), in the CHANGE amber;
   Find and sort use it, Ctrl+C copies it. The Excel schedule already has Was From / Was To (exports.test). Help
   (patch list) names it. Seen live: the 12 PP1 cords re-patched SW1 → SW3 read "To R02 · SW1 : n (front)".
+- **Pan / zoom content ends with its viewport** (User 2026-10-20: after a double-click outside left the viewport, a
+  click back on it still had the toggle on and a drag moved its content). `ws.vpContentNav` was never reset: now
+  leaving an edited viewport (double-click outside, Esc — `leaveViewport`) turns it off, and so does unpicking the
+  viewport or picking another (`Workspace.select` / `selectViewports`, outside an edited one — entering keeps it).
+  Help updated. Test: workspace.test. Seen live on Journey 3303 Outlets (both paths; no drags, nothing written).

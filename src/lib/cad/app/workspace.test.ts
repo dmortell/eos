@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest'
 import { Workspace, type ShellActions } from './workspace.svelte'
 import type { Level } from '../domain/types'
+import type { Sheet } from '../domain/drawing'
+import { enterViewport, leaveViewport } from '../ui/viewportEdit'
 
 describe('each pane has its own level', () => {
 	it('the open level is the active pane’s; setting it changes only that pane', () => {
@@ -22,6 +24,31 @@ describe('each pane has its own level', () => {
 		ws.setPaneCount(1)
 		expect(ws.pane).toBe(0)
 		expect(ws.levelId).toBe('3F')
+	})
+})
+
+describe('Pan / zoom content ends with its viewport (User 2026-10-20)', () => {
+	const sheet = { type: 'sheet', id: 'SH', viewports: [{ id: 'V', view: { levelId: 'L', spec: { kind: 'plan' } } }, { id: 'W', view: { levelId: 'L', spec: { kind: 'plan' } } }] } as unknown as Sheet
+	it('kept while the same viewport stays picked; off when it is unpicked, another is picked or the sheet is left', () => {
+		const ws = new Workspace()
+		ws.select(['SH']); ws.selectViewport('V'); ws.vpContentNav = true
+		ws.selectViewport('V')
+		expect(ws.vpContentNav).toBe(true)
+		ws.selectViewport('W')
+		expect(ws.vpContentNav).toBe(false)
+		ws.vpContentNav = true; ws.selectViewport(null)
+		expect(ws.vpContentNav).toBe(false)
+		ws.selectViewport('V'); ws.vpContentNav = true; ws.select([])
+		expect(ws.vpContentNav).toBe(false)
+	})
+	it('kept on entering the viewport; off on leaving it (a double-click outside, Esc)', () => {
+		const ws = new Workspace()
+		ws.select(['SH']); ws.selectViewport('V'); ws.vpContentNav = true
+		enterViewport(ws, sheet, 'V')
+		expect(ws.vpContentNav).toBe(true)
+		leaveViewport(ws, sheet)
+		expect(ws.vpContentNav).toBe(false)
+		expect(ws.viewportId).toBe('V')   // leaving still picks the viewport
 	})
 })
 
