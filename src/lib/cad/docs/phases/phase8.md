@@ -4350,3 +4350,13 @@ User: "Yes, cords kept inside the set" (the ❓ entry of 2026-10-17).
   segment is no longer lifted (views/elevation.ts; the drop test now expects its ends at its nodes). (2) Picking inside
   an edited viewport read the viewport's prims without the user's layer locks; `vpePick` (ViewCanvas) applies them, so a
   locked Walls layer's walls can't be picked or marqueed there. Both seen live on 010.
+- **Trunks in elevations / sections: on their grips, at the depth they meet; a section's cut line yields the click**
+  (User 2026-10-21, Journey 010). (1) Runs were drawn up by half their height (z = bottom) — off their grips and off
+  where they were clicked — while every Location height already treats Z as a run's CENTRE (plenum middle, clear
+  height − half − 50); now centred on their nodes (walls keep their bottom; Section.anchor doc says so). (2) A trunk /
+  conduit drawn on an elevation / section went on the work plane — a section's cut, 960 mm from the riser on 010 — so on
+  the plan it lay along the cut line, and joining it to the riser bent the riser 960 mm sideways. A click ON a run
+  (`runUnder`, pathTool.ts) now lands on its centre line and the whole run takes that run's depth; `splitRunsAt` also
+  splits a drop / riser at a point between its ends, so a branch drawn off a riser's middle joins it. (3) Plan picks: a
+  section's cut line loses to anything else under the click (`pickHere`, selectTool.ts); alone, it's still picked.
+  The 010 riser (L75TRvGWf78O) keeps its 960 mm kink from before — the user's to redraw / fix.

@@ -76,7 +76,9 @@ export function splitRunsAt(shapes: Shape[], levelId: Id, ends: { x: number; y: 
 				const a = byId.get(q.a), b = byId.get(q.b)
 				if (!a || !b || a.levelId || b.levelId) return false
 				const dx = b.x - a.x, dy = b.y - a.y, L2 = dx * dx + dy * dy
-				if (!L2) return false
+				// a drop / riser: through it when on its plan point, between its ends' heights (a branch drawn off it
+				// on an elevation, User 2026-10-21)
+				if (!L2) return Math.hypot(a.x - p.x, a.y - p.y) < 0.5 && Math.min(a.z, b.z) + 1 < p.z && p.z < Math.max(a.z, b.z) - 1
 				const t = ((p.x - a.x) * dx + (p.y - a.y) * dy) / L2
 				return t > 0 && t < 1 && Math.hypot(a.x + dx * t - p.x, a.y + dy * t - p.y) < 0.5 && Math.abs(a.z + (b.z - a.z) * t - p.z) < 1
 			})

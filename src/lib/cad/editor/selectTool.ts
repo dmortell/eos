@@ -168,7 +168,7 @@ export class SelectTool implements Tool {
 		if (onGrip || h) { this.#hov = null; this.#hovRoom = null; this.#cursor = 'crosshair'; return }
 		this.#hovRoom = this.#roomLineAt(c, e.p)
 		if (this.#hovRoom) { this.#hov = null; this.#cursor = 'ns-resize'; return }
-		const all = c.prims(), hit = c.rowHit ? preferPort(all, pickPrim(all, e.p, c.tol()), e.p) : pickPrim(all, e.p, c.tol(), undefined, (s) => cabling(c, s)), id = hit?.src, en = id ? c.store.get(id) : undefined
+		const hit = pickHere(c, e.p), id = hit?.src, en = id ? c.store.get(id) : undefined
 		const sub = hit && hit.k !== 'image' ? hit.sub : undefined
 		// the bare paper of a sheet isn't something to point at; its viewports are
 		if (!id || !en || (en.type === 'sheet' && !sub)) { this.#hov = null; this.#cursor = 'default'; return }
@@ -282,7 +282,7 @@ export class SelectTool implements Tool {
 		// a rack view: the room's floor / ceiling line drags up / down (Space.floorMm / ceilingMm)
 		const rl = this.#roomLineAt(c, e.p), room = c.space.spec.kind === 'row' ? c.store.get(c.space.spec.spaceId) : undefined
 		if (rl && room) { this.#handle = { h: rl, base: room }; this.#start = e.p; this.#hovRoom = null; return }
-		const all = c.prims(), hit = c.rowHit ? preferPort(all, pickPrim(all, e.p, c.tol()), e.p) : pickPrim(all, e.p, c.tol(), undefined, (s) => cabling(c, s)), id = hit?.src, sub = hit && hit.k !== 'image' ? hit.sub : undefined   // a cord over a port: the port (W15)
+		const hit = pickHere(c, e.p), id = hit?.src, sub = hit && hit.k !== 'image' ? hit.sub : undefined   // a cord over a port: the port (W15)
 		// double-click on something with words — a text, a leader, an outlet, a rack, a run's label (on its words): edit
 		// them in place (backlog "Text options", "Edit a label in place")
 		// a linked symbol: a double-click opens its sheet or web page
@@ -802,6 +802,16 @@ export class SelectTool implements Tool {
 }
 
 /** Outlets, racks and devices: a click on one takes it, even where a desk or another block is drawn over it (R7-23). */
+/** What a click / hover at `p` takes: on a rack view a port over a cord (W15); else the topmost thing there, outlets /
+ *  racks / devices over what's drawn on them (R7-23), and a section's cut line only when nothing else is (User
+ *  2026-10-21: a trunk drawn in that section lies along its cut line on the plan, and the click took the section). */
+function pickHere(c: ToolCtx, p: Pt) {
+	const all = c.prims()
+	if (c.rowHit) return preferPort(all, pickPrim(all, p, c.tol()), p)
+	const pref = (s: string) => cabling(c, s)
+	return pickPrim(all, p, c.tol(), (s) => c.store.get(s)?.type === 'section', pref) ?? pickPrim(all, p, c.tol(), undefined, pref)
+}
+
 function cabling(c: ToolCtx, id: string): boolean {
 	const t = c.store.get(id)?.type
 	return t === 'outlet' || t === 'rack' || t === 'device'

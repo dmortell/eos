@@ -12,6 +12,8 @@ import { snapPt, type ToolCtx, type DrawOpts } from './tools'
 import { SelectTool } from './selectTool'
 import { toLine, toContainment } from '../domain/make'
 import type { Shape } from '../domain/shapes'
+import type { Entity } from '../domain/drawing'
+import type { Prim } from '../views/display'
 import { spaceOf, PLAN } from '../views/space'
 
 function harness() {
@@ -61,6 +63,44 @@ describe('snapping', () => {
 		expect(snapAt(ix, 'L33', { x: 22004, y: 20004 }, 15)).toMatchObject({ kind: 'centre', p: { x: 22000, y: 20000 } })
 		expect(snapAt(ix, 'L33', { x: 24500, y: 20330 }, 15)).toMatchObject({ kind: 'centre' })
 		expect(snapAt(ix, 'L33', { x: 26003, y: 20002 }, 15)).toMatchObject({ kind: 'centre', p: { x: 26000, y: 20000 } })
+	})
+})
+
+describe('drawing a trunk on an elevation, off a riser (User 2026-10-21)', () => {
+	it('the run takes the riser’s depth (not the work plane’s), starts ON it and joins it — the riser gets a node there', () => {
+		const h = harness()
+		h.store.transact('riser', (tx) => tx.put(toContainment({ type: 'shape', id: 'RZ', levelId: 'L33', geom: { kind: 'path', nodes: [{ id: 'a', x: 5000, y: 3000, z: 0 }, { id: 'b', x: 5000, y: 3000, z: 2800 }], segs: [{ id: 's', a: 'a', b: 'b' }] } } as Shape, { w: 150, h: 150 }, { tier: 'high', form: 'trunk' })))
+		const sp = spaceOf({ kind: 'elevation', dir: 'front' })
+		const ctx = (): ToolCtx => ({ ...h.ctx(), space: sp, work: { z: 2900, depth: 0 }, prims: () => [{ k: 'line', pts: [], cls: 'run', src: 'RZ' }], snap: (p) => ({ p, kind: 'grid' }) })
+		const v = (x: number, z: number) => { const q = sp.fromWorld({ x, y: 0, z }); return at(q.x, q.y) }   // the click: the depth isn't seen
+		const tool = new PathTool('trunk')
+		tool.down(v(5004, 1090), ctx())   // 4 mm off its centre line: onto it
+		tool.down(v(4000, 1090), ctx())
+		tool.key(key('Enter'), ctx())
+		const s = h.store.get(h.sel()[0]) as Shape
+		expect(s.geom.kind === 'path' && s.geom.nodes.map((n) => [n.x, n.y, n.z])).toEqual([[5000, 3000, 1090], [4000, 3000, 1090]])
+		const r = h.store.get('RZ') as Shape
+		expect(r.geom.kind === 'path' && r.geom.segs.length).toBe(2)
+		expect(r.geom.kind === 'path' && r.geom.nodes.at(-1)).toMatchObject({ x: 5000, y: 3000, z: 1090 })
+	})
+	it('on the plan, a click on a run under a section’s cut line takes the run; the cut line alone, the section', () => {
+		const h = harness()
+		h.store.transact('cut', (tx) => tx.put({ type: 'section', id: 'X', levelId: 'L33', name: 'A', a: { x: -1000, y: 3000 }, b: { x: 8000, y: 3000 }, depth: 3000 } as Entity))
+		const prims: Prim[] = [{ k: 'line', pts: [{ x: 0, y: 3000 }, { x: 6000, y: 3000 }], w: 100, cls: 'run', src: 'T1' }, { k: 'line', pts: [{ x: -1000, y: 3000 }, { x: 8000, y: 3000 }], cls: 'section-line', src: 'X' }]
+		const c = (): ToolCtx => ({ ...h.ctx(), prims: () => prims })
+		const sel = new SelectTool()
+		sel.down(at(3000, 3000), c()); sel.up(at(3000, 3000), c())
+		expect(h.sel()).toEqual(['T1'])
+		sel.down(at(7000, 3000), c()); sel.up(at(7000, 3000), c())
+		expect(h.sel()).toEqual(['X'])
+	})
+	it('away from any run it stays on the work plane', () => {
+		const h = harness(), sp = spaceOf({ kind: 'elevation', dir: 'front' })
+		const ctx = (): ToolCtx => ({ ...h.ctx(), space: sp, work: { z: 2900, depth: 0 }, snap: (p) => ({ p, kind: 'grid' }) })
+		const tool = new PathTool('trunk'), q1 = sp.fromWorld({ x: 0, y: 0, z: 1000 }), q2 = sp.fromWorld({ x: 2000, y: 0, z: 1000 })
+		tool.down(at(q1.x, q1.y), ctx()); tool.down(at(q2.x, q2.y), ctx()); tool.key(key('Enter'), ctx())
+		const s = h.store.get(h.sel()[0]) as Shape
+		expect(s.geom.kind === 'path' && s.geom.nodes.map((n) => sp.depthOf(n))).toEqual([0, 0])
 	})
 })
 

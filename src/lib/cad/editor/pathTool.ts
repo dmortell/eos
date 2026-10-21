@@ -26,6 +26,8 @@ export class PathTool implements Tool {
 	readonly cursor = 'crosshair'
 	pts: Pick[] = []
 	#hover: Snap | null = null
+	/** On an elevation / section: the depth taken from a run clicked on (null = the work plane's). */
+	#depth: number | null = null
 
 	constructor(readonly id: PathKind) {}
 
@@ -50,7 +52,16 @@ export class PathTool implements Tool {
 	lastPoint(c: ToolCtx): Pt | null { const l = this.pts.at(-1); return l ? c.space.fromWorld(l) : null }
 
 	#add(view: Pt, c: ToolCtx, attach?: Id): void {
-		const w = c.space.toWorld(view, c.work)
+		// on an elevation / section a click ON a run lands on it — its depth, which the view hides (the work plane is the
+		// section's cut, maybe a metre off) — and the whole run goes to that depth, so it meets that run and joins it
+		// (User 2026-10-21: a branch drawn off a riser in a section sat on the cut line, 960 mm from the riser)
+		const on = this.id === 'trunk' || this.id === 'conduit' ? runUnder(view, c) : null
+		if (on && this.#depth === null) {
+			const d = on.depth, work = { ...c.work, depth: d }
+			this.pts = this.pts.map((q) => { const v = c.space.toWorld(c.space.fromWorld(q), work); return { ...q, x: round(v.x), y: round(v.y) } })
+			this.#depth = d
+		}
+		const w = on && Math.abs(on.depth - (this.#depth ?? on.depth)) < 1 ? on.at : c.space.toWorld(view, this.#depth === null ? c.work : { ...c.work, depth: this.#depth })
 		const p = { x: round(w.x), y: round(w.y), z: round(w.z) }
 		const last = this.pts.at(-1)
 		if (!last || last.x !== p.x || last.y !== p.y || last.z !== p.z) this.pts.push({ ...p, ...(attach ? { attach } : {}) })
@@ -116,6 +127,7 @@ export class PathTool implements Tool {
 		if (this.pts.length < 2) { this.cancel(); return }
 		const pts = this.pts
 		this.pts = []
+		this.#depth = null
 		// a LINE on a sheet (backlog "Any annotation can belong to a viewport"): on the paper — or, started inside a
 		// viewport, tied to it in its view mm, so it moves / copies / goes with it, like notes
 		if (c.space.spec.kind === 'sheet') {
@@ -158,7 +170,7 @@ export class PathTool implements Tool {
 		if (split.length) c.say?.(`Joined to ${split.map((x) => x.label || 'a run').join(', ')} (a node added there)`)
 	}
 
-	cancel(): void { this.pts = []; this.#hover = null }
+	cancel(): void { this.pts = []; this.#hover = null; this.#depth = null }
 
 	#section(c: ToolCtx): Section {
 		return this.id === 'conduit' ? { w: c.opts.w, h: c.opts.w, round: true, anchor: 'centre' } : { w: c.opts.w, h: c.opts.h }
@@ -182,3 +194,32 @@ export class PathTool implements Tool {
 }
 
 const round = (v: number) => Math.round(v * 10) / 10
+
+/** On an elevation / section: the containment run whose centre line passes within the pick tolerance of view point
+ *  `p` — the nearest — with the model point on it there (a vertical segment: at the clicked height) and its depth.
+ *  Only what this view shows and lets be picked (`c.prims()`: hidden / locked layers aren't). */
+export function runUnder(p: Pt, c: ToolCtx): { at: { x: number; y: number; z: number }; depth: number } | null {
+	const sp = c.space
+	if (sp.spec.kind !== 'elevation' && sp.spec.kind !== 'section') return null
+	const tol = c.tol() * 1.5, seen = new Set<Id>()
+	let best: { at: { x: number; y: number; z: number }; depth: number; d: number } | null = null
+	for (const pr of c.prims()) {
+		if (!pr.src || seen.has(pr.src)) continue
+		seen.add(pr.src)
+		const s = c.store.get(pr.src)
+		if (s?.type !== 'shape' || s.role?.kind !== 'containment' || s.geom.kind !== 'path') continue
+		const byId = new Map(s.geom.nodes.map((n) => [n.id, n]))
+		for (const sg of s.geom.segs) {
+			const a = byId.get(sg.a), b = byId.get(sg.b)
+			if (!a || !b || a.levelId || b.levelId) continue
+			const pa = sp.fromWorld(a), pb = sp.fromWorld(b), dx = pb.x - pa.x, dy = pb.y - pa.y, l2 = dx * dx + dy * dy
+			if (!l2) continue   // seen end-on
+			const t = Math.max(0, Math.min(1, ((p.x - pa.x) * dx + (p.y - pa.y) * dy) / l2))
+			const d = Math.hypot(p.x - (pa.x + dx * t), p.y - (pa.y + dy * t))
+			if (d > tol || (best && d >= best.d)) continue
+			const at = { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t, z: a.z + (b.z - a.z) * t }
+			best = { at, depth: sp.depthOf(at), d }
+		}
+	}
+	return best && { at: best.at, depth: best.depth }
+}

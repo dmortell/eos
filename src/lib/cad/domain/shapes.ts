@@ -35,7 +35,8 @@ export interface Section {
 	round?: boolean
 	/** Inside size for fill (trunk / pipe walls); absent = same as outside. */
 	inner?: { w: number; h: number }
-	/** Is a node's z the BOTTOM of the section (walls, trunks laid on a surface) or its CENTRE (pipes)? Default bottom. */
+	/** Is a node's z the BOTTOM of the section or its CENTRE? Default bottom — read for WALLS only: a containment run is
+	 *  always centred on its nodes (its Location heights are its middle; User 2026-10-21). */
 	anchor?: 'bottom' | 'centre'
 }
 

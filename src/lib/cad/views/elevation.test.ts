@@ -36,6 +36,9 @@ describe('what an elevation shows', () => {
 		const drop = view('front').filter((x) => x.src === 'T1' && x.k === 'line').find((x) => (x as { pts: { x: number }[] }).pts.every((q) => q.x === 6000)) as { pts: { y: number }[]; w: number }
 		expect(drop.pts.map((q) => -q.y).sort((a, b) => a - b)).toEqual([300, 2900])   // its ends at its nodes — a vertical run isn't lifted by half its height (User 2026-10-21)
 		expect(drop.w).toBe(100)
+		// its level part: centred on its nodes too (it was drawn up half its height, off its grips; User 2026-10-21)
+		const level = view('front').filter((x) => x.src === 'T1' && x.k === 'line').map((x) => (x as { pts: { y: number }[] }).pts).find((ps) => ps.every((q) => q.y === ps[0].y) && ps.length === 2)
+		expect(level?.[0].y).toBe(-2900)
 	})
 	it('outlets show as faceplates at their height, in plan order along the view', () => {
 		const xs = view('front').filter((x) => (x.src === 'O1' || x.src === 'O2') && x.k === 'line').map((x) => (x as { pts: { x: number }[] }).pts[0].x)
