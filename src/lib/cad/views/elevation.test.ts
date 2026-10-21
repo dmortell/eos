@@ -32,9 +32,9 @@ describe('what an elevation shows', () => {
 		expect(srcs('left').has('R1')).toBe(true)
 		expect(view('front').some((p) => p.k === 'text' && (p.src === 'SW1' || p.src === 'P1'))).toBe(false)
 	})
-	it('the trunk drop is a vertical band from +300 to +2900 at its plan position', () => {
+	it('the trunk drop is a vertical band from +300 to +2900 at its plan position (its grips on its ends)', () => {
 		const drop = view('front').filter((x) => x.src === 'T1' && x.k === 'line').find((x) => (x as { pts: { x: number }[] }).pts.every((q) => q.x === 6000)) as { pts: { y: number }[]; w: number }
-		expect(drop.pts.map((q) => -q.y).sort((a, b) => a - b)).toEqual([300 + 25, 2900 + 25])   // bottom-anchored 100×50 → centre line +25
+		expect(drop.pts.map((q) => -q.y).sort((a, b) => a - b)).toEqual([300, 2900])   // its ends at its nodes — a vertical run isn't lifted by half its height (User 2026-10-21)
 		expect(drop.w).toBe(100)
 	})
 	it('outlets show as faceplates at their height, in plan order along the view', () => {

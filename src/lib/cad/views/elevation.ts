@@ -220,9 +220,11 @@ function shapeItems(s: Shape, sp: ViewSpace, rect: RectFn, uSpan: SpanFn, zOf: (
 				return [{ depth, prims: [...face, ...holes.map((h): Prim => ({ k: 'line', pts: h.c, closed: true, cls: 'opening', src: s.id }))] }]
 			}
 			if (s.role?.kind === 'containment' && sec) {
-				const lift = sec.anchor === 'centre' || sec.round ? 0 : sec.h / 2
+				// a run's bottom sits on its nodes (it's drawn up by half its height) — not a vertical one, whose nodes are its
+				// ends: lifted, it showed above its own grips (User 2026-10-21)
+				const up = isVertical(a, b), lift = up || sec.anchor === 'centre' || sec.round ? 0 : sec.h / 2
 				const high = s.role.tier === 'high', cls = high ? 'run run-high' : 'run'
-				return [{ depth, prims: [{ k: 'line', pts: [{ x: pa.x, y: pa.y - lift }, { x: pb.x, y: pb.y - lift }], w: isVertical(a, b) ? sec.w : sec.h, cls, role: high ? 'run-high' : 'run', src: s.id }] }]
+				return [{ depth, prims: [{ k: 'line', pts: [{ x: pa.x, y: pa.y - lift }, { x: pb.x, y: pb.y - lift }], w: up ? sec.w : sec.h, cls, role: high ? 'run-high' : 'run', src: s.id }] }]
 			}
 			return [{ depth, prims: ownStyle(s, [{ k: 'line', pts: [pa, pb], cls: 'shape', src: s.id }]) }]
 		}).concat(!s.role && s.style?.ends ? endItems(s, g, nodes, sp, k) : [])

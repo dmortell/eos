@@ -103,6 +103,8 @@
 	const sheetOpts = $derived({ underlay: project.pdf.placement, blocks: project.blockOf, ...project.sheetBase, routes: project.routes, fills: project.fills, cords: project.settings?.cordRoute, gray: !!project.settings?.grayFloorplans })   // a sheet's own look wins (sheetLook)
 	/** Editing the model inside one of this sheet's viewports (UX review S5): its view's space, prims and paper maps. */
 	const vpe = $derived(sheet && ws.vpEdit?.sheetId === sheet.id ? viewportFrame(project.index, sheet, ws.vpEdit.vpId, sheetOpts) : null)
+	/** What can be picked inside it: the user's locked layers' items can't (User 2026-10-21: locked Walls still picked). */
+	const vpePick = $derived(!vpe ? [] : ws.layers.locked.size ? applyLayers(vpe.prims, project.index, { locked: ws.layers.locked }).pick : vpe.prims)
 	/** What the tools work in: the edited viewport's view, else this pane's. */
 	const toolKind = $derived(vpe ? vpe.vp.view.spec.kind : spec.kind)
 	/** The middle of the level's content in plan — the default work depth of an elevation (ADR 0006). */
@@ -410,7 +412,7 @@
 	export const pasteCursor = (): Pt | null => cursor
 	/** What this view shows that can be picked (visible, unlocked layers) — devices in a rack row, notes on a sheet (not
 	 *  the sheet itself). */
-	const pickable = (): Entity[] => pickableIn(project.index, vpe ? vpe.prims : layered.pick, toolKind)
+	const pickable = (): Entity[] => pickableIn(project.index, vpe ? vpePick : layered.pick, toolKind)
 	/** Ctrl+A: everything this view shows that can be picked. */
 	export function selectAll(): void { ws.select(pickable().map((e) => e.id)) }
 	/** Select similar: what this view shows of the same kind as the selection (domain/similar.ts). */
@@ -442,7 +444,7 @@
 	function ctx(): ToolCtx {
 		// inside an edited viewport the tools work in its view: its space, level and prims; tolerances in its view mm
 		const f = vpe, tol = (TOL_PX / cam.k) * (f ? f.vp.scale : 1), kind = toolKind
-		const sp = f ? f.space : space, lv = f ? f.levelId : levelId, pick = f ? f.prims : layered.pick
+		const sp = f ? f.space : space, lv = f ? f.levelId : levelId, pick = f ? vpePick : layered.pick
 		const wk = f ? { z: ws.opts.z, depth: ws.depth ?? depthAt(f.vp.view.spec) } : work
 		return {
 			store: project.store, index: project.index, levelId: lv, settings: project.settings, details: project.details, opts: ws.opts, space: sp, work: wk,
@@ -572,7 +574,7 @@
 		}
 	}
 	const touch = new TouchNav({ cam: () => cam, setCam: (c) => { cam = c }, content: contentGesture, cancel: () => { if (toolDown) { ws.tool.cancel(ctx()); toolDown = false } }, tap: () => ws.select([]),
-		emptyAt: (s) => { if (ws.toolId !== 'select') return false; const id = pickAt(vpe ? onPaper(vpe.prims, vpe.vp) : layered.pick, toModel(cam, s), TOL_PX / cam.k); return !id || (spec.kind === 'sheet' && id === spec.sheetId) } })
+		emptyAt: (s) => { if (ws.toolId !== 'select') return false; const id = pickAt(vpe ? onPaper(vpePick, vpe.vp) : layered.pick, toModel(cam, s), TOL_PX / cam.k); return !id || (spec.kind === 'sheet' && id === spec.sheetId) } })
 	/** A finger / pen press given to the tool: its moves wait until it has gone further than a long-press allows, so a
 	 *  finger held still (a long-press = right-click, ui/longPress.ts) never starts a drag or a marquee first. */
 	let held: { id: number; at: Pt } | null = null

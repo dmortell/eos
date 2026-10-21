@@ -4344,3 +4344,9 @@ User: "Yes, cords kept inside the set" (the ❓ entry of 2026-10-17).
   scale as one undo step. Seen live (synthetic right-drag on Journey 001): 1:100 → 50 → 25 while held, kept on
   release, no menu; one Ctrl+Z → 1:100 at the old centre (Firestore checked). Plain wheel (no drag) unchanged and
   checked live: about the cursor.
+- **Vertical trunk off its grips; locked layers picked inside a viewport** (User 2026-10-21, Journey 010 Comms1
+  elevation). (1) Elevations / sections draw a run lifted by half its height so its bottom sits on its nodes — a
+  vertical run got the same lift, so it showed 75 mm (half of 150) above its own grips and selection line. A vertical
+  segment is no longer lifted (views/elevation.ts; the drop test now expects its ends at its nodes). (2) Picking inside
+  an edited viewport read the viewport's prims without the user's layer locks; `vpePick` (ViewCanvas) applies them, so a
+  locked Walls layer's walls can't be picked or marqueed there. Both seen live on 010.
