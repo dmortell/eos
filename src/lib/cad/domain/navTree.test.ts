@@ -13,7 +13,11 @@ describe('navigator tree', () => {
 	it('levels with their plan and server rooms (rack view, racks), no elevation rows (User 2026-10-15: use sections); sheets; the building row opens its risers', () => {
 		const t = navTree(ix())
 		const all = labels(t)
-		expect(all).toEqual(expect.arrayContaining(['Plan', 'IDF-A', 'A01', 'S001 Plan']))
+		expect(all).toEqual(expect.arrayContaining(['IDF-A', 'A01', 'S001 Plan']))
+		// no "Plan" row under a level (User 2026-10-21): the level's row opens its plan
+		expect(all).not.toContain('Plan')
+		const flat = (ns: NavNode[]): NavNode[] => ns.flatMap((n) => [n, ...flat(n.children ?? [])])
+		expect(flat(t).find((n) => n.key === 'lvl:L33')?.open).toEqual({ levelId: 'L33', spec: { kind: 'plan' } })
 		// no separate riser row (User 2026-10-20): the building's own row opens its riser view
 		expect(t.some((n) => n.kind === 'riser')).toBe(false)
 		const b = t.find((n) => n.kind === 'building')!

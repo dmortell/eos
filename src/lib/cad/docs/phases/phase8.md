@@ -4360,3 +4360,5 @@ User: "Yes, cords kept inside the set" (the ❓ entry of 2026-10-17).
   splits a drop / riser at a point between its ends, so a branch drawn off a riser's middle joins it. (3) Plan picks: a
   section's cut line loses to anything else under the click (`pickHere`, selectTool.ts); alone, it's still picked.
   The 010 riser (L75TRvGWf78O) keeps its 960 mm kink from before — the user's to redraw / fix.
+- **No "Plan" row under a level** (User 2026-10-21: it showed the same as the level's row). The level's row already
+  opened its plan and is the one marked when the plan is open; navTree drops the row, Help says the level row opens it.

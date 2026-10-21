@@ -44,8 +44,8 @@ export function navTree(ix: ProjectIndex, o: NavOpts = {}): NavNode[] {
 	const levelNode = (l: Level): NavNode => {
 		const rooms = ix.spaces.filter((s) => s.levelId === l.id && s.kind === 'server room').sort((a, b) => naturalCompare(a.name, b.name))
 		const secs = sections.filter((s) => s.levelId === l.id).sort((a, b) => naturalCompare(a.name, b.name))
+		// (no "Plan" row: the level's own row opens its plan — User 2026-10-21)
 		const views: NavNode[] = [
-			{ key: `v:${l.id}:plan`, label: 'Plan', kind: 'view', open: { levelId: l.id, spec: { kind: 'plan' } } },
 			...secs.map((s): NavNode => ({ key: `sec:${s.id}`, label: `Section ${s.name}`, kind: 'section', id: s.id, select: s.id, open: { levelId: l.id, spec: { kind: 'section', sectionId: s.id } } })),
 		]
 		const roomNodes = rooms.map((r): NavNode => {
