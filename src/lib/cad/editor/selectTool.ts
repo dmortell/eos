@@ -295,7 +295,7 @@ export class SelectTool implements Tool {
 			// a double-click anywhere inside a viewport edits inside it (its middle isn't its handle any more)
 			if ((e.count ?? 1) >= 2 && c.enterViewport) {
 				const sh = c.store.get(c.space.spec.sheetId), inside = sh?.type === 'sheet' ? viewportAt(sh, e.p) : undefined
-				if (sh?.type === 'sheet' && inside) { c.select([sh.id]); c.selectViewport(inside.id); c.enterViewport(inside.id); return }
+				if (sh?.type === 'sheet' && inside) { c.select([sh.id]); c.selectViewport(inside.id); c.enterViewport(inside.id, e.p); return }
 			}
 			// the selected viewport first: a corner grip resizes it, Alt-drag inside pans its view (T126: Ctrl-drag copies)
 			const cur = c.viewportIds?.().length === 1 ? c.viewportId?.() : null, curSheet = c.selection.length === 1 ? c.store.get(c.selection[0]) : undefined
@@ -305,7 +305,7 @@ export class SelectTool implements Tool {
 				const ci = corners.findIndex((q) => Math.hypot(q.x - e.p.x, q.y - e.p.y) <= c.tol() * 1.5)
 				if (ci >= 0) { this.#vp = { sheet: curSheet, vpId: sel.id, mode: 'resize', corner: ci }; this.#start = e.p; return }
 				const inside = e.p.x > r.x && e.p.x < r.x + r.w && e.p.y > r.y && e.p.y < r.y + r.h
-				if (inside && (e.count ?? 1) >= 2 && c.enterViewport) { c.enterViewport(sel.id); return }   // double-click: edit inside it
+				if (inside && (e.count ?? 1) >= 2 && c.enterViewport) { c.enterViewport(sel.id, e.p); return }   // double-click: edit inside it
 				if (inside && (e.alt || c.contentNav?.())) { this.#vp = { sheet: curSheet, vpId: sel.id, mode: 'pan' }; this.#start = e.p; c.say?.('Panning the view — the wheel (with Pan / zoom content on, or Alt+wheel) changes its scale'); return }
 			}
 			const sheet = id ? c.store.get(id) : undefined
@@ -320,7 +320,7 @@ export class SelectTool implements Tool {
 				// Ctrl-click adds a viewport to the pick (on a picked one it drops it on release, unless it's dragged: a copy)
 				if (vp && e.ctrl && (e.count ?? 1) < 2) { if (!inPick) c.selectViewport(vp.id, true) }
 				else if (!(vp && inPick && picked.length > 1)) c.selectViewport(vp ? vp.id : null)   // pressing one of several picked keeps them (they move together)
-				if (vp && (e.count ?? 1) >= 2 && c.enterViewport) { c.selectViewport(vp.id); c.enterViewport(vp.id); return }   // double-click: edit inside it
+				if (vp && (e.count ?? 1) >= 2 && c.enterViewport) { c.selectViewport(vp.id); c.enterViewport(vp.id, e.p); return }   // double-click: edit inside it
 				if (vp) c.say?.(vp.locked ? 'Viewport locked — it can\'t be moved, resized or panned (Properties → Locked) · double-click to edit inside it'
 					: 'Viewport: drag to move · a corner resizes · double-click edits inside it · Pan / zoom content (or Alt) pans / scales its view')
 				// W32 / B49: a click on the paper INSIDE a viewport picks that viewport (it picked the sheet); it is still moved

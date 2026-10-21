@@ -4368,3 +4368,9 @@ User: "Yes, cords kept inside the set" (the ❓ entry of 2026-10-17).
 - **A dimension drawn in a sheet's viewport previews in model mm** (User 2026-10-21: side wall to riser at 1:20 read
   "23" — paper mm — until the third click, then the right length). The preview now measures the points as placed
   (placeNote → the viewport's view mm), as the finished one does; `dimText` shared with dimensionPrims.
+- **Model ↔ sheet notes in one action** (User 2026-10-21: "very annoying" — double-click into a viewport for trunks /
+  outlets, then a double-click outside or Done before a note or dimension could be picked, then another click). Editing
+  inside a viewport, one Select click on one of the sheet's own notes / dimensions / lines (drawn over the model, so they
+  win even over a section's back wall) leaves the viewport and is the Select press on the sheet — it picks and can
+  drag the note. On the sheet, a double-click inside a viewport enters it AND selects the model item under the
+  pointer (`enterViewport(id, at)`). Help › Annotate a viewport says so. Seen live on Journey 010.

@@ -486,7 +486,16 @@
 		return { p: vpe ? vpe.fromPaper(q) : q, shift: e.shiftKey, ctrl: e.ctrlKey || e.metaKey, alt: e.altKey, count }
 	}
 	/** Enter / leave a viewport (UX review S5): its level opens, the selection starts empty; leaving picks the viewport. */
-	function enterVp(id: string): void { if (sheet && sheet.viewports.some((v) => v.id === id)) { ws.tool.cancel(ctx()); enterViewport(ws, sheet, id); tick++ } }
+	/** Edit inside viewport `id`; double-clicked at `at` (paper mm): the model item there is selected too (User
+	 *  2026-10-21: switching to the trunks took a double-click, then another click). */
+	function enterVp(id: string, at?: Pt): void {
+		if (!sheet || !sheet.viewports.some((v) => v.id === id)) return
+		ws.tool.cancel(ctx()); enterViewport(ws, sheet, id); tick++
+		const hit = at && vpe ? pickAt(onPaper(vpePick, vpe.vp), at, TOL_PX / cam.k) : undefined
+		if (hit) ws.select([hit])
+	}
+	/** A note / dimension / line drawn on this sheet (its paper, or tied to a viewport) under paper point `q`. */
+	const sheetNoteAt = (q: Pt): string | undefined => pickAt(layered.pick, q, TOL_PX / cam.k, (src) => { const e = project.index.get(src); return !(e?.type === 'shape' && e.sheetId === sheet?.id) })
 	function exitVp(): void { leaveVp(ws, sheet); tick++ }
 	/** A drag that pans the edited viewport's view (Pan / zoom content on): the viewport at the press, the gesture. */
 	let vpPan: { at: Pt; vp: Sheet['viewports'][number]; g: ReturnType<typeof project.store.begin> | null } | null = null
@@ -623,8 +632,16 @@
 		}
 		if (vpe) {
 			const q = paperAt(e)
-			// outside the edited viewport nothing is picked (the frame only); a double-click there leaves it
-			if (!inWindow(vpe, q)) { if (count >= 2) exitVp(); return }
+			// a click on the sheet's own notes / dimensions: leave the viewport, and the press is the Select tool's on the sheet
+			// — it picks (and can drag) the note (User 2026-10-21: switching took a double-click outside, then another
+			// click). They're drawn over the model, so they win (a section's back wall fills the whole view behind them)
+			const note = ws.toolId === 'select' && !ws.vpContentNav && count < 2 ? sheetNoteAt(q) : undefined
+			if (note) exitVp()
+			// outside the edited viewport nothing else is picked (the frame only); a double-click there leaves it
+			else if (!inWindow(vpe, q)) { if (count >= 2) exitVp(); return }
+		}
+		if (vpe) {
+			const q = paperAt(e)
 			if (ws.vpContentNav) { vpPan = { at: q, vp: vpe.vp, g: null }; return }
 			// annotations go on the VIEW, never into the model from a sheet (User 2026-10-07): an annotation tool leaves the
 			// viewport first, and the note is tied to it as when it isn't being edited

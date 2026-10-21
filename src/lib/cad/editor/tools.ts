@@ -78,8 +78,9 @@ export interface ToolCtx {
 	selectViewports?(ids: Id[]): void
 	/** Open a linked symbol's target: a sheet in a tab, a web page in a new browser tab. */
 	openLink?(link: InsertLink): void
-	/** Sheet views only: edit the model inside this viewport (a double-click on it). */
-	enterViewport?(id: Id): void
+	/** Sheet views only: edit the model inside this viewport (a double-click on it); `at` (paper mm) = what's there in the
+	 *  model is selected too. */
+	enterViewport?(id: Id, at?: Pt): void
 	/** Sheet views only: "Pan / zoom content" is on — a drag inside the selected viewport pans it, no Alt needed. */
 	contentNav?(): boolean
 	/** Rack-row views only: the selected ports (of one device). */
