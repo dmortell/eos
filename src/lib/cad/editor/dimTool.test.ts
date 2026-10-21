@@ -34,6 +34,16 @@ describe('dimensions', () => {
 		expect(d({ x: 3000, y: 4000 }, 'horizontal')).toEqual(['3000'])
 		expect(d({ x: 3000, y: 4000 }, 'vertical')).toEqual(['4000'])
 	})
+	it('drawn inside a sheet’s 1:20 viewport, the preview measures the model (as the placed one does), not the paper (User 2026-10-21)', () => {
+		const h = harness({ kind: 'sheet', sheetId: 'SH' })
+		h.store.transact('sheet', (tx) => tx.put({ type: 'sheet', id: 'SH', number: '010', title: 'E', order: 1, paper: { size: 'A3', orientation: 'landscape', marginMm: 10 }, status: 'active',
+			viewports: [{ id: 'V', view: { levelId: 'L33', spec: { kind: 'plan' } }, rect: { x: 10, y: 10, w: 200, h: 150 }, scale: 20, centre: { x: 0, y: 0 } }] } as never))
+		const t = new DimTool(() => 'horizontal')
+		t.down(at(50, 50), h.ctx()); t.down(at(73, 50), h.ctx()); t.move(at(60, 40), h.ctx())
+		expect(texts(t.preview(h.ctx()) as ReturnType<typeof dimensionPrims>)).toEqual(['460'])   // 23 paper mm × 20
+		t.down(at(60, 40), h.ctx())
+		expect(texts(shapePrims(h.store.get(h.sel()[0]) as Shape, 1))).toEqual(['460'])
+	})
 	it('Shift on the second point keeps it level or plumb with the first (User’s todo)', () => {
 		const h = harness(PLAN), t = new DimTool(() => 'aligned'), shift = (x: number, y: number) => ({ ...at(x, y), shift: true })
 		t.down(at(0, 0), h.ctx()); t.down(shift(2400, 300), h.ctx()); t.down(at(1000, -600), h.ctx())

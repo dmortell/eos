@@ -7,7 +7,7 @@ import type { Pt } from '../domain/types'
 import type { Shape } from '../domain/shapes'
 import type { Prim } from '../views/display'
 import { placeNote, notePoint } from './noteTool'
-import { dimensionPrims, dimOffset } from '../views/plan'
+import { dimensionPrims, dimOffset, dimLine, dimText } from '../views/plan'
 import { newId } from '../domain/ids'
 import { PLOT_SCALE } from '../views/display'
 import { axisLock } from './constrain'
@@ -67,6 +67,10 @@ export class DimTool implements Tool {
 		if (!a || !h) return []
 		if (!b) return [{ k: 'line', pts: [a, h], cls: 'draft' }]
 		const mode = this.mode(), k = c.space.spec.kind === 'sheet' ? 1 : PLOT_SCALE
-		return dimensionPrims({ kind: 'dimension', a, b, mode, offset: dimOffset({ a, b, mode }, h) }, k, '').map((q) => ({ ...q, cls: q.k === 'text' ? 'dim-text' : 'draft' }))
+		// started inside a sheet's viewport: it measures the MODEL there (its view mm), as it will once placed — not the
+		// paper (User 2026-10-21: a side wall to a riser at 1:20 read 23 until the third click)
+		const at = c.space.spec.kind === 'sheet' ? placeNote(c, [a, b]) : null
+		const text = at?.owner.vpId ? dimText(dimLine({ kind: 'dimension', a: at.pts[0], b: at.pts[1], mode, offset: 0 }).len) : undefined
+		return dimensionPrims({ kind: 'dimension', a, b, mode, offset: dimOffset({ a, b, mode }, h), ...(text ? { text } : {}) }, k, '').map((q) => ({ ...q, cls: q.k === 'text' ? 'dim-text' : 'draft' }))
 	}
 }

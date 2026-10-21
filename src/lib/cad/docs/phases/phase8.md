@@ -4365,3 +4365,6 @@ User: "Yes, cords kept inside the set" (the ❓ entry of 2026-10-17).
 - **Size fields follow a segment pick** (User 2026-10-21: one segment of a trunk picked, Size and height's Width /
   Height still resized the whole run — only the small W / H in the "1 segment picked" bar sized the segment). While
   segments are picked those two fields size THEM ("· picked segment(s)", blank = mixed); nothing picked: the run.
+- **A dimension drawn in a sheet's viewport previews in model mm** (User 2026-10-21: side wall to riser at 1:20 read
+  "23" — paper mm — until the third click, then the right length). The preview now measures the points as placed
+  (placeNote → the viewport's view mm), as the finished one does; `dimText` shared with dimensionPrims.

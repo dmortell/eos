@@ -246,6 +246,8 @@ export function dimLine(g: Dim): { a2: Pt; b2: Pt; len: number } {
 	const n = len ? { x: -(b.y - a.y) / len, y: (b.x - a.x) / len } : { x: 0, y: -1 }
 	return { a2: { x: a.x + n.x * g.offset, y: a.y + n.y * g.offset }, b2: { x: b.x + n.x * g.offset, y: b.y + n.y * g.offset }, len }
 }
+/** A dimension's measured text: mm up to 10 m, then m (User). */
+export const dimText = (len: number): string => (len < 10000 ? `${Math.round(len)}` : `${(len / 1000).toFixed(1)} m`)
 /** Where a point lands as an offset for this dimension (the third click of the tool). */
 export function dimOffset(g: Pick<Dim, 'a' | 'b' | 'mode'>, p: Pt): number {
 	if (g.mode === 'horizontal') return p.y - g.a.y
@@ -270,7 +272,7 @@ export function dimensionPrims(g: Dim, k: number, src: string): Prim[] {
 	let ang = (Math.atan2(u.y, u.x) * 180) / Math.PI
 	if (ang > 90) ang -= 180; else if (ang <= -90) ang += 180
 	const r = (ang * Math.PI) / 180, up = { x: Math.sin(r), y: -Math.cos(r) }, mid = { x: (a2.x + b2.x) / 2, y: (a2.y + b2.y) / 2 }
-	const text = g.text ?? (len < 10000 ? `${Math.round(len)}` : `${(len / 1000).toFixed(1)} m`)   // mm up to 10 m (User)
+	const text = g.text ?? dimText(len)
 	return [
 		...[ext(a, a2, g.gapA ?? gap), ext(b, b2, g.gapB ?? gap)].filter((p): p is Prim => !!p),
 		{ k: 'line', pts: [{ x: a2.x - u.x * over, y: a2.y - u.y * over }, { x: b2.x + u.x * over, y: b2.y + u.y * over }], cls: 'dim', role: 'dim', src },
