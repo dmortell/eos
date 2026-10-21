@@ -4362,3 +4362,6 @@ User: "Yes, cords kept inside the set" (the ❓ entry of 2026-10-17).
   The 010 riser (L75TRvGWf78O) keeps its 960 mm kink from before — the user's to redraw / fix.
 - **No "Plan" row under a level** (User 2026-10-21: it showed the same as the level's row). The level's row already
   opened its plan and is the one marked when the plan is open; navTree drops the row, Help says the level row opens it.
+- **Size fields follow a segment pick** (User 2026-10-21: one segment of a trunk picked, Size and height's Width /
+  Height still resized the whole run — only the small W / H in the "1 segment picked" bar sized the segment). While
+  segments are picked those two fields size THEM ("· picked segment(s)", blank = mixed); nothing picked: the run.

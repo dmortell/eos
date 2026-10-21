@@ -183,10 +183,16 @@
 {#if s.section || s.role?.kind === 'containment'}
 	<PropGroup kind={kind} title="Size and height">
 		{#if s.section}
-			<label class="row">{s.section.round ? 'Diameter' : kind === 'wall' ? 'Thickness' : 'Width'} (mm)
-				<input class="inp" type="number" value={s.section.w} onchange={(e) => { const v = e.currentTarget.value.trim(); if (v && Number(v) > 0) setSection({ w: Number(v) }); else e.currentTarget.value = String(s.section?.w ?? '') }} /></label>
+			<!-- segments picked in the view: these size THEM, not the whole run (User 2026-10-21: typing a picked segment's
+			     height here resized the run); blank = mixed -->
+			{@const segs = pickedSegs.length > 0 && kind !== 'line'}
+			{@const shown = (k: 'w' | 'h') => (segs ? segShared(k) ?? '' : s.section?.[k] ?? '')}
+			{@const put = (k: 'w' | 'h', v: number) => (segs ? setSegSection({ [k]: v }) : setSection({ [k]: v }))}
+			{@const of = segs ? ` · ${pickedSegs.length === 1 ? 'picked segment' : `${pickedSegs.length} picked segments`}` : ''}
+			<label class="row" title={segs ? 'The picked segments only — click off them for the whole run' : undefined}>{s.section.round ? 'Diameter' : kind === 'wall' ? 'Thickness' : 'Width'} (mm){of}
+				<input class="inp" type="number" value={shown('w')} placeholder={segs ? MIXED : undefined} onchange={(e) => { const v = e.currentTarget.value.trim(); if (v && Number(v) > 0) put('w', Number(v)); else e.currentTarget.value = String(shown('w')) }} /></label>
 			{#if !s.section.round}
-				<label class="row">Height (mm) <input class="inp" type="number" value={s.section.h} onchange={(e) => { const v = e.currentTarget.value.trim(); if (v && Number(v) > 0) setSection({ h: Number(v) }); else e.currentTarget.value = String(s.section?.h ?? '') }} /></label>
+				<label class="row" title={segs ? 'The picked segments only — click off them for the whole run' : undefined}>Height (mm){of} <input class="inp" type="number" value={shown('h')} placeholder={segs ? MIXED : undefined} onchange={(e) => { const v = e.currentTarget.value.trim(); if (v && Number(v) > 0) put('h', Number(v)); else e.currentTarget.value = String(shown('h')) }} /></label>
 			{/if}
 			{#if s.role?.kind === 'containment'}
 				{@const ins = insideOf(s.section)}
