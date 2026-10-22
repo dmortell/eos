@@ -9,7 +9,7 @@ import type { Cord, Id, PortRef } from '../domain/types'
 import { pickPrim } from './pick'
 import { makeCord, patchProblem, bulkPatch, type CordDefaults } from '../domain/cords'
 import { bulkInterconnect } from '../domain/interconnect'
-import { coresOf } from '../domain/multicore'
+import { coresOf, linkCores, portsPerCable } from '../domain/multicore'
 import { portFromText } from '../domain/repatchText'
 
 /** "PP1 has no port 25" — a device's port past its last one (the next pair, a typed port). */
@@ -104,8 +104,9 @@ export class CordTool implements Tool {
 			const type = this.linkType() || this.defaults().cableType, cores = coresOf(c.settings, type)
 			const bulk = this.bulk
 			const res = bulkInterconnect(c.index, { ...bulk, face: 'rear' }, { on: r.on, start: r.port, face: 'rear' }, { cableType: type, cores })
-			const n = res.links.length, cables = cores > 1 ? Math.ceil(n / cores) : n
-			const what = cores > 1 ? `${cables} × ${cores}-core cable(s), ${n} cores` : `${n} interconnect cable(s)`
+			const n = res.links.length, per = res.links[0] ? linkCores((id) => c.index.get(id), res.links[0]) : 1   // LC: 2 cores a port
+			const cables = cores > 1 ? Math.ceil(n / portsPerCable(cores, per)) : n
+			const what = cores > 1 ? `${cables} × ${cores}-core cable(s), ${n * per} cores` : `${n} interconnect cable(s)`
 			const kind = res.links[0]?.kind === 'tie' ? 'tie' : 'backbone'
 			const write = () => {
 				if (n) c.store.transact(cores > 1 ? `Link ${cables} ${cores}-core ${kind} cable(s)` : `Link ${n} ${kind} cable(s)`, (tx) => { for (const k of res.links) tx.put(k) })
@@ -121,7 +122,7 @@ export class CordTool implements Tool {
 			const several = !!bulk.more?.length
 			host.show({
 				from: several ? `${name(bulk.on)} + ${bulk.more!.length} more` : name(bulk.on), to: name(r.on), fill: false, skipped: res.skipped,
-				title: cores > 1 ? `Link ${cables} ${cores}-core ${kind} cable${cables === 1 ? '' : 's'} (${n} cores)` : `Link ${n} ${kind} cable${n === 1 ? '' : 's'}`,
+				title: cores > 1 ? `Link ${cables} ${cores}-core ${kind} cable${cables === 1 ? '' : 's'} (${n * per} cores)` : `Link ${n} ${kind} cable${n === 1 ? '' : 's'}`,
 				okLabel: `Link ${n}`,
 				rows: res.links.map((k) => ({ a: k.a.port, aLabel: `${several ? `${dev(k.a.on)} · ` : ''}${c.index.portLabel(k.a)}`, b: k.b.port, bLabel: c.index.portLabel(k.b) })),
 				ok: () => { host.show(null); write() },

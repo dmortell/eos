@@ -21,7 +21,7 @@
 				onclick={(e) => ws.select(e.ctrlKey || e.metaKey ? [...new Set([...ws.selection, ...g.links])] : g.links)}>
 				<span class="sw" style:background={g.colour}></span>
 				<span class="min-w-0">
-					<span class="block truncate">{g.cables} × {g.type || 'cable'}{g.cables !== g.links.length ? ` · ${g.links.length} cores` : ''}{g.kind === 'tie' ? ' · tie' : ''}</span>
+					<span class="block truncate">{g.cables} × {g.type || 'cable'}{g.cables !== g.links.length ? ` · ${g.cores} cores` : ''}{g.kind === 'tie' ? ' · tie' : ''}</span>
 					<span class="block truncate text-zinc-500">{g.floors} · {g.a.split(' · ').at(-1)} → {g.b.split(' · ').at(-1)}</span>
 				</span>
 			</button>

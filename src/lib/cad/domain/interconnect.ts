@@ -5,7 +5,7 @@
 import type { Id, Link, PortRef, Device, Rack, Level } from './types'
 import type { ProjectIndex } from './project'
 import { newId } from './ids'
-import { intoCables } from './multicore'
+import { intoCables, linkCores, portsPerCable } from './multicore'
 
 /** `a.more`: further panels after the first (several panels selected, User 2026-10-10: four 24-port panels onto one
  *  96-port switch) — their ports carry on from where the one before stopped on the other device. */
@@ -32,7 +32,8 @@ export function bulkInterconnect(ix: ProjectIndex, a: { on: Id; ports: number[];
 			nb++
 		}
 	}
-	return { links: intoCables(links, o.cores ?? 1), skipped }
+	// a 24-core cable fills 12 LC ports (2 cores a port)
+	return { links: intoCables(links, portsPerCable(o.cores ?? 1, links[0] ? linkCores((id) => ix.get(id), links[0]) : 1)), skipped }
 }
 
 /** Runs that can be a cable's "via": risers (a vertical segment between two levels) first, by label. (Used by tests only.) */

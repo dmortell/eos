@@ -7,7 +7,7 @@
 	import type { Level } from '../domain/types'
 	import type { ViewSpec } from '../views/space'
 	import { sortedCableTypes } from '../domain/cableTypes'
-	import { coresOf } from '../domain/multicore'
+	import { coresOf, coresPerPort, portsPerCable } from '../domain/multicore'
 	import { RUN_PLACES, placeOf, type RunPlace } from '../domain/runEdit'
 	import ColorPick from './ColorPick.svelte'
 	import OutletOptions from './OutletOptions.svelte'
@@ -29,6 +29,8 @@
 	/** Link to…'s type is multi-core: the ports go into cables of this many cores. */
 	const linkPorts = $derived((ws.bulkFrom?.ports.length ?? 0) + (ws.bulkFrom?.more ?? []).reduce((n, m) => n + m.ports.length, 0))
 	const linkCores = $derived(coresOf(project.settings, ws.linkType || ws.cordDefaults.cableType))
+	/** …and how many ports one cable fills (LC: 2 cores a port, a 24-core cable = 12 ports). */
+	const linkPerCable = $derived(portsPerCable(linkCores, coresPerPort(ws.bulkFrom ? project.index.getOf('device', ws.bulkFrom.on) : undefined)))
 </script>
 
 {#if PATH_KINDS.has(ws.toolId)}
@@ -108,7 +110,7 @@
 	{/if}
 	{#if ws.bulkFrom?.kind !== 'link'}<span class="opt" role="group" aria-label="Color">Color <ColorPick value={ws.cordDefaults.colour} onchange={(v) => { if (v) ws.cordDefaults.colour = v }} /></span>
 		<span class="opt" title="What new cords start as: ADD (planning) or INSTALLED (surveying a built site) — a project setting, for everyone on this project">New cords (all users) <CordMode {project} /></span>{/if}
-	{#if ws.bulkFrom}<span class="ml-2 text-xs text-blue-700">{ws.bulkFrom.kind === 'link' ? `Link ${linkPorts} port(s) from ${project.index.nameOf(ws.bulkFrom.on)}${ws.bulkFrom.more?.length ? ` + ${ws.bulkFrom.more.length} more panel(s)` : ''}${linkCores > 1 ? ` in ${Math.ceil(linkPorts / linkCores)} × ${linkCores}-core cable(s)` : ''} — open the other room's rack view (any floor) and click the first port · Esc cancels` : `Bulk: ${ws.bulkFrom.ports.length} port(s) — click the first port to patch them to (${ws.patchFill ? 'filling free ports' : 'in step'}; Ctrl-click: ${ws.patchFill ? 'in step' : 'fill free ports'}) · Esc cancels`}</span>{/if}
+	{#if ws.bulkFrom}<span class="ml-2 text-xs text-blue-700">{ws.bulkFrom.kind === 'link' ? `Link ${linkPorts} port(s) from ${project.index.nameOf(ws.bulkFrom.on)}${ws.bulkFrom.more?.length ? ` + ${ws.bulkFrom.more.length} more panel(s)` : ''}${linkCores > 1 ? ` in ${Math.ceil(linkPorts / linkPerCable)} × ${linkCores}-core cable(s)` : ''} — open the other room's rack view (any floor) and click the first port · Esc cancels` : `Bulk: ${ws.bulkFrom.ports.length} port(s) — click the first port to patch them to (${ws.patchFill ? 'filling free ports' : 'in step'}; Ctrl-click: ${ws.patchFill ? 'in step' : 'fill free ports'}) · Esc cancels`}</span>{/if}
 {/if}
 
 <style>

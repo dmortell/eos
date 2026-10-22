@@ -3,7 +3,7 @@
 // from (the panel end), to (the outlet port, or the other panel), its label, cable type, the route's length, the
 // slack added at the outlet, the installed length, and the 90 m permanent-link flag. Pure; tested.
 import type { Id, ProjectSettings } from './types'
-import { cablesOf, coresOf } from './multicore'
+import { cablesOf, coresOf, linkCores } from './multicore'
 import { portRanges } from './ports'
 import type { ProjectIndex } from './project'
 import { MAX_PERMANENT_LINK_M, type Route, type CableSettings } from './routing'
@@ -44,10 +44,10 @@ export function cableSchedule(ix: ProjectIndex, routes: Map<Id, Route>, cable: C
 			for (const c of cores) by.set(c[end].on, [...(by.get(c[end].on) ?? []), c])
 			return [...by.values()].map((g) => ix.portPlace(g[0][end]).replace(/ : \d+/, ` : ${portRanges(g.map((c) => c[end].port))}`)).join(', ')
 		}
-		const n = Math.max(coresOf(ix.getOf('settings', 'settings'), l.cableType), cores.length)
+		const k = linkCores((id) => ix.get(id), l), n = Math.max(coresOf(ix.getOf('settings', 'settings'), l.cableType), cores.length * k)   // LC: 2 cores a port
 		return {
 			linkId: l.id, kind: l.kind, label: ix.portLabel(horizontal ? l.b : l.a) || ix.portLabel(l.b) || '',
-			from: place('a'), to: place('b'), type: `${l.cableType ?? 'cable'}${l.cable ? ` (${cores.length} of ${n} cores)` : ''}`,
+			from: place('a'), to: place('b'), type: `${l.cableType ?? 'cable'}${l.cable ? ` (${cores.length * k} of ${n} cores)` : ''}`,
 			...(r?.routeMm != null ? { routeM: Math.round(r.routeMm / 100) / 10 } : {}),
 			slackM: horizontal ? cable.slackM : 0,
 			...(r?.lengthM != null ? { lengthM: r.lengthM } : {}),

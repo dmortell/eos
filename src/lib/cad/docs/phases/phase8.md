@@ -4380,3 +4380,9 @@ User: "Yes, cords kept inside the set" (the ❓ entry of 2026-10-17).
   template Numbering "Up") and `Device.modules` (slots across: the rack view draws the port grid in that many blocks
   with a 12 mm gap; template field Slots). Glossary: core vs port. The other style (1–4 down the first two columns,
   then 5–8 …) is not built yet.
+- **An LC port is 2 cores in a multi-core cable** (User 2026-10-22: "a 24 core cable would fill 12 ports of an
+  enclosure"). `multicore.ts`: `coresPerPort` (LC 2, else 1), `linkCores` (by the link's device end), `portsPerCable`.
+  Link to… cuts the ports into cables of cores ÷ 2 on LC; the confirm / status / tool-bar counts, the cable schedule
+  ("24 of 24 cores"), the Links table ("cores 3–4 of 24"), the Cables list and riser labels, the too-many-cores check
+  and the BOM (connectors and fibre tests per core) count 2 a port. Cables already linked keep their grouping: a
+  24-core cable made earlier on 24 LC ports now warns (48 cores on a 24-core type) — re-link to split it.

@@ -20,7 +20,7 @@ import type { ProjectIndex } from '../domain/project'
 import type { Route } from '../domain/routing'
 import { routeLinks, levelElevation } from '../domain/routing'
 import { isVertical } from '../domain/shapes'
-import { cableKey } from '../domain/multicore'
+import { cableKey, linkCores } from '../domain/multicore'
 import { inPolygon } from './primGeom'
 import { fillBySegment, segKey, fillTone, cableCountText, type SegFill } from '../domain/fill'
 import type { Prim } from './display'
@@ -321,7 +321,7 @@ export function riserDisplayList(ix: ProjectIndex, o: RiserOpts = {}): Prim[] {
 		const pts = [...(yA !== rA ? [{ x: xa, y: rA }] : []), ...mid, ...(yB !== rB ? [{ x: xb, y: rB }] : [])]
 		const len = g.lengths.length ? (Math.min(...g.lengths) === Math.max(...g.lengths) ? `${g.lengths[0]}m` : `${Math.min(...g.lengths)}–${Math.max(...g.lengths)}m`) : ''
 		// a multi-core cable counts once (domain/multicore.ts), its cores said after
-		const cables = new Set(g.links.map(cableKey)).size, cores = cables !== g.links.length ? ` (${g.links.length} cores)` : ''
+		const cables = new Set(g.links.map(cableKey)).size, cores = cables !== g.links.length ? ` (${g.links.reduce((s, l) => s + linkCores((id) => ix.get(id), l), 0)} cores)` : ''   // LC: 2 cores a port
 		const own = styles?.[backboneKey(ix, g.links[0]) ?? ''], color = own?.color ?? mediaColour(ix, g.links[0].cableType)
 		const label = own?.label || `${cables} × ${g.type}${cores}${len ? ` · ${len}` : ''}${g.unrouted ? ` · ${g.unrouted} no route` : ''}`
 		out.push({ k: 'line', pts, cls: g.unrouted === g.links.length ? 'backbone backbone-none' : 'backbone', src: g.links[0].id, ...(color && g.unrouted < g.links.length ? { color } : {}) })

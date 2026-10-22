@@ -9,6 +9,7 @@ import { cableMetres, type Route } from './routing'
 import { cableSchedule } from './cableSchedule'
 import { cableGroups, linkRows } from './cableList'
 import { validateProject } from './validate'
+import { bom } from './reports'
 import type { Entity } from './drawing'
 import type { Link } from './types'
 
@@ -59,6 +60,21 @@ describe('multi-core cables', () => {
 		const ix = new ProjectIndex([...base, pp3, ...links] as Entity[])
 		const [row] = cableSchedule(ix, new Map(), { slackM: 0, wastePct: 0 })
 		expect([row.from, row.to]).toEqual(['A · PP1 : 1–12', 'B · PP2 : 1–6, B · PP3 : 1–6'])
+	})
+	it('on LC ports a port is 2 cores: a 24-core cable fills 12 ports of an enclosure (User 2026-10-22)', () => {
+		const lc = (id: string, rackId: string) => ({ ...panel(id, rackId), kind: 'enclosure', portCount: 48, portType: 'LC' })
+		const st = { ...settings, cableTypes: [...settings.cableTypes, { id: 'os2-24', label: 'OS2 24-core', media: 'fibre', color: '', diameterMm: 8, cores: 24 }] }
+		const ents = [...base.filter((e) => e.type !== 'settings'), st, lc('FE1', 'A'), lc('FE2', 'B')] as Entity[]
+		const links = bulkInterconnect(new ProjectIndex(ents), { on: 'FE1', ports: Array.from({ length: 24 }, (_, i) => i + 1) }, { on: 'FE2', start: 1 }, { cableType: 'os2-24', cores: 24 }).links
+		expect(cablesOf(links).map((g) => g.length)).toEqual([12, 12])
+		const ix = new ProjectIndex([...ents, ...links])
+		expect(cableSchedule(ix, new Map(), { slackM: 0, wastePct: 0 }).map((r) => r.type)).toEqual(['os2-24 (24 of 24 cores)', 'os2-24 (24 of 24 cores)'])
+		expect(linkRows(ix).find((r) => r.id === links[1].id)?.core).toBe('cores 3–4 of 24')
+		expect(cableGroups(ix).map((g) => [g.cables, g.cores])).toEqual([[2, 48]])
+		expect(validateProject([...ents, ...links]).filter((i) => i.code === 'cable-cores')).toEqual([])
+		const b = bom(ix, [], new Map())   // a connector at each end of each core, a test per core
+		expect(b.filter((l) => /Connector|Fibre test/.test(l.item)).map((l) => l.qty)).toEqual([96, 48])
+		expect(validateProject([...ents, ...links.map((l) => ({ ...l, cable: 'C1' }))]).filter((i) => i.code === 'cable-cores').map((i) => i.message)).toEqual(['48 cores linked on a 24-core os2-24'])
 	})
 	it('more cores linked than the type has is a warning', () => {
 		const links = linked().map((l) => ({ ...l, cable: 'C1' }))

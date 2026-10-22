@@ -4,7 +4,7 @@ import type { Entity } from './drawing'
 import type { Id, Outlet, Device, Rack, Link, Cord, PortRef, ProjectSettings } from './types'
 import type { Shape } from './shapes'
 import { ownerOf, REGION_KINDS } from './shapes'
-import { cablesOf, coresOf } from './multicore'
+import { cablesOf, coresOf, linkCores } from './multicore'
 import { sidesOf, sharesU, overlapAllowed } from './devices'
 
 export interface Issue { id: Id; code: string; message: string; severity: 'error' | 'warning' }
@@ -125,8 +125,8 @@ export function validateProject(entities: Iterable<Entity>): Issue[] {
 	// A multi-core cable holds no more cores than its type has (domain/multicore.ts).
 	const settings = all.find((e): e is ProjectSettings => e.type === 'settings')
 	for (const g of cablesOf(all.filter((e): e is Link => e.type === 'link' && !!e.cable))) {
-		const n = coresOf(settings, g[0].cableType)
-		if (g.length > n) out.push(warn(g[0].id, 'cable-cores', `${g.length} cores linked on a ${n}-core ${g[0].cableType ?? 'cable'}`))
+		const n = coresOf(settings, g[0].cableType), used = g.length * linkCores((id) => byId.get(id), g[0])   // LC: 2 cores a port
+		if (used > n) out.push(warn(g[0].id, 'cable-cores', `${used} cores linked on a ${n}-core ${g[0].cableType ?? 'cable'}`))
 	}
 	return out
 }

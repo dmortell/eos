@@ -5,7 +5,7 @@
 //  - runLengths:     containment metres per run, split horizontal / vertical
 //  - bom:            quantities by item for a quote (no prices — User, 2026-10-02)
 import type { ProjectIndex } from './project'
-import type { Id, Outlet, Cord } from './types'
+import type { Id, Outlet, Cord, Link } from './types'
 import { cableMedia, cableTypeLabel } from './cableTypes'
 import type { Shape, Section, PathNode } from './shapes'
 import { naturalCompare } from './labels'
@@ -13,7 +13,7 @@ import { sameEnd } from './cords'
 import { isVertical } from './shapes'
 import { rackBom, makerModel } from './rackBom'
 import { estimateMetres, type Estimate } from './estimates'
-import { cablesOf } from './multicore'
+import { cablesOf, linkCores } from './multicore'
 import { routeLinks, cableMetres, cableSettings, boxNote, levelElevation, type Route } from './routing'
 import type { CatalogProduct } from '$lib/catalog/types'
 
@@ -202,9 +202,11 @@ export function bom(p: ProjectIndex, catalog: CatalogProduct[] = [], routes?: Ma
 	// W26: fibre terminations (a connector at each end of each core), testing (a test per copper link, per fibre core) and
 	// labelling (both ends of every cable, and each port it lands on)
 	const isFibre = (t: string | undefined) => !!t && cableMedia(st, t) === 'fibre'
-	for (const l of buyLinks) if (isFibre(l.cableType)) add('Fibre terminations', `Connector / pigtail ${label(l.cableType ?? '')}`, 'ea', 2)
+	// a link on LC ports is 2 cores (User 2026-10-22): a connector at each end of each
+	const coresIn = (l: Link) => linkCores((id) => p.get(id), l)
+	for (const l of buyLinks) if (isFibre(l.cableType)) add('Fibre terminations', `Connector / pigtail ${label(l.cableType ?? '')}`, 'ea', 2 * coresIn(l))
 	const copperTests = buyLinks.filter((l) => !isFibre(l.cableType)).length + buyEst.filter((e) => !isFibre(e.cableType)).length
-	const fibreTests = buyLinks.filter((l) => isFibre(l.cableType)).length + buyEst.filter((e) => isFibre(e.cableType)).length
+	const fibreTests = buyLinks.filter((l) => isFibre(l.cableType)).reduce((s, l) => s + coresIn(l), 0) + buyEst.filter((e) => isFibre(e.cableType)).length
 	if (copperTests) add('Testing & labelling', 'Copper permanent-link test', 'ea', copperTests)
 	if (fibreTests) add('Testing & labelling', 'Fibre test (per core)', 'ea', fibreTests)
 	const cables = cablesOf(buyLinks).length + buyEst.length

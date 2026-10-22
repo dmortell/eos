@@ -4,7 +4,7 @@
 import type { Id, Link, Device, Rack, Level, ProjectSettings } from './types'
 import type { ProjectIndex } from './project'
 import { naturalCompare } from './labels'
-import { cableKey, coreLabels, coresOf } from './multicore'
+import { cableKey, coreLabels, coresOf, linkCores } from './multicore'
 
 /** A cable type's jacket color, by the usual conventions (singlemode yellow, OM3 / OM4 aqua, OM5 lime, OM1 / OM2
  *  orange); copper and anything else grey-blue. */
@@ -23,6 +23,8 @@ export interface CableGroup {
 	type: string
 	colour: string
 	links: Id[]
+	/** Cores in all (a link takes 2 on LC ports, 1 else). */
+	cores: number
 	/** Cables: a multi-core cable once (its cores are `links`). */
 	cables: number
 	/** "4F IDF2 R311 · PP01" — the panel ends, in level order. */
@@ -50,11 +52,12 @@ export function cableGroups(ix: ProjectIndex): CableGroup[] {
 		if (!g) {
 			const transit = Math.max(0, B.i - A.i - 1), fa = A.lv?.name ?? '?', fb = B.lv?.name ?? '?'
 			const end = (x: NonNullable<typeof A>) => `${x.lv?.name ?? ''} ${ix.nameOf(x.r.spaceId)} ${x.r.name} · ${x.d.name}`.trim()
-			g = { key, kind: l.kind, type, colour: cableColour(type), links: [], cables: 0, keys: new Set(), a: end(A), b: end(B), lo: A.i,
+			g = { key, kind: l.kind, type, colour: cableColour(type), links: [], cables: 0, cores: 0, keys: new Set(), a: end(A), b: end(B), lo: A.i,
 				floors: fa === fb ? fa : `${fa} → ${fb}${transit ? ` (${transit} transit)` : ''}` }
 			groups.set(key, g)
 		}
 		g.links.push(l.id)
+		g.cores += linkCores((id) => ix.get(id), l)
 		g.keys.add(cableKey(l))
 		g.cables = g.keys.size
 	}
@@ -77,7 +80,7 @@ export interface LinkRow {
 
 /** Every permanent link as a table row: a horizontal one shows as a "run" (panel → outlet). Panel end first. */
 export function linkRows(ix: ProjectIndex, lengthOf: (id: Id) => number | undefined = () => undefined): LinkRow[] {
-	const st = ix.getOf('settings', 'settings'), cores = coreLabels(ix.links, (t) => coresOf(st?.type === 'settings' ? st : undefined, t))
+	const st = ix.getOf('settings', 'settings'), cores = coreLabels(ix.links, (t) => coresOf(st?.type === 'settings' ? st : undefined, t), (l) => linkCores((id) => ix.get(id), l))
 	return ix.links.map((l) => ({
 		id: l.id, kind: l.kind === 'horizontal' ? 'run' : l.kind,
 		a: ix.portPlace(l.a), b: ix.portPlace(l.b), label: ix.portLabel(l.b) || ix.portLabel(l.a),
