@@ -18,6 +18,7 @@ import { usageColour } from '../domain/usages'
 const DEVICE_W = RACK_DEVICE_W  // a device's width in the 19" frame (no ears — domain/devices.ts)
 const PORT_AREA_W = 430       // the part of a 19" front that holds ports
 const MAX_PORT_W = 18, MAX_PORT_H = 30   // one port cell at most (≈ a 24-port panel's spacing)
+const MODULE_GAP = 12         // between a fiber enclosure's slots
 const ON_PORTS_NAME_MM = 6.85 // a device name drawn over its ports: a 1U 48-port panel's stacked port label size
 /** Kit this narrow or less gets its name turned up its middle (the old Racks tool's rule). */
 export const NARROW_MM = 150
@@ -69,10 +70,12 @@ export function portCell(d: Device, n: number, devX: number, devZ0: number): { x
 	// a port is at most a patch panel port's size (24 across 19") — a 2-port server or a tower PC keeps small ports
 	// the port area is the device's own front (less a margin): a narrow device (a tower PC) keeps its ports on itself
 	const area = Math.min(PORT_AREA_W, (d.widthMm ?? DEVICE_W) - 20)
-	const w = Math.min(area / cols, MAX_PORT_W), hDev = d.heightU * RU_MM, h = Math.min((hDev * 0.8) / rows, w * 1.6, MAX_PORT_H)
+	// a fiber enclosure's slots: the columns in `modules` blocks, a gap between them
+	const m = d.modules && d.modules > 1 && cols % d.modules === 0 ? d.modules : 1, gap = m > 1 ? MODULE_GAP : 0
+	const w = Math.min((area - gap * (m - 1)) / cols, MAX_PORT_W), hDev = d.heightU * RU_MM, h = Math.min((hDev * 0.8) / rows, w * 1.6, MAX_PORT_H)
 	const [row, col] = portAt(d.portNumbering, n, rows, cols)
 	const top = devZ0 + hDev / 2 + (rows * h) / 2   // the grid is centred vertically on the device
-	return { x: devX - area / 2 + col * w, y: -(top - row * h), w, h }
+	return { x: devX - area / 2 + col * w + Math.floor(col / (cols / m)) * gap, y: -(top - row * h), w, h }
 }
 
 /** A label split for stacking: "L01.A.001-A01" → ["L01.A", "001", "A01"]; short form = the last two parts. */

@@ -7,7 +7,7 @@ import { demoProject } from '../domain/fixtures'
 import { layersOf, primLayer } from '../domain/layers'
 import type { Entity } from '../domain/drawing'
 import type { Device, Rack } from '../domain/types'
-import { moveRack, planOrder, handOrderDiffers } from '../domain/devices'
+import { moveRack, planOrder, handOrderDiffers, BUILTIN_DEVICE_TEMPLATES, deviceFromTemplate } from '../domain/devices'
 
 const ix = (extra: Entity[] = []) => new ProjectIndex([...demoProject(), ...extra])
 const view = (face: 'front' | 'rear', extra: Entity[] = []) => rackRowDisplayList(ix(extra), { spaceId: 'SR-A', face })
@@ -167,6 +167,18 @@ describe('port cells and labels', () => {
 		expect(at('row', 2).x).toBeGreaterThan(at('row', 1).x)
 		expect(at('column', 2).x).toBe(at('column', 1).x)
 		expect(at('column', 2).y).toBeGreaterThan(at('column', 1).y)
+	})
+	it('the Panduit 48 port 1U fiber enclosure: 1 under 2 … 47 under 48, in 4 slots of 6 columns with a gap between (User 2026-10-22)', () => {
+		const t = BUILTIN_DEVICE_TEMPLATES.find((x) => x.id === 'builtin:panduit-fiber-48')!
+		const enc = deviceFromTemplate(t, 'R1', 1, 'FE1'), at = (p: number) => portCell(enc, p, 0, 0)!
+		expect(enc).toMatchObject({ kind: 'enclosure', portCount: 48, portType: 'LC', portNumbering: 'column-up', modules: 4 })
+		expect(at(2).x).toBe(at(1).x); expect(at(2).y).toBeLessThan(at(1).y)   // 2 above 1
+		expect(at(3).y).toBe(at(1).y); expect(at(3).x).toBeGreaterThan(at(1).x)
+		expect(at(48).y).toBe(at(2).y); expect(at(47).y).toBe(at(1).y)          // 47 under 48, at the right
+		const step = at(3).x - at(1).x
+		expect(at(13).x - at(11).x).toBeGreaterThan(step + 1)                  // slot 1 → slot 2: a gap
+		expect(at(11).x - at(9).x).toBeCloseTo(step)
+		expect(at(47).x + at(47).w - at(1).x).toBeLessThanOrEqual(430 + 1e-9)  // still within the port area
 	})
 	it('a 96-port 2U switch is 4 rows of 24 (User: its 2 rows of 48 tiny cells read as 48 ports)', () => {
 		const big: Device = { type: 'device', id: 'S96', rackId: 'R1', name: 'S96', kind: 'switch', u: 1, heightU: 2, face: 'front', portCount: 96 }

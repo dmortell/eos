@@ -151,7 +151,7 @@
 	{/if}
 	{#if devices.some((d) => d.portCount)}
 		<SelectField label="Numbering" value={dv((d) => d.portNumbering ?? 'row').value} mixed={dv((d) => d.portNumbering ?? 'row').mixed}
-			options={[['row', 'Across (2 beside 1)'], ['column', 'Down (2 under 1)']]} onchange={(v) => setAll('Port numbering', { portNumbering: v === 'column' ? 'column' : undefined })} />
+			options={[['row', 'Across (2 beside 1)'], ['column', 'Down (2 under 1)'], ['column-up', 'Up (2 above 1)']]} onchange={(v) => setAll('Port numbering', { portNumbering: v === 'column' || v === 'column-up' ? v : undefined })} />
 	{/if}
 	{#if allPanels}
 		<SelectField label="Tier" value={dv((d) => d.panel?.tier ?? 'low').value} mixed={dv((d) => d.panel?.tier ?? 'low').mixed} options={[['low', 'Low'], ['high', 'High']]}

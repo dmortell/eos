@@ -22,6 +22,7 @@ the old tools, so importers and conversations can map between them.
 |---|---|---|
 | **Outlet** | A cabling point with 1..n ports: its label, tier, usage, mount and (once drawn) position. One record. | Frames **location** + Outlets **outlet** (linked by `locationId`), a Pages block insert |
 | **Port** | One socket on an outlet or device, addressed `{on, port, face?}` (a `PortRef`). Not an entity of its own. | Frames port, `PortRef`, `deviceId:portIndex` |
+| **Core** | One fiber thread. A fiber **port** is a pair of cores (an LC duplex); ports are numbered, cores are not (User 2026-10-22). | fiber port, strand |
 | **Tier** | `low` (floor level) or `high` (ceiling level). Drives the H token and which panels serve the outlet. | Level low/high, `isHighLevel`, `patchLevel`, "-H" |
 | **Usage** | What the outlet is for (desk, AP, printer, TV …), from a per-project list. | `LocType`, `OutletUsage` (two lists, now one) |
 | **Label** | The text printed for an outlet, a port or any shape. Plain text, stored once: a panel port shows the label of the outlet port it is linked to (ADR 0002). |

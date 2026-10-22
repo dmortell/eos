@@ -4374,3 +4374,9 @@ User: "Yes, cords kept inside the set" (the ❓ entry of 2026-10-17).
   win even over a section's back wall) leaves the viewport and is the Select press on the sheet — it picks and can
   drag the note. On the sheet, a double-click inside a viewport enters it AND selects the model item under the
   pointer (`enterViewport(id, at)`). Help › Annotate a viewport says so. Seen live on Journey 010.
+- **Panduit 48 port 1U fiber enclosure** (User 2026-10-22: 4 slots, each a 12-port LC module of 2 rows × 6; ports — a
+  pair of cores — numbered up the columns, 1 under 2, 3 under 4 … 47 under 48 at the right). A built-in device template
+  (`builtin:panduit-fiber-48`, kind enclosure). New `Device.portNumbering: 'column-up'` (2 above 1; Properties /
+  template Numbering "Up") and `Device.modules` (slots across: the rack view draws the port grid in that many blocks
+  with a 12 mm gap; template field Slots). Glossary: core vs port. The other style (1–4 down the first two columns,
+  then 5–8 …) is not built yet.

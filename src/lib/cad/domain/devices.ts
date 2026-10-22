@@ -15,6 +15,7 @@ export interface DeviceTemplate {
 	portCount: number
 	portType?: Device['portType']
 	portNumbering?: Device['portNumbering']
+	modules?: number
 	/** Which face it mounts on by default; panels default to 'both' (front patching, rear terminations). */
 	face?: Device['face']
 	widthMm?: number
@@ -51,9 +52,10 @@ export function portGrid(d: Pick<Device, 'portCount' | 'heightU'>): { rows: numb
 
 export function portAt(numbering: Device['portNumbering'], n: number, rows: number, cols: number): [number, number] {
 	const i = n - 1
-	if (numbering !== 'column') return [Math.floor(i / cols), i % cols]
+	if (numbering !== 'column' && numbering !== 'column-up') return [Math.floor(i / cols), i % cols]
 	const band = Math.floor(i / (2 * cols)), h = Math.min(2, rows - 2 * band), j = i - band * 2 * cols
-	return [2 * band + (j % h), Math.floor(j / h)]
+	// 'column-up' (fiber enclosures, User 2026-10-22): 1 at the bottom, 2 above it
+	return [2 * band + (numbering === 'column-up' ? h - 1 - (j % h) : j % h), Math.floor(j / h)]
 }
 
 /** Maker / model travel between a device and its template. */
@@ -74,6 +76,8 @@ export const BUILTIN_DEVICE_TEMPLATES: DeviceTemplate[] = [
 	{ id: 'builtin:switch-48-2u', name: 'Switch 48-port 2U', kind: 'switch', heightU: 2, portCount: 48, portType: 'RJ45', portNumbering: 'column', face: 'front', builtin: true },
 	{ id: 'builtin:server-1u', name: 'Server 1U', kind: 'server', heightU: 1, portCount: 2, portType: 'RJ45', face: 'front', builtin: true },
 	{ id: 'builtin:fibre-enclosure', name: 'Fibre enclosure 1U (24 LC)', kind: 'enclosure', heightU: 1, portCount: 24, portType: 'LC', face: 'both', builtin: true },
+	// 4 slots of a 12-port (24-core) LC module, each 2 rows of 6; ports numbered up the columns, 1 under 2 … 47 under 48
+	{ id: 'builtin:panduit-fiber-48', name: 'Panduit 48 port 1U fiber enclosure', kind: 'enclosure', heightU: 1, portCount: 48, portType: 'LC', portNumbering: 'column-up', modules: 4, face: 'both', maker: 'Panduit', builtin: true },
 	// not 19": a tower PC is narrower than RACK_DEVICE_W (it can slide sideways on a shelf); a 27" monitor is about
 	// 615 mm wide (drawn no wider than its rack)
 	{ id: 'builtin:tower-pc', name: 'Tower PC (200 mm)', kind: 'other', heightU: 9, portCount: 2, portType: 'RJ45', face: 'both', widthMm: 200, depthMm: 450, builtin: true },
@@ -85,7 +89,7 @@ export const BUILTIN_DEVICE_TEMPLATES: DeviceTemplate[] = [
 export function deviceFromTemplate(t: DeviceTemplate, rackId: Id, u: number, name: string, face?: Device['face']): Device {
 	return {
 		type: 'device', id: newId(), rackId, name, kind: t.kind, u, heightU: t.heightU, face: face ?? t.face ?? 'front', portCount: t.portCount,
-		...(t.portType ? { portType: t.portType } : {}), ...(t.portNumbering ? { portNumbering: t.portNumbering } : {}),
+		...(t.portType ? { portType: t.portType } : {}), ...(t.portNumbering ? { portNumbering: t.portNumbering } : {}), ...(t.modules ? { modules: t.modules } : {}),
 		...(t.widthMm ? { widthMm: t.widthMm } : {}), ...(t.depthMm ? { depthMm: t.depthMm } : {}), ...(t.catalogId ? { catalogId: t.catalogId } : {}),
 		...makerModel(t), ...(t.productUrl ? { productUrl: t.productUrl } : {}), ...(t.kind === 'panel' ? { panel: { tier: 'low' as const } } : {}),
 	}
@@ -95,7 +99,7 @@ export function deviceFromTemplate(t: DeviceTemplate, rackId: Id, u: number, nam
 export function templateFromDevice(d: Device, name: string): DeviceTemplate {
 	return {
 		id: newId(), name, kind: d.kind, heightU: d.heightU, portCount: d.portCount,
-		...(d.portType ? { portType: d.portType } : {}), ...(d.portNumbering ? { portNumbering: d.portNumbering } : {}),
+		...(d.portType ? { portType: d.portType } : {}), ...(d.portNumbering ? { portNumbering: d.portNumbering } : {}), ...(d.modules ? { modules: d.modules } : {}),
 		face: d.face, ...(d.widthMm ? { widthMm: d.widthMm } : {}), ...(d.depthMm ? { depthMm: d.depthMm } : {}), ...(d.catalogId ? { catalogId: d.catalogId } : {}),
 		...makerModel(d), ...(d.productUrl ? { productUrl: d.productUrl } : {}),
 	}

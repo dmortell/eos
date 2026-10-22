@@ -222,8 +222,12 @@ export interface Device {
 	portCount: number
 	portType?: 'RJ45' | 'LC' | 'SC' | 'SFP'
 	/** How ports are numbered on the face: row-major (panels: 1–24 top, 25–48 bottom) or column-major (switches: 1
-	 *  above 2). Presentation only — the port number stays the identity (elevations-plan §3.3). */
-	portNumbering?: 'row' | 'column'
+	 *  above 2), or column-major from the bottom ('column-up': fiber enclosures, 2 above 1). Presentation only — the port
+	 *  number stays the identity (elevations-plan §3.3). A fiber PORT is a pair of CORES (an LC duplex). */
+	portNumbering?: 'row' | 'column' | 'column-up'
+	/** Slots across the front (a fiber enclosure's modules, User 2026-10-22: Panduit 1U = 4 of 12 ports): the port grid
+	 *  is drawn in this many blocks with a gap between them. Unset = one block. */
+	modules?: number
 	catalogId?: Id
 	maker?: string
 	model?: string
