@@ -16,6 +16,7 @@ export interface DeviceTemplate {
 	portType?: Device['portType']
 	portNumbering?: Device['portNumbering']
 	modules?: number
+	portRows?: number
 	/** Which face it mounts on by default; panels default to 'both' (front patching, rear terminations). */
 	face?: Device['face']
 	widthMm?: number
@@ -45,8 +46,9 @@ export const deviceMatches = (d: Pick<Device, 'name' | 'kind' | 'model'>, r: Pic
  *  its top two rows and 49 under 2 (User 2026-10-10: Tourney's Arista CCS-720XP-96). */
 /** The rows and columns of a device's ports — ONE layout for the rack view, the port map and the printed panel labels:
  *  ~24 a row, up to two rows a U (a 48-port 1U panel = 2 × 24; a 96-port 2U switch = 4 × 24). */
-export function portGrid(d: Pick<Device, 'portCount' | 'heightU'>): { rows: number; cols: number } {
-	const rows = d.portCount > 24 ? Math.max(1, Math.min(d.heightU * 2, Math.ceil(d.portCount / 24))) : 1   // 0U: one row, not ∞ columns
+export function portGrid(d: Pick<Device, 'portCount' | 'heightU' | 'portRows'>): { rows: number; cols: number } {
+	// its own rows when set (a 24-port fiber enclosure: 2 × 12)
+	const rows = d.portRows ? Math.max(1, Math.min(d.portRows, d.portCount || 1)) : d.portCount > 24 ? Math.max(1, Math.min(d.heightU * 2, Math.ceil(d.portCount / 24))) : 1   // 0U: one row, not ∞ columns
 	return { rows, cols: Math.max(1, Math.ceil(d.portCount / rows)) }
 }
 
@@ -78,6 +80,9 @@ export const BUILTIN_DEVICE_TEMPLATES: DeviceTemplate[] = [
 	{ id: 'builtin:fibre-enclosure', name: 'Fibre enclosure 1U (24 LC)', kind: 'enclosure', heightU: 1, portCount: 24, portType: 'LC', face: 'both', builtin: true },
 	// 4 slots of a 12-port (24-core) LC module, each 2 rows of 6; ports numbered up the columns, 1 under 2 … 47 under 48
 	{ id: 'builtin:panduit-fiber-48', name: 'Panduit 48 port 1U fiber enclosure', kind: 'enclosure', heightU: 1, portCount: 48, portType: 'LC', portNumbering: 'column-up', modules: 4, face: 'both', maker: 'Panduit', builtin: true },
+	// the other style (User 2026-10-22): 12 columns of 2 ports (4 cores, 1–4 top to bottom), numbered down — 1 over 2,
+	// 3 over 4 … 23 over 24 at the right (cores 45–48)
+	{ id: 'builtin:fiber-24-down', name: 'Fiber enclosure 24 port 1U (1 over 2)', kind: 'enclosure', heightU: 1, portCount: 24, portType: 'LC', portNumbering: 'column', portRows: 2, face: 'both', builtin: true },
 	// not 19": a tower PC is narrower than RACK_DEVICE_W (it can slide sideways on a shelf); a 27" monitor is about
 	// 615 mm wide (drawn no wider than its rack)
 	{ id: 'builtin:tower-pc', name: 'Tower PC (200 mm)', kind: 'other', heightU: 9, portCount: 2, portType: 'RJ45', face: 'both', widthMm: 200, depthMm: 450, builtin: true },
@@ -89,7 +94,7 @@ export const BUILTIN_DEVICE_TEMPLATES: DeviceTemplate[] = [
 export function deviceFromTemplate(t: DeviceTemplate, rackId: Id, u: number, name: string, face?: Device['face']): Device {
 	return {
 		type: 'device', id: newId(), rackId, name, kind: t.kind, u, heightU: t.heightU, face: face ?? t.face ?? 'front', portCount: t.portCount,
-		...(t.portType ? { portType: t.portType } : {}), ...(t.portNumbering ? { portNumbering: t.portNumbering } : {}), ...(t.modules ? { modules: t.modules } : {}),
+		...(t.portType ? { portType: t.portType } : {}), ...(t.portNumbering ? { portNumbering: t.portNumbering } : {}), ...(t.modules ? { modules: t.modules } : {}), ...(t.portRows ? { portRows: t.portRows } : {}),
 		...(t.widthMm ? { widthMm: t.widthMm } : {}), ...(t.depthMm ? { depthMm: t.depthMm } : {}), ...(t.catalogId ? { catalogId: t.catalogId } : {}),
 		...makerModel(t), ...(t.productUrl ? { productUrl: t.productUrl } : {}), ...(t.kind === 'panel' ? { panel: { tier: 'low' as const } } : {}),
 	}
@@ -99,7 +104,7 @@ export function deviceFromTemplate(t: DeviceTemplate, rackId: Id, u: number, nam
 export function templateFromDevice(d: Device, name: string): DeviceTemplate {
 	return {
 		id: newId(), name, kind: d.kind, heightU: d.heightU, portCount: d.portCount,
-		...(d.portType ? { portType: d.portType } : {}), ...(d.portNumbering ? { portNumbering: d.portNumbering } : {}), ...(d.modules ? { modules: d.modules } : {}),
+		...(d.portType ? { portType: d.portType } : {}), ...(d.portNumbering ? { portNumbering: d.portNumbering } : {}), ...(d.modules ? { modules: d.modules } : {}), ...(d.portRows ? { portRows: d.portRows } : {}),
 		face: d.face, ...(d.widthMm ? { widthMm: d.widthMm } : {}), ...(d.depthMm ? { depthMm: d.depthMm } : {}), ...(d.catalogId ? { catalogId: d.catalogId } : {}),
 		...makerModel(d), ...(d.productUrl ? { productUrl: d.productUrl } : {}),
 	}

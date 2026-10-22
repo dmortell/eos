@@ -46,6 +46,7 @@
 				<label title="How the ports are numbered on a device with two rows or more: along each row, or down each column (most switches: 1 above 2)">Numbering
 					<select value={t.portNumbering ?? 'row'} onchange={(e) => (t.portNumbering = (e.currentTarget.value === 'row' ? undefined : e.currentTarget.value as Device['portNumbering']))}>
 						<option value="row">Along the rows (1 2 3 …)</option><option value="column">Down the columns (1 over 2)</option><option value="column-up">Up the columns (2 over 1)</option></select></label>
+				<label title="Rows of ports on its face. Blank = the usual: about 24 a row, up to 2 rows a U">Rows <input type="number" min="1" max="8" value={t.portRows ?? ''} placeholder="auto" oninput={(e) => (t.portRows = num(e.currentTarget.value))} /></label>
 				<label title="Slots across the front (a fiber enclosure's modules): the ports are drawn in this many blocks. Blank = one">Slots <input type="number" min="1" max="12" value={t.modules ?? ''} placeholder="1" oninput={(e) => (t.modules = num(e.currentTarget.value))} /></label>
 			{/if}
 			<label title="Which side of the rack it faces — where it is drawn with its ports: front, rear, both (a patch panel: patched at the front, cabled at the rear) or none (not drawn). Not how it is fixed: a “both” device’s Mount (Properties) says that">Face

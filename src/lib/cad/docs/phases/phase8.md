@@ -4386,3 +4386,7 @@ User: "Yes, cords kept inside the set" (the ❓ entry of 2026-10-17).
   ("24 of 24 cores"), the Links table ("cores 3–4 of 24"), the Cables list and riser labels, the too-many-cores check
   and the BOM (connectors and fibre tests per core) count 2 a port. Cables already linked keep their grouping: a
   24-core cable made earlier on 24 LC ports now warns (48 cores on a 24-core type) — re-link to split it.
+- **Fiber enclosure 24 port 1U (1 over 2)** — the other style (User 2026-10-22: cores 1–4 top to bottom in the first
+  column, 5–8 beside … 45–48 at the right). In ports (a pair of cores): 12 columns of 2, numbered down — 1 over 2 …
+  23 over 24. Built-in `builtin:fiber-24-down`; new `Device.portRows` (template field Rows) since `portGrid` puts 24
+  ports in one row.

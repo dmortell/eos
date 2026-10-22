@@ -228,6 +228,8 @@ export interface Device {
 	/** Slots across the front (a fiber enclosure's modules, User 2026-10-22: Panduit 1U = 4 of 12 ports): the port grid
 	 *  is drawn in this many blocks with a gap between them. Unset = one block. */
 	modules?: number
+	/** Rows of ports on its face, when not the usual (~24 a row, up to 2 a U): a 24-port fiber enclosure is 2 × 12. */
+	portRows?: number
 	catalogId?: Id
 	maker?: string
 	model?: string

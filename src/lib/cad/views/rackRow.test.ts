@@ -180,6 +180,13 @@ describe('port cells and labels', () => {
 		expect(at(11).x - at(9).x).toBeCloseTo(step)
 		expect(at(47).x + at(47).w - at(1).x).toBeLessThanOrEqual(430 + 1e-9)  // still within the port area
 	})
+	it('the 24 port 1U fiber enclosure: 2 rows of 12, 1 over 2 … 23 over 24 at the right (User 2026-10-22)', () => {
+		const enc = deviceFromTemplate(BUILTIN_DEVICE_TEMPLATES.find((x) => x.id === 'builtin:fiber-24-down')!, 'R1', 1, 'FE2'), at = (p: number) => portCell(enc, p, 0, 0)!
+		expect(new Set(Array.from({ length: 24 }, (_, i) => at(i + 1).y)).size).toBe(2)
+		expect(at(2).x).toBe(at(1).x); expect(at(2).y).toBeGreaterThan(at(1).y)   // 2 under 1
+		expect(at(3).y).toBe(at(1).y); expect(at(3).x).toBeGreaterThan(at(1).x)
+		expect(at(24).x).toBe(at(23).x); expect(at(24).x).toBeGreaterThan(at(21).x)
+	})
 	it('a 96-port 2U switch is 4 rows of 24 (User: its 2 rows of 48 tiny cells read as 48 ports)', () => {
 		const big: Device = { type: 'device', id: 'S96', rackId: 'R1', name: 'S96', kind: 'switch', u: 1, heightU: 2, face: 'front', portCount: 96 }
 		const ys = new Set(Array.from({ length: 96 }, (_, i) => Math.round(portCell(big, i + 1, 0, 0)!.y)))
