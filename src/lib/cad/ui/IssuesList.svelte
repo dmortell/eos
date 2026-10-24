@@ -50,7 +50,7 @@
 	}
 	/** `latestOnly`: one column, each sheet's last revision, issue and date. */
 	async function register(latestOnly: boolean) {
-		try { await exportIssueRegister(issues, project.name, latestOnly) } catch (e) { project.error = `Excel failed: ${(e as Error).message}` }
+		try { await ws.building('the issue register', () => exportIssueRegister(issues, project.name, latestOnly)) } catch (e) { project.error = `Excel failed: ${(e as Error).message}` }
 	}
 	/** ⋯: the issue register for the PM (backlog), every issue or the latest revisions only. */
 	const more = $derived<MenuItem[]>([
@@ -58,11 +58,11 @@
 		{ label: 'Release register, latest only (Excel)', disabled: !issues.length, title: 'One column: each sheet’s last revision, release and date', run: () => register(true) },
 	])
 	async function reprint(i: Issue) {
-		try { const r = await reprintIssue(project, i); if (r) ws.say(`Reprinted ${i.name} as released${unsupportedNote(r.unsupported, r.rasterised)}`) }
+		try { const r = await ws.building(`the PDF of ${i.name}`, () => reprintIssue(project, i)); if (r) ws.say(`Reprinted ${i.name} as released${unsupportedNote(r.unsupported, r.rasterised)}`) }
 		catch (e) { project.error = `Reprint failed: ${(e as Error).message}` }
 	}
 	async function transmittal(i: Issue) {
-		try { await exportTransmittal(i, project.name, numbers.get(i.id)) } catch (e) { project.error = `Excel failed: ${(e as Error).message}` }
+		try { await ws.building('the transmittal', () => exportTransmittal(i, project.name, numbers.get(i.id))) } catch (e) { project.error = `Excel failed: ${(e as Error).message}` }
 	}
 </script>
 

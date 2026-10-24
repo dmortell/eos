@@ -105,7 +105,7 @@
 		<button class="disp" class:on={dispOpen} title="What this rack view shows on your screen" onclick={openDisplay}>Display ▾</button>
 	{:else if spec.kind === 'portmap'}
 		{@const ids = spec.deviceIds}
-		<button title="The same ports as Excel for the network engineers: the outlet(s), what each port is patched to, the cord, and an empty VLAN column" onclick={() => exportPortMap(project.index, project.name, ids).then((n) => n !== null && ws.say(`Port map: ${n} ports — fill in the VLAN column`), (e) => (project.error = `Excel export failed: ${(e as Error).message}`))}>Excel (VLAN)</button>
+		<button title="The same ports as Excel for the network engineers: the outlet(s), what each port is patched to, the cord, and an empty VLAN column" onclick={() => ws.building('the port map', () => exportPortMap(project.index, project.name, ids)).then((n) => n != null && ws.say(`Port map: ${n} ports — fill in the VLAN column`), (e) => (project.error = `Excel export failed: ${(e as Error).message}`))}>Excel (VLAN)</button>
 	{:else if sheet}
 		<span class="room">{sheet.paper.size} {sheet.paper.orientation}</span>
 	{/if}

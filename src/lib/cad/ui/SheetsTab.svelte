@@ -128,7 +128,7 @@
 		finally { busy = false }
 	}
 	async function excel() {
-		try { await exportSheetRows(picked.length ? picked : rows, project.name) } catch (e) { project.error = `Excel failed: ${(e as Error).message}` }
+		try { await ws.building('the sheet list', () => exportSheetRows(picked.length ? picked : rows, project.name)) } catch (e) { project.error = `Excel failed: ${(e as Error).message}` }
 	}
 	/** A group's sheets numbered in print order from a pattern, prefilled with the category's code (slice 3). */
 	// the first number is typed in the group's heading (not the status bar, User 2026-10-12)

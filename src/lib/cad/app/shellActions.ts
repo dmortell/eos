@@ -29,7 +29,7 @@ export function newSheetIn(project: CadProject, ws: Workspace): Id {
 
 /** These sheets as one PDF (downloaded), said in the status bar. */
 export async function sheetsPdf(project: CadProject, ws: Workspace, sheets: Sheet[]): Promise<void> {
-	try { const r = await downloadSheetsPdf(project, sheets, ws.monoPdf); if (r) ws.say(`PDF: ${r.pages} page${r.pages === 1 ? '' : 's'}${unsupportedNote(r.unsupported, r.rasterised)}`) }
+	try { const r = await ws.building(sheets.length === 1 ? `the PDF of ${sheets[0].number}` : `the PDF of ${sheets.length} sheets`, () => downloadSheetsPdf(project, sheets, ws.monoPdf)); if (r) ws.say(`PDF: ${r.pages} page${r.pages === 1 ? '' : 's'}${unsupportedNote(r.unsupported, r.rasterised)}`) }
 	catch (e) { project.error = `PDF failed: ${(e as Error).message}` }
 }
 
@@ -57,8 +57,9 @@ function pdfTab(project: CadProject, ws: Workspace, sheets: Sheet[], name: strin
 	if (!win) { ws.say('The browser blocked the new tab — allow pop-ups for this site, or use File › Export › PDF of this sheet'); return }
 	win.document.title = 'Making the PDF…'
 	win.document.body.textContent = 'Making the PDF…'
-	void sheetsPdfBlob(project, sheets, ws.monoPdf, name)
+	void ws.building('the PDF', () => sheetsPdfBlob(project, sheets, ws.monoPdf, name))
 		.then((r) => {
+			if (!r) { win.close(); return }   // another export is being made
 			showPdfTab(win, r.blob, name)
 			ws.say(`PDF: ${r.pages} page${r.pages === 1 ? '' : 's'} in a new tab${unsupportedNote(r.unsupported, r.rasterised)}`)
 		})

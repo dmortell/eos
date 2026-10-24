@@ -27,14 +27,14 @@
 	const tell = (t: string) => ws.say(t)
 
 	export async function outletSchedule(all: boolean) {
-		try { if (await exportOutletSchedule(project.index, projectName, all || !level ? undefined : { id: level.id, name: level.name })) tell(`Outlet schedule exported (${all || !level ? 'all levels' : level.name})`) }
+		try { if (await ws.building('the outlet schedule', () => exportOutletSchedule(project.index, projectName, all || !level ? undefined : { id: level.id, name: level.name }))) tell(`Outlet schedule exported (${all || !level ? 'all levels' : level.name})`) }
 		catch (e) { project.error = `Excel export failed: ${(e as Error).message}` }
 	}
 	/** Frame label sheets (Excel) for every server room on this level, or on all levels (Q47). */
 	export async function frameSheets(all: boolean) {
 		const rooms = roomsWithRacks(project.index, all || !level ? undefined : level.id)
 		try {
-			const r = await exportFrameSheets(project.index, projectName, rooms, false)
+			const r = await ws.building('the frame label sheets', () => exportFrameSheets(project.index, projectName, rooms, false))
 			if (!r) return   // the name box was cancelled
 			tell(r.racks ? `${r.racks} frame(s) exported from ${rooms.length} room(s)` : `No racks with patch panels ${all || !level ? 'in the project' : `on ${level.name}`}`)
 		} catch (e) { project.error = `Excel export failed: ${(e as Error).message}` }
@@ -43,7 +43,7 @@
 	export async function panelLabels(all: boolean) {
 		try {
 			const lv = all || !level ? undefined : { id: level.id, name: level.name }
-			const r = await exportPanelLabels(project.index, projectName, undefined, lv)
+			const r = await ws.building('the panel labels', () => exportPanelLabels(project.index, projectName, undefined, lv))
 			if (!r) return   // the name box was cancelled
 			const panels = r.panels.map((id) => project.index.get(id)).filter((d): d is Device => d?.type === 'device')
 			if (!panels.length) { tell(r.rows ? `${r.rows} port labels exported` : 'No patch panels to label'); return }
@@ -53,7 +53,10 @@
 	}
 	/** The open plan as DXF — the same display list as the screen, your hidden layers left out (floorplan images too). */
 	export async function dxf() {
-		if (!level) return
+		const lv = level
+		if (lv) await ws.building('the DXF', () => dxfOf(lv))
+	}
+	async function dxfOf(level: Level) {
 		const plan = withFields(applyLayers(planDisplayList(project.index, level.id, { scale: 100, blocks: project.blockOf }), project.index, { hidden: ws.layers.hidden, sort: true }).draw,
 			fieldCtx(project.index, { project: projectName, building: project.details?.buildingName?.trim(), blocks: project.blockOf, levels: [level.id] }))
 		const r = displayListToDxf(plan, new Map(project.index.layers.filter((l) => !l.id.startsWith('sys:')).map((l) => [l.id, l.name])), 100, project.blockOf)   // blocks as BLOCK + INSERT
@@ -64,7 +67,7 @@
 	 *  selected rack counts as its devices, a port pick as its device. */
 	export async function portMap(ids: string[] = portMapPick(project.index, ws.selection, ws.portSel?.on)) {
 		if (!ids.length) { tell('Port map: select the panels or switches first (in a rack view), or their rack'); return }
-		try { const n = await exportPortMap(project.index, projectName, ids); if (n !== null) tell(`Port map: ${n} ports — fill in the VLAN column`) }
+		try { const n = await ws.building('the port map', () => exportPortMap(project.index, projectName, ids)); if (n != null) tell(`Port map: ${n} ports — fill in the VLAN column`) }
 		catch (e) { project.error = `Excel export failed: ${(e as Error).message}` }
 	}
 	let bomOpen = $state(false), cablesOpen = $state(false), cordsOpen = $state(false), labelsOpen = $state(false)

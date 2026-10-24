@@ -163,7 +163,7 @@
 	}
 	async function printRev(code: string) {
 		busy = true
-		try { const r = await printRevision(project, s, code); if (r) ws.say(`${s.number} rev ${code} as released${unsupportedNote(r.unsupported, r.rasterised)}`) }
+		try { const r = await ws.building(`${s.number} rev ${code}`, () => printRevision(project, s, code)); if (r) ws.say(`${s.number} rev ${code} as released${unsupportedNote(r.unsupported, r.rasterised)}`) }
 		catch (e) { project.error = `Print failed: ${(e as Error).message}` }
 		finally { busy = false }
 	}

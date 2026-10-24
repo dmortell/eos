@@ -36,6 +36,8 @@ export interface MenuCtx {
 	surveys(): void
 	/** File › Export › Monochrome PDFs (T121) — a switch for this user's sheet PDFs. */
 	monoPdf: boolean; toggleMonoPdf(): void
+	/** An export being made (ws.exporting): File › Export's exports wait (disabled) until its Save as opens. */
+	exporting?: string | null
 	/** View › Copy view as picture (T160): the active view, as on screen, onto the clipboard as a PNG. */
 	copyView(): void
 	// Edit
@@ -93,6 +95,8 @@ export function buildMenus(c: MenuCtx): Menu[] {
 	const tool = (id: ToolId, label: string, key?: string): MenuItem => ({ label, key, disabled: !c.toolOk(id), run: () => c.tool(id), ...(c.toolOk(id) ? {} : { title: 'Not in this view' }) })
 	/** A Shape / Box kind (the tools' flyout items). */
 	const variant = (id: ToolId, v: string, label: string): MenuItem => ({ label, disabled: !c.toolOk(id), run: () => c.toolVariant(id, v) })
+	/** While an export is being made, the other exports wait (User 2026-10-24); switches (Monochrome PDFs) stay. */
+	const waiting = (items: MenuItem[]): MenuItem[] => !c.exporting ? items : items.map((i) => i === '-' || ('checked' in i && i.checked !== undefined) ? i : { ...i, disabled: true, title: `Making ${c.exporting}…`, ...('children' in i ? { children: waiting(i.children) } : {}) })
 	return [
 		{ label: 'File', items: [
 			// the floorplan PDFs (upload; origin, scale, crop — also on the plan: Project › Floors…) and the issued package PDFs live in Uploads (backlog "Uploads
@@ -106,7 +110,7 @@ export function buildMenus(c: MenuCtx): Menu[] {
 			'-',
 			{ label: 'Import legacy drawings…', title: 'Bring chosen Pages models (boxes, walls) and Sheets-tool sheets of this project into cad — one undo step', run: c.legacyDrawings },
 			'-',
-			{ label: 'Export', children: [
+			{ label: 'Export', children: waiting([
 				// menus review option 2 (User 2026-10-15): every export here once; this level / all levels as a submenu
 				{ label: 'Outlet schedule (Excel)', children: [{ label: 'This level', run: () => c.outletSchedule(false) }, { label: 'All levels', run: () => c.outletSchedule(true) }] },
 				{ label: 'Frame label sheets (Excel)', title: 'Every server room: a sheet per frame, labels colored by usage (A3)', children: [{ label: 'This level', run: () => c.frameSheets(false) }, { label: 'All levels', run: () => c.frameSheets(true) }] },
@@ -121,7 +125,7 @@ export function buildMenus(c: MenuCtx): Menu[] {
 				{ label: 'PDF of this sheet', disabled: !c.onSheet, title: c.onSheet ? 'Download the open sheet as a PDF at true scale' : 'Open a sheet first', run: c.pdfThisSheet },
 				{ label: 'PDF of all sheets', disabled: !c.hasSheets, run: c.pdfAllSheets },
 				{ label: 'Monochrome PDFs', checked: c.monoPdf, title: 'Sheet PDFs in black ink: lines and text black, fills light grey, floorplans and pictures grey (for cheap prints)', run: c.toggleMonoPdf },
-			] },
+			]) },
 		] },
 		{ label: 'Edit', items: [
 			{ label: 'Undo', key: KEYS.undo, disabled: !c.canUndo, run: c.undo },

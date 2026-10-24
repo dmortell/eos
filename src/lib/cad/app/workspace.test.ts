@@ -3,6 +3,7 @@ import { Workspace, type ShellActions } from './workspace.svelte'
 import type { Level } from '../domain/types'
 import type { Sheet } from '../domain/drawing'
 import { enterViewport, leaveViewport } from '../ui/viewportEdit'
+import { saveFile, setFileNamer } from '../render/download'
 
 describe('each pane has its own level', () => {
 	it('the open level is the active pane’s; setting it changes only that pane', () => {
@@ -121,5 +122,25 @@ describe('the page’s actions (attachShell, hacky-code review #8)', () => {
 		expect([a, b]).toEqual([[], ['log']])
 		offB()
 		expect(() => ws.openLog()).toThrow()
+	})
+})
+
+describe('an export being made (User 2026-10-24: feedback while its data is built)', () => {
+	it('shows "Making …" until its Save as opens; another export meanwhile is refused', async () => {
+		const ws = new Workspace()
+		let release!: () => void
+		const first = ws.building('the outlet schedule', () => new Promise<string>((r) => { release = () => r('done') }))
+		await new Promise((r) => setTimeout(r, 80))
+		expect(ws.exporting).toBe('the outlet schedule')
+		expect(await ws.building('the port map', async () => 'x')).toBeUndefined()
+		expect(ws.message).toMatch(/Still making the outlet schedule/)
+		release()
+		expect(await first).toBe('done')
+		expect(ws.exporting).toBeNull()
+		// the file built: its Save as opening ends the "Making …" (the dialog is the feedback from there)
+		const off = setFileNamer(async () => null)   // Save as, cancelled
+		const named = ws.building('the DXF', async () => { await saveFile('x', 'a.dxf', 'application/dxf'); return ws.exporting })
+		expect(await named).toBeNull()
+		off()
 	})
 })

@@ -45,7 +45,7 @@
 	/** Export the room's panel labels, then offer to record them as printed (later changes then ask first). */
 	async function labels(spaceId: string, name: string) {
 		try {
-			const r = await exportPanelLabels(project.index, projectName, { id: spaceId, name })
+			const r = await ws.building(`${name}'s panel labels`, () => exportPanelLabels(project.index, projectName, { id: spaceId, name }))
 			if (!r) return
 			const panels = r.panels.map((id) => project.index.get(id)).filter((d): d is Device => d?.type === 'device')
 			if (panels.length) ws.ask2(`${r.rows} port labels exported. Mark the ${panels.length} panel(s) of ${name} as printed?`, 'Mark printed',
@@ -56,7 +56,7 @@
 	async function labelsMany(all: boolean) {
 		const lv = all ? undefined : { id: levelId, name: project.index.nameOf(levelId) }
 		try {
-			const r = await exportPanelLabels(project.index, projectName, undefined, lv)
+			const r = await ws.building('the panel labels', () => exportPanelLabels(project.index, projectName, undefined, lv))
 			if (!r) return   // the name box was cancelled
 			const panels = r.panels.map((id) => project.index.get(id)).filter((d): d is Device => d?.type === 'device')
 			if (!panels.length) { ws.say(r.rows ? `${r.rows} port labels exported` : 'No patch panels to label'); return }
@@ -67,7 +67,7 @@
 	async function framesMany(all: boolean) {
 		const rooms = roomsWithRacks(project.index, all ? undefined : levelId)
 		try {
-			const r = await exportFrameSheets(project.index, projectName, rooms, false)
+			const r = await ws.building('the frame label sheets', () => exportFrameSheets(project.index, projectName, rooms, false))
 			if (!r) return   // the name box was cancelled
 			ws.say(r.racks ? `${r.racks} frame(s) exported from ${rooms.length} room(s)` : `No racks with patch panels ${all ? 'in the project' : `on ${project.index.nameOf(levelId)}`}`)
 		} catch (e) { project.error = `Export failed: ${(e as Error).message}` }
@@ -89,7 +89,7 @@
 	/** The room's frames as label sheets in Excel (the Frames tool's grid layout): a sheet per frame or one for the room. */
 	async function frames(spaceId: string, name: string, perRoom: boolean) {
 		try {
-			const r = await exportFrameSheets(project.index, projectName, [spaceId], perRoom)
+			const r = await ws.building(`${name}'s frame label sheets`, () => exportFrameSheets(project.index, projectName, [spaceId], perRoom))
 			if (!r) return
 			ws.say(r.racks ? `${name}: ${r.racks} frame(s) exported${perRoom ? ' on one sheet' : ''}` : `${name} has no racks with patch panels`)
 		} catch (e) { project.error = `Export failed: ${(e as Error).message}` }
@@ -97,7 +97,7 @@
 	/** The room's panels drawn with their port labels, as a PDF for the installer; then the same "Mark printed" offer. */
 	async function panelPdf(spaceId: string, name: string) {
 		try {
-			const r = await downloadPanelSheets(project, { id: spaceId, name })
+			const r = await ws.building(`${name}'s panel PDF`, () => downloadPanelSheets(project, { id: spaceId, name }))
 			if (!r) return
 			if (!r.pages) { ws.say(`${name} has no patch panels with ports`); return }
 			ws.ask2(`${r.panels.length} panel(s) on ${r.pages} page(s)${unsupportedNote(r.unsupported, r.rasterised)}. Mark the panels of ${name} as printed?`, 'Mark printed',

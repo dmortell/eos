@@ -48,6 +48,7 @@ import type { ToolDefaults } from '../domain/toolDefaults'
 import type { WinId } from './windows.svelte'
 import type { SettingsTab } from '../ui/SettingsDialog.svelte'
 import type { TextPreview } from '../ui/TextDialog.svelte'
+import { onFileReady } from '../render/download'
 
 export type ToolId = 'select' | 'move' | 'copy' | 'array' | 'room' | 'measure' | 'rotate' | 'mirror' | 'insert' | 'shape' | 'box' | 'image' | 'legend' | 'changelist' | 'dimension' | 'outlet' | 'rack' | 'device' | 'assign' | 'cord' | 'opening' | 'section' | 'renumber' | 'viewport' | 'match' | 'calibrate' | 'guide' | NoteKind | PathKind
 
@@ -355,6 +356,19 @@ export class Workspace {
 		this.toast = msg
 		clearTimeout(this.#toastTimer)
 		this.#toastTimer = setTimeout(() => { this.toast = null }, 2500)
+	}
+
+	/** The export being built (User 2026-10-24: feedback while an export's data is made): the status bar shows it with a
+	 *  spinner and the export commands wait — until its Save as opens (or it ends). */
+	exporting = $state<string | null>(null)
+	/** Run an export as "Making `what`…": refused while another is being made. Undefined = refused. */
+	building = async <T>(what: string, fn: () => Promise<T>): Promise<T | undefined> => {
+		if (this.exporting) { this.say(`Still making ${this.exporting} — wait for its Save as`); return undefined }
+		this.exporting = what
+		const off = onFileReady(() => { if (this.exporting === what) this.exporting = null })
+		// let the spinner paint before a long synchronous build
+		await new Promise<void>((r) => { setTimeout(r, 50); if (typeof requestAnimationFrame === 'function') requestAnimationFrame(() => setTimeout(r, 0)) })   // (a hidden tab has no frames)
+		try { return await fn() } finally { off(); if (this.exporting === what) this.exporting = null }
 	}
 
 	say = (msg: string): void => {

@@ -4390,3 +4390,11 @@ User: "Yes, cords kept inside the set" (the ❓ entry of 2026-10-17).
   column, 5–8 beside … 45–48 at the right). In ports (a pair of cores): 12 columns of 2, numbered down — 1 over 2 …
   23 over 24. Built-in `builtin:fiber-24-down`; new `Device.portRows` (template field Rows) since `portGrid` puts 24
   ports in one row.
+- **Exports show they're being made** (User 2026-10-24: "check that all export commands show feedback while building the
+  data … disabled until download starts"). Audit: the BOM, cable schedule, patch schedule, backup and release dialogs
+  already had their button's "Exporting…" / busy state; the menu and list exports had nothing. New `ws.building(what,
+  fn)`: "Making the outlet schedule…" with the floorplan spinner in the status bar, another export meanwhile refused
+  ("Still making …"), File › Export's items greyed; it ends when the file's Save as opens (`download.ts onFileReady`)
+  or the export ends. Wrapped: File › Export (outlet schedule, frame sheets, panel labels, DXF, port map, sheet PDFs),
+  the print tab (Ctrl+P), the Racks window's room exports and panel PDF, the port map's Excel (VLAN), the release
+  register / transmittal / reprint, a sheet revision's PDF and the sheet list. Seen live on Journey 005.

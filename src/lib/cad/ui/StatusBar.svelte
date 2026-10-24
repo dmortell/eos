@@ -66,6 +66,7 @@
 	</div>
 	{#if working}<span class="work"><button title={working.title} onclick={working.open}>{working.text}</button><button class="x" title="Stop working on it (edits are no longer tagged)" aria-label="Stop working on the change" onclick={working.stop}>×</button></span>{/if}
 	{#if selected}<button class="selc" title="Zoom to the selection ({KEYS.zoomSel})" onclick={onzoomsel}>{selected}</button>{/if}
+	{#if ws.exporting}<span class="load" role="status" title="An export is being made: its Save as opens when it is ready (other exports wait)"><span class="spin"></span> Making {ws.exporting}…</span>{/if}
 	{#if v?.loading}<span class="load" title="The floorplan is still rendering"><span class="spin"></span> floorplan…</span>{/if}
 	{#if v?.readout}<b class="ro">{v.readout}</b>{/if}
 	<span class="xy">{v?.xy ?? '—'}</span>

@@ -49,9 +49,15 @@ export function canShareFile(type: string): boolean {
 	try { return typeof navigator !== 'undefined' && typeof navigator.canShare === 'function' && navigator.canShare({ files: [new File([''], 'x', { type })] }) } catch { return false }
 }
 
+/** Told when a file is built and about to be saved (its Save as opens): an export's "Making …" ends there (User
+ *  2026-10-24). The returned function stops listening. */
+const ready = new Set<() => void>()
+export function onFileReady(f: () => void): () => void { ready.add(f); return () => { ready.delete(f) } }
+
 /** Save a file under a name the user can change first (and the project's pattern fills). Returns the name saved, or
  *  null when they cancelled. */
 export async function saveFile(data: BlobPart, suggested: string, type: string, parts?: FileParts): Promise<string | null> {
+	for (const f of [...ready]) f()
 	const ext = suggested.match(/\.([a-z0-9]+)$/i)?.[1] ?? ''
 	const got = namer ? await namer(suggested, parts, ext, type) : suggested
 	if (!got) return null
