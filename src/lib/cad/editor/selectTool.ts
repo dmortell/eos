@@ -133,6 +133,10 @@ export class SelectTool implements Tool {
 	#plus(c: ToolCtx): PortPlus | null {
 		return c.space.spec.kind === 'row' && c.armPorts ? portPlus(c.index, c.portSel?.() ?? null, c.space.spec.face, c.prims()) : null
 	}
+	/** The +'s radius (mm): 6 px, growing with the port cell as you zoom in, 16 px at most (User 2026-10-26). */
+	#plusR(c: ToolCtx, pl: PortPlus): number { const px = c.tol() / TOL_PX; return Math.min(16 * px, Math.max(6 * px, pl.cell * 0.3)) }
+	/** Is `p` on the + (its disc, or the pick tolerance around its centre)? */
+	#onPlus(c: ToolCtx, pl: PortPlus, p: Pt): boolean { return Math.hypot(pl.at.x - p.x, pl.at.y - p.y) <= Math.max(c.tol() * 1.5, this.#plusR(c, pl)) }
 
 	/** The single selected region's grips (rect / ellipse / circle / polygon) where they show in this view. */
 	#regionGrips(c: ToolCtx): { s: Shape; space: GripSpace; at: Pt[] } | null {
@@ -158,7 +162,7 @@ export class SelectTool implements Tool {
 		const rg = this.#regionGrips(c), ng = this.#noteGrips(c)
 		const h = handleAt(this.#handles(c).handles, e.p, t), g = gripAt(this.grips(c), e.p, t)
 		const pl = this.#plus(c)
-		this.#hovPlus = !!pl && near(pl.at)
+		this.#hovPlus = !!pl && this.#onPlus(c, pl, e.p)
 		if (this.#hovPlus) { this.#hov = null; this.#hovGrip = null; this.#cursor = 'pointer'; return }
 		const onGrip = (h && h.shape !== 'bar' ? h.at : null) ?? g?.at ?? rg?.at.find(near) ?? ng?.grips.find((q) => q.index >= 0 && near(q.at))?.at
 			?? this.#cordGrips(c).find((q) => near(q.at))?.at ?? null
@@ -264,7 +268,7 @@ export class SelectTool implements Tool {
 		// drags that end to another port
 		const near = (q: Pt) => Math.hypot(q.x - e.p.x, q.y - e.p.y) <= c.tol() * 1.5
 		const pl = this.#plus(c), ps = c.portSel?.()
-		if (pl && ps && near(pl.at)) {
+		if (pl && ps && this.#onPlus(c, pl, e.p)) {
 			c.armPorts?.(ps, pl.kind)
 			c.say?.(pl.kind === 'cord' ? 'Click the port to patch to' : 'Click the first port to link to (another room or floor: switch views first)')
 			return
@@ -648,10 +652,10 @@ export class SelectTool implements Tool {
 		const from = cord[ce.end]
 		if (from.on === to.on && from.port === to.port) return
 		const r = repatch(c.index, cord, ce.end, to)
-		if (!r.cord) { c.say?.(r.problem ?? 'Not moved'); return }
+		if (!r.cord) { const m = r.problem ?? 'Not moved'; c.say?.(m); c.notify?.(m, 'error'); return }
 		const next = r.cord
 		c.store.transact(`Re-patch ${c.index.portPlace(from)} → ${c.index.portPlace(to)}`, (tx) => tx.put(next))
-		c.say?.(`Re-patched to ${c.index.portPlace(to)} · Ctrl+Z undoes`)
+		c.say?.(`Re-patched to ${c.index.portPlace(to)} · Ctrl+Z undoes`); c.notify?.(`Re-patched to ${c.index.portPlace(to)}`, 'ok')
 	}
 	up(e: PointerIn, c: ToolCtx): void {
 		if (this.#cordEnd) { const ce = this.#cordEnd; this.#cordEnd = null; this.#dropCordEnd(ce, e, c); return }
@@ -755,12 +759,12 @@ export class SelectTool implements Tool {
 		if (ce) out.push({ k: 'line', pts: [ce.other, ce.to], cls: 'cord cord-add draft', color: cord?.type === 'cord' ? cord.colour : undefined })
 		else for (const g of this.#cordGrips(c)) out.push({ k: 'line', pts: sq(g.at, 8 * px), closed: true, fill: true, cls: 'grip' })
 		// the + on the selected port(s): a round grip with a plus
-		const pl = this.#plus(c), arm = 3 * px
-		if (pl) out.push({ k: 'circle', c: pl.at, r: 6 * px, fill: true, cls: 'grip grip-round' },
+		const pl = this.#plus(c), pr = pl ? this.#plusR(c, pl) : 0, arm = pr / 2
+		if (pl) out.push({ k: 'circle', c: pl.at, r: pr, fill: true, cls: 'grip grip-round' },
 			{ k: 'line', pts: [{ x: pl.at.x - arm, y: pl.at.y }, { x: pl.at.x + arm, y: pl.at.y }], cls: 'grip-plus' },
 			{ k: 'line', pts: [{ x: pl.at.x, y: pl.at.y - arm }, { x: pl.at.x, y: pl.at.y + arm }], cls: 'grip-plus' })
 		// …and what it does, while the pointer is on it (User 2026-10-17)
-		if (pl && this.#hovPlus && !this.#gesture) out.push({ k: 'text', at: { x: pl.at.x + 10 * px, y: pl.at.y - 8 * px }, size: 11 * px, anchor: 'start', cls: 'draft-label',
+		if (pl && this.#hovPlus && !this.#gesture) out.push({ k: 'text', at: { x: pl.at.x + pr + 4 * px, y: pl.at.y - 8 * px }, size: 11 * px, anchor: 'start', cls: 'draft-label',
 			text: pl.kind === 'cord' ? 'Patch from here — click, then the port to patch to' : 'Link from here — click, then the first port to link to (another room or floor: switch views)' })
 		// the grip under the pointer, larger (UX07: "larger on hover")
 		if (this.#hovRoom?.span && !this.#gesture) out.push({ k: 'line', pts: this.#hovRoom.span, cls: 'grip-bar' })

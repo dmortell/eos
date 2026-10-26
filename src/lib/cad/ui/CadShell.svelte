@@ -455,7 +455,7 @@
 	/** The options row's chips (review R53). */
 	const toolName = $derived(toolNameOf(ws.toolId))
 	const layerList = $derived(layersOf(project.index.layers).filter((l) => !l.system || ['sys:drawing', 'sys:walls'].includes(l.id)).sort((a, b) => a.order - b.order))
-	const hint = $derived((ws.toolId === 'rack' && ws.rackTool.target ? HINT_PLACE : HINT[ws.toolId] ?? ''))
+	const hint = $derived((ws.toolId === 'rack' && ws.rackTool.target ? HINT_PLACE : ws.toolId === 'cord' && ws.bulkFrom ? '' : HINT[ws.toolId] ?? ''))   // an armed Patch to… / Link to…: the tool options say what to click (two hints ran together)
 
 
 	type BottomTab = 'outlets' | 'patch' | 'sheets' | 'links' | 'log'
@@ -903,7 +903,7 @@
 		{#if tablesShown && (panels.tables.float || panels.tables.max)}{@render tables()}{/if}
 		<!-- a window dragged to an edge docks there on release -->
 		{#if layout.dropSide}<div class="drop drop-{layout.dropSide}"></div>{/if}
-		{#if ws.toast}<div class="toast" role="status">{ws.toast}</div>{/if}
+		{#if ws.toast}<div class="toast" class:toast-ok={ws.toastTone === 'ok'} class:toast-error={ws.toastTone === 'error'} role={ws.toastTone === 'error' ? 'alert' : 'status'}>{ws.toast}</div>{/if}
 	</main>
 
 	{#if catalogueOpen}<CatalogueDialog {project} onclose={() => (catalogueOpen = false)} ondraw={(p, name) => { catalogueOpen = false; if (panes[activePane].kind !== 'plan') setPane(activePane, PLAN); ws.drawProduct(p); ws.say(`Rack tool: each click on the plan draws a ${name} — Esc stops`) }} />{/if}
@@ -1010,4 +1010,6 @@
 	.drop-right { right: 0; }
 	.pane { flex: 1 1 0; min-width: 0; position: relative; }
 	.toast { position: absolute; left: 50%; bottom: 12px; transform: translateX(-50%); z-index: 30; padding: 4px 10px; border-radius: 6px; font-size: 12px; color: var(--cad-text); background: var(--cad-panel); border: 1px solid var(--cad-line); box-shadow: 0 2px 8px rgb(0 0 0 / 0.15); pointer-events: none; }
+	.toast-ok { border-color: #16a34a; border-left-width: 4px; }
+	.toast-error { border-color: #dc2626; border-left-width: 4px; }
 </style>

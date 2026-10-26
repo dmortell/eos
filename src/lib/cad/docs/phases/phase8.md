@@ -4398,3 +4398,14 @@ User: "Yes, cords kept inside the set" (the ❓ entry of 2026-10-17).
   or the export ends. Wrapped: File › Export (outlet schedule, frame sheets, panel labels, DXF, port map, sheet PDFs),
   the print tab (Ctrl+P), the Racks window's room exports and panel PDF, the port map's Excel (VLAN), the release
   register / transmittal / reprint, a sheet revision's PDF and the sheet list. Seen live on Journey 005.
+- **Patching a PDU to a rack's tie panel** (User 2026-10-26, Journey R303 PDUs → R303-P3A ports 1 and 24). R303-P3A was
+  never tied to the frame (P3A-R303's ports 1–24 showed yellow: labelled by its range, no cable), so its ports had no
+  label and every cord to them was refused; the + on the PANEL port (Link to…) then clicked on the PDU made a "tie" to
+  the PDU. Fixes: (0) `bulkInterconnect` refuses a far end that isn't a panel, an enclosure or a switch; (1) the
+  unlabelled-port refusal says how to fix it — tie it (port's +) when the panel has ties or nothing, allocate when it
+  carries outlets (`unlabelledFix`); (2) the port tip says "no label — tie or label it before patching" and the
+  device line counts them apart ("0 free · 24 unlabelled"); (3) the + grows with the port cell as you zoom in (6–16
+  px; its hit area with it); (4) the + on ONE port that can't go where clicked says why and stays armed — no "Patch 0
+  cords" list; (5) an armed Patch to… / Link to… shows only its own hint (the Cord tool's ran on after it). Toasts:
+  every patch, Patch to…, link, re-patch and refusal also shows in the toast, green edge made / red refused
+  (`ws.notify(msg, tone)`, `ToolCtx.notify`, `CordToolDeps.notify`).

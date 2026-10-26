@@ -5,7 +5,7 @@ import type { ProjectIndex } from '../domain/project'
 import type { Outlet, PortRef } from '../domain/types'
 import type { Prim } from './display'
 import { inPolygon, primDist } from './primGeom'
-import { portUse, patchProblem } from '../domain/cords'
+import { portUse, patchProblem, cordAt } from '../domain/cords'
 
 /** The port cell under `p` in a rack-view display list (a `port…` box with the device as src and the port as sub). */
 export function portUnder(prims: Prim[], p: { x: number; y: number }, face: 'front' | 'rear'): PortRef | null {
@@ -37,7 +37,11 @@ export function portTip(ix: ProjectIndex, r: PortRef): string[] {
 		const other = same(c.a) ? c.b : same(c.b) ? c.a : null
 		if (other) out.push(`cord → ${ix.portPlace(other)} · ${c.lengthM} m${c.status !== 'installed' ? ` · ${c.status}` : ''}`)
 	}
-	if (out.length === 1 && !label) out.push('not connected')
+	if (out.length === 1 && !label) {
+		// a panel port with no label can't take a cord yet (User 2026-10-26: "not connected · 24 free" read as patchable)
+		const d = ix.get(r.on)
+		out.push(d?.type === 'device' && d.kind === 'panel' ? 'not connected · no label — tie or label it before patching' : 'not connected')
+	}
 	return out
 }
 
@@ -46,7 +50,9 @@ export function portTipUse(ix: ProjectIndex, r: PortRef): string {
 	const d = ix.get(r.on)
 	if (d?.type !== 'device' || !d.portCount) return ''
 	const u = portUse(ix, d)
-	return `${d.name}: ${u.used} of ${u.ports} used · ${u.free} free`
+	// a panel: its free ports without a label can't be patched yet — said apart from the free ones that can
+	const bare = d.kind === 'panel' && u.free ? Array.from({ length: d.portCount }, (_, i) => i + 1).filter((n) => !ix.portLabel({ on: d.id, port: n }) && !ix.linkAt({ on: d.id, port: n }) && !cordAt(ix, { on: d.id, port: n })).length : 0
+	return `${d.name}: ${u.used} of ${u.ports} used · ${u.free - bare} free${bare ? ` · ${bare} unlabelled` : ''}`
 }
 
 /** The OUTLET under `p` on a plan (backlog "Usage colors and outlet tips"): the topmost prim of an outlet within

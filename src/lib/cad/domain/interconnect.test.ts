@@ -37,6 +37,12 @@ describe('interconnects', () => {
 		const linked = ix([...base, ...r.links])
 		expect([linked.portLabel({ on: 'P24', port: 1 }), linked.portLabel({ on: 'P23', port: 19 }), linked.portLabel({ on: 'P21', port: 24 }), linked.portLabel({ on: 'SW', port: 43 })]).toEqual(['01', '43', '96', '43'])
 	})
+	it('a tie never lands on a PDU (User 2026-10-26: the + on an untied panel port, then the PDU, made a "tie")', () => {
+		const pdu = { type: 'device', id: 'PDU', rackId: 'C', name: 'APC PDU', kind: 'pdu', u: 6, heightU: 30, face: 'both', portCount: 1 }
+		const r = bulkInterconnect(ix([pdu]), { on: 'PP1', ports: [1] }, { on: 'PDU', start: 1 }, { cableType: 'cat6a' })
+		expect(r.links).toEqual([])
+		expect(r.skipped[0]).toMatch(/APC PDU is a pdu — ties and backbone cables run panel to panel/)
+	})
 	it('risers are runs that reach another level', () => {
 		const riser = { type: 'shape', id: 'V1', levelId: 'L1', label: 'Riser A', geom: { kind: 'path', nodes: [{ id: 'a', x: 0, y: 0, z: 0 }, { id: 'b', x: 0, y: 0, z: 0, levelId: 'L4' }], segs: [{ id: 's', a: 'a', b: 'b' }] }, role: { kind: 'containment', form: 'trunk', tier: 'low' } }
 		const flat = { ...riser, id: 'T1', label: 'Tray', geom: { ...riser.geom, nodes: [{ id: 'a', x: 0, y: 0, z: 0 }, { id: 'b', x: 9, y: 0, z: 0 }] } }

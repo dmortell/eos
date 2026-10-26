@@ -17,7 +17,8 @@ export function cordEndGrips(prims: Prim[], cordId: Id): CordEndGrip[] {
 	return [{ cord: cordId, end: 'a', at: a, other: b }, { cord: cordId, end: 'b', at: b, other: a }]
 }
 
-export interface PortPlus { at: Pt; kind: 'cord' | 'link' }
+/** `cell` = the port cell's smaller side (mm): the + grows with it as you zoom in (User 2026-10-26: 6 px at any zoom). */
+export interface PortPlus { at: Pt; kind: 'cord' | 'link'; cell: number }
 
 /** The + on the selected ports, at the top-right corner of the clicked one's cell, when none has a cord: on a panel a
  *  patch when every one has a link, a link when none has; on a switch (any other device) a patch — links run panel to
@@ -31,5 +32,6 @@ export function portPlus(ix: ProjectIndex, sel: PortSel | null, face: 'front' | 
 	const n = sel.ports.includes(sel.anchor) ? sel.anchor : sel.ports[0]
 	const cell = prims.find((p) => p.k === 'line' && p.src === sel.on && p.sub === String(n) && p.role === 'port')
 	if (cell?.k !== 'line') return null
-	return { at: { x: Math.max(...cell.pts.map((p) => p.x)), y: Math.min(...cell.pts.map((p) => p.y)) }, kind }
+	const xs = cell.pts.map((p) => p.x), ys = cell.pts.map((p) => p.y)
+	return { at: { x: Math.max(...xs), y: Math.min(...ys) }, kind, cell: Math.min(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys)) }
 }

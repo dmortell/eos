@@ -315,6 +315,30 @@ describe('devices in the rack row', () => {
 		shown!.cancel()
 		expect([shown, links(), bulk, done, h.said.at(-1)]).toEqual([null, before, null, 2, 'Nothing linked'])
 	})
+	it('the + on ONE port that can’t go where clicked: says why in a toast and stays armed — no "Patch 0" list; a tie never lands on a non-panel (User 2026-10-26)', () => {
+		const h = harness(ROW)
+		const ix = new ProjectIndex(h.store.all()), l = rackLayout(ix, { spaceId: 'SR-A', face: 'front' })[0]
+		const base = (rackHeight(l.rack) - l.rack.heightU * RU_MM) / 2, mid = l.x0 + l.rack.widthMm / 2
+		const portOf = (id: string, n: number) => { const d = h.store.get(id) as Device; const c = portCell(d, n, mid, base + (d.u - 1) * RU_MM)!; return at(c.x + c.w / 2, c.y + c.h / 2) }
+		const toasts: [string, string][] = []
+		let bulk: BulkFrom | null = { on: 'SW1', ports: [30], face: 'front' }, done = 0, shown = null as PatchPreview | null
+		const tool = new CordTool({ defaults: () => ({ cableType: 'cat6a', colour: '#ef4444' }), bulkFrom: { get: () => bulk, set: (b) => { bulk = b } }, done: () => done++,
+			previewHost: { show: (p) => { shown = p }, fill: () => false, setFill: () => {} }, notify: (m, t) => toasts.push([m, t]) })
+		const cords = () => h.store.ofType('cord').length, before = cords()
+		tool.down(portOf('P1', 10), h.ctx())   // unlabelled
+		expect([shown, cords(), bulk?.ports, done]).toEqual([null, before, [30], 0])
+		expect(toasts.at(-1)).toEqual([expect.stringMatching(/^Not patched — .*Panel 1 port 10 has no label yet — allocate an outlet/), 'error'])
+		tool.down(portOf('P1', 3), h.ctx())   // labelled, free: made at once
+		expect([cords(), bulk, done]).toEqual([before + 1, null, 1])
+		expect(toasts.at(-1)).toEqual([expect.stringMatching(/^Patched .*Switch 1 : 30.*Panel 1 : 3/), 'ok'])
+		// Link to… onto a switch's port is a harness; onto a server (or a PDU) it's refused, still armed
+		h.store.transact('pdu', (tx) => tx.put({ ...(h.store.get('SW1') as Device), id: 'SV1', name: 'Server', kind: 'server', portCount: 2, u: 5 }))
+		bulk = { on: 'P1', ports: [10], face: 'front', kind: 'link' }
+		const links = h.store.ofType('link').length
+		tool.down(portOf('SV1', 1), h.ctx())
+		expect([h.store.ofType('link').length, bulk?.kind]).toEqual([links, 'link'])
+		expect(toasts.at(-1)).toEqual([expect.stringMatching(/^Not linked — Server is a server — ties and backbone cables run panel to panel/), 'error'])
+	})
 	it('a selected cord’s end grip dropped on another port re-patches that end; a taken port refuses (User: grips for repatching)', () => {
 		const h = harness(ROW)
 		const cell = (on: string, n: number) => { const p = h.ctx().prims().find((q) => q.k === 'line' && q.src === on && q.sub === String(n) && q.cls.startsWith('port'))!; const xs = p.k === 'line' ? p.pts : []; return { x: (xs[0].x + xs[2].x) / 2, y: (xs[0].y + xs[2].y) / 2 } }

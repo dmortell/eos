@@ -58,6 +58,8 @@ export interface CordToolDeps {
 	/** Where the port picked first is held — the workspace, so every pane can light the free / taken ports while a cord
 	 *  is half made (User 2026-10-17); absent: the tool keeps it. */
 	firstPort?: { get: () => PortRef | null; set: (r: PortRef | null) => void }
+	/** A toast for how a patch / link went — `ok` made, `error` refused (User 2026-10-26); the status bar says it too. */
+	notify?: (msg: string, tone: 'ok' | 'error') => void
 }
 
 export class CordTool implements Tool {
@@ -76,11 +78,14 @@ export class CordTool implements Tool {
 	private readonly done: () => void
 	private readonly previewHost?: PatchPreviewHost
 	private readonly firstPort?: CordToolDeps['firstPort']
+	private readonly notify: NonNullable<CordToolDeps['notify']>
 	/** Named, not positional (hacky-code review #8: six positional arguments, four optional callbacks). */
 	constructor(d: CordToolDeps) {
 		this.defaults = d.defaults; this.bulkFrom = d.bulkFrom; this.linkType = d.linkType ?? (() => ''); this.done = d.done ?? (() => {})
-		this.previewHost = d.previewHost; this.firstPort = d.firstPort
+		this.previewHost = d.previewHost; this.firstPort = d.firstPort; this.notify = d.notify ?? (() => {})
 	}
+	/** An outcome: the status bar and a toast. */
+	#tell(c: ToolCtx, msg: string, tone: 'ok' | 'error'): void { c.say?.(msg); this.notify(msg, tone) }
 	get bulk(): BulkFrom | null { return this.bulkFrom.get() }
 	set bulk(b: BulkFrom | null) { this.bulkFrom.set(b) }
 	/** The port picked first (a cord half made). */
@@ -110,10 +115,12 @@ export class CordTool implements Tool {
 			const kind = res.links[0]?.kind === 'tie' ? 'tie' : 'backbone'
 			const write = () => {
 				if (n) c.store.transact(cores > 1 ? `Link ${cables} ${cores}-core ${kind} cable(s)` : `Link ${n} ${kind} cable(s)`, (tx) => { for (const k of res.links) tx.put(k) })
-				c.say?.(`${what} added${res.skipped.length ? ` · ${res.skipped.length} skipped — ${res.skipped[0]}` : ''} · choose the riser in Port Properties`)
+				this.#tell(c, `${what} added${res.skipped.length ? ` · ${res.skipped.length} skipped — ${res.skipped[0]}` : ''}${kind === 'backbone' ? ' · choose the riser in Port Properties' : ''}`, res.skipped.length ? 'error' : 'ok')
 				this.bulk = null
 				this.done()
 			}
+			// nothing can be linked from this click (a PDU, a port with a cable): say why and stay armed for another port
+			if (!n) { this.#tell(c, `Not linked — ${res.skipped[0] ?? 'nothing to link'}`, 'error'); return }
 			const host = this.previewHost
 			// as Patch to…: the cables are listed to OK first (review follow-up to R93); one port onto a free port goes at once
 			if (!host || (n === 1 && !res.skipped.length)) { write(); return }
@@ -126,7 +133,7 @@ export class CordTool implements Tool {
 				okLabel: `Link ${n}`,
 				rows: res.links.map((k) => ({ a: k.a.port, aLabel: `${several ? `${dev(k.a.on)} · ` : ''}${c.index.portLabel(k.a)}`, b: k.b.port, bLabel: c.index.portLabel(k.b) })),
 				ok: () => { host.show(null); write() },
-				cancel: () => { host.show(null); c.say?.('Nothing linked'); this.bulk = null; this.done() },
+				cancel: () => { host.show(null); this.#tell(c, 'Nothing linked', 'error'); this.bulk = null; this.done() },
 			})
 			return
 		}
@@ -139,7 +146,9 @@ export class CordTool implements Tool {
 					c.store.transact(`Patch ${res.cords.length} cords`, (tx) => { for (const k of res.cords) tx.put(k) })
 					c.select(res.cords.map((k) => k.id))
 				}
-				c.say?.(`${res.cords.length} cord(s) added${this.defaults().status === 'installed' ? ' as INSTALLED (surveying)' : ''}${res.skipped.length ? ` · ${res.skipped.length} skipped — ${res.skipped[0]}` : ''}`)
+				const one = res.cords.length === 1 ? res.cords[0] : undefined
+				const made = one ? `Patched ${c.index.portPlace(one.a)} → ${c.index.portPlace(one.b)}` : `${res.cords.length} cord(s) added`
+				this.#tell(c, `${made}${this.defaults().status === 'installed' ? ' as INSTALLED (surveying)' : ''}${res.skipped.length ? ` · ${res.skipped.length} skipped — ${res.skipped[0]}` : ''}`, res.cords.length && !res.skipped.length ? 'ok' : 'error')
 				this.bulk = null
 				this.done()
 			}
@@ -149,6 +158,9 @@ export class CordTool implements Tool {
 			const first = plan(fill0)
 			// one port onto a free port needs no preview
 			if (!host || (first.cords.length === 1 && !first.skipped.length)) { write(first); return }
+			// ONE port armed (the + on a PDU's port) that can't go here: as the plain cord tool — say why, stay armed for
+			// another port, no "Patch 0 cords" dialog (User 2026-10-26)
+			if (bulk.ports.length === 1 && !first.cords.length) { this.#tell(c, `Not patched — ${first.skipped[0] ?? 'no free port'}`, 'error'); return }
 			const name = (on: Id) => { const d = c.index.get(on); return d?.type === 'device' ? `${c.index.nameOf(d.rackId)} · ${d.name}` : on }
 			const show = (fill: boolean, res = plan(fill)) => host.show({
 				from: name(bulk.on), to: name(r.on), fill, skipped: res.skipped,
@@ -157,7 +169,7 @@ export class CordTool implements Tool {
 				start: target.start, ports: tports,
 				setStart: (n) => { if (n >= 1 && (!tports || n <= tports)) { target.start = n; show(fill) } },
 				ok: () => { host.show(null); write(res) },
-				cancel: () => { host.show(null); c.say?.('Nothing patched'); this.bulk = null; this.done() },
+				cancel: () => { host.show(null); this.#tell(c, 'Nothing patched', 'error'); this.bulk = null; this.done() },
 			})
 			show(fill0, first)
 			return
@@ -168,7 +180,7 @@ export class CordTool implements Tool {
 	/** The first port of a cord; the reason it can't be, said and returned. */
 	#pickFirst(r: PortRef, c: ToolCtx): string | null {
 		const p = patchProblem(c.index, r) ?? noPort(c, r)
-		if (p) { c.say?.(p); return p }
+		if (p) { this.#tell(c, p, 'error'); return p }
 		this.#setFirst(r)
 		this.#next = null
 		c.say?.(`From ${c.index.portPlace(r)} — click the port to patch to, or type it (SW1:41) · Esc cancels`)
@@ -180,9 +192,9 @@ export class CordTool implements Tool {
 		// the armed port clicked again: let go of it (Q50)
 		if (first.on === r.on && first.port === r.port && first.face === r.face) { this.#setFirst(null); c.say?.('Cord cancelled'); return null }
 		const bad = noPort(c, r)
-		if (bad) { c.say?.(bad); return bad }
+		if (bad) { this.#tell(c, bad, 'error'); return bad }
 		const res = makeCord(c.index, first, r, this.defaults())
-		if (!res.cord) { const m = res.problem ?? 'No cord'; c.say?.(m); return m }
+		if (!res.cord) { const m = res.problem ?? 'No cord'; this.#tell(c, m, 'error'); return m }
 		const cord: Cord = res.cord
 		c.store.transact(`Patch ${c.index.portPlace(cord.a)} → ${c.index.portPlace(cord.b)}`, (tx) => tx.put(cord))
 		c.select([cord.id])
@@ -191,7 +203,9 @@ export class CordTool implements Tool {
 		// Enter: the next pair (User 2026-10-17 — quicker than Patch to… for a short run)
 		const next = { a: { ...first, port: first.port + 1 }, b: { ...r, port: r.port + 1 } }
 		this.#next = noPort(c, next.a) || noPort(c, next.b) ? null : next
-		c.say?.(`Patched ${c.index.portPlace(first)} → ${c.index.portPlace(r)}${cord.status === 'installed' ? ' as INSTALLED (surveying)' : ''}${this.#next ? ` · Enter: ${c.index.portPlace(next.a)} → ${c.index.portPlace(next.b)}` : ''}`)
+		const made = `Patched ${c.index.portPlace(first)} → ${c.index.portPlace(r)}${cord.status === 'installed' ? ' as INSTALLED (surveying)' : ''}`
+		c.say?.(`${made}${this.#next ? ` · Enter: ${c.index.portPlace(next.a)} → ${c.index.portPlace(next.b)}` : ''}`)
+		this.notify(made, 'ok')
 		return null
 	}
 	move(e: PointerIn): void { this.#hover = e.p }

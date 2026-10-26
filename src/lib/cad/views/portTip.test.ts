@@ -17,8 +17,8 @@ describe('port tips', () => {
 		expect(t.some((l) => /^cord → .*Switch 1 : 1/.test(l))).toBe(true)
 	})
 	it('an unused port says so', () => {
-		expect(portTip(ix, { on: 'P1', port: 20, face: 'front' }).at(-1)).toBe('not connected')
-		expect(portTipUse(ix, { on: 'P1', port: 20, face: 'front' })).toBe('Panel 1: 4 of 24 used · 20 free')
+		expect(portTip(ix, { on: 'P1', port: 20, face: 'front' }).at(-1)).toBe('not connected · no label — tie or label it before patching')
+		expect(portTipUse(ix, { on: 'P1', port: 20, face: 'front' })).toBe('Panel 1: 4 of 24 used · 0 free · 20 unlabelled')
 	})
 	it('finds the port cell under a point in the rack view', () => {
 		const prims = rackRowDisplayList(ix, { spaceId: 'SR-A', face: 'front' })

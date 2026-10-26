@@ -14,6 +14,9 @@ export function bulkInterconnect(ix: ProjectIndex, a: { on: Id; ports: number[];
 	const devB = ix.getOf('device', b.on)
 	const links: Link[] = [], skipped: string[] = []
 	if (devB?.type !== 'device') return { links, skipped: ['Not a device'] }
+	// a tie / backbone lands on a panel or an enclosure (or a switch's harness ports) — not a PDU or a server (User 2026-10-26: the + on an
+	// untied panel port, then a PDU's port, made a "tie" to the PDU)
+	if (devB.kind !== 'panel' && devB.kind !== 'enclosure' && devB.kind !== 'switch') return { links, skipped: [`${devB.name} is a ${devB.kind} — ties and backbone cables run panel to panel; tie this panel to the frame first, then patch the ${devB.kind} to it with a cord`] }
 	const busy = (r: PortRef) => !!ix.linkAt({ on: r.on, port: r.port })
 	let nb = b.start
 	sources: for (const src of [a, ...(a.more ?? [])]) {

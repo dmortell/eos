@@ -36,10 +36,20 @@ export function patchProblem(ix: ProjectIndex, r: PortRef, skip?: Id): string | 
 	const d = ix.get(r.on)
 	if (d?.type !== 'device') return 'Cords go between device ports'
 	if (r.port < 1 || r.port > d.portCount) return `${d.name} has no port ${r.port}`
-	if (d.kind === 'panel' && !ix.portLabel(r)) return `${d.name} port ${r.port} has no label yet — allocate an outlet to it (or label it) before patching`
+	if (d.kind === 'panel' && !ix.portLabel(r)) return `${d.name} port ${r.port} has no label yet — ${unlabelledFix(ix, d)}, before patching`
 	const c = cordAt(ix, r, skip)
 	if (c) return `${d.name} port ${r.port} is already patched (to ${ix.portPlace(c.a.on === r.on && c.a.port === r.port ? c.b : c.a)})`
 	return null
+}
+
+/** How an unlabelled panel port gets its label (User 2026-10-26: "allocate an outlet" misled on a rack's tie panel): a
+ *  panel cabled to outlets → allocate one; a panel with ties / backbone, or nothing yet → tie it with the port's +
+ *  (Link to…) to the frame panel; or a label typed in Port Properties. */
+export function unlabelledFix(ix: ProjectIndex, d: Device): string {
+	const far = ix.links.filter((l) => l.a.on === d.id || l.b.on === d.id).map((l) => ix.get(l.a.on === d.id ? l.b.on : l.a.on)?.type)
+	if (far.includes('outlet')) return 'allocate an outlet to it (or label it in Port Properties)'
+	if (far.length) return 'tie it to its frame panel first (select the port, click its +, then the frame panel’s port) or label it in Port Properties'
+	return 'tie it to another panel (select the port, click its +, then that panel’s port), allocate an outlet to it, or label it in Port Properties'
 }
 
 /** A patch cord stays in one room: between rooms (or floors) it's an interconnect cable, not a cord. Null = same room. */

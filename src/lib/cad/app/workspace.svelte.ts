@@ -331,6 +331,7 @@ export class Workspace {
 		done: () => this.bulkDone(),
 		previewHost: { show: (p) => { this.patchPreview = p }, fill: () => this.patchFill, setFill: (on) => { this.patchFill = on } },
 		firstPort: { get: () => this.patchFirst, set: (r) => { this.patchFirst = r } },
+		notify: (m, tone) => this.notify(m, tone),
 	})
 	/** The Calibrate tool's floorplan and step (Project settings › Plans & floorplans › Origin / Scale / Crop); the app
 	 *  sets how it reads a page's calibration and writes it (its file, not the store). */
@@ -351,11 +352,15 @@ export class Workspace {
 	/** A passing note that clears itself (bottom of the drawing): what doesn't need the status bar's line — it no longer
 	 *  hides the hint, a viewport-edit prefix or a tool's own message (User 2026-10-12: "Drawn on the … layer"). */
 	toast = $state<string | null>(null)
+	/** How the toast reads: `ok` green (a cord / cable made), `error` red (refused — User 2026-10-26: patching says how it
+	 *  went in a toast too); none = the plain note. */
+	toastTone = $state<'ok' | 'error' | null>(null)
 	#toastTimer: ReturnType<typeof setTimeout> | undefined
-	notify = (msg: string): void => {
+	notify = (msg: string, tone?: 'ok' | 'error'): void => {
 		this.toast = msg
+		this.toastTone = tone ?? null
 		clearTimeout(this.#toastTimer)
-		this.#toastTimer = setTimeout(() => { this.toast = null }, 2500)
+		this.#toastTimer = setTimeout(() => { this.toast = null }, tone === 'error' ? 4000 : 2500)
 	}
 
 	/** The export being built (User 2026-10-24: feedback while an export's data is made): the status bar shows it with a
