@@ -52,6 +52,12 @@ export function unlabelledFix(ix: ProjectIndex, d: Device): string {
 	return 'tie it to another panel (select the port, click its +, then that panel’s port), allocate an outlet to it, or label it in Port Properties'
 }
 
+/** The ports a cord can go on now (no cord yet; a panel's: labelled) — Patch all … to… takes these (User 2026-10-26:
+ *  P3C U40 offered "Patch all 48 ports" with only 1–24 tied). */
+export function patchablePorts(ix: ProjectIndex, d: Device): number[] {
+	return Array.from({ length: d.portCount }, (_, i) => i + 1).filter((n) => !patchProblem(ix, { on: d.id, port: n }))
+}
+
 /** A patch cord stays in one room: between rooms (or floors) it's an interconnect cable, not a cord. Null = same room. */
 export function roomProblem(ix: ProjectIndex, a: { on: Id }, b: { on: Id }): string | null {
 	const room = (on: Id) => { const d = ix.get(on); const r = d?.type === 'device' ? ix.get(d.rackId) : undefined; return r?.type === 'rack' ? r.spaceId : undefined }

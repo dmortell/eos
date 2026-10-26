@@ -11,7 +11,8 @@
 	import { placementProblem, narrowDevice, templateFromDevice, beyondPorts, beyondPortsText, type DeviceTemplate } from '../domain/devices'
 	import { markPrinted, changedSincePrinted, portRanges } from '../domain/ports'
 	import { repeatableEdit } from '../domain/repeatEdit'
-	import { portUse, portUseText, allocatedUnpatched } from '../domain/cords'
+	import { allocatedUnpatched, patchablePorts } from '../domain/cords'
+	import { portCountText } from '../views/portTip'
 	import { shared, put } from './propsKit'
 	import PropGroup from './PropGroup.svelte'
 	import PortProps from './PortProps.svelte'
@@ -141,9 +142,11 @@
 	{#if one?.portCount}
 		{@const d = one}
 		<!-- how its ports are used: patched = a cord on it, linked = a permanent cable (outlet, tie, backbone) -->
-		<p class="muted" title="Used = a cord or a permanent cable on the port (patched: a patch cord; linked: an outlet cable, tie or backbone). Free = neither.">{portUseText(portUse(project.index, d))}</p>
-		{#if d.kind !== 'pdu' && ws.portSel?.on !== d.id}
-			<div class="pt-1"><button class="link" title="Patch all this device's ports to another device: click its first port next — the cords are listed to OK before they're made" onclick={() => ws.patchDevice(d)}>⇄ Patch {d.portCount > 1 ? `all ${d.portCount} ports` : 'its port'} to…</button></div>
+		<p class="muted" title="Cabled = a permanent cable on the port (an outlet cable, a tie or backbone). Patched = a patch cord in it. Free to patch = a cord can go on it. Unlabelled (a panel) = no label yet, so no cord can go on it — tie or label it first.">{d.portCount} port{d.portCount === 1 ? '' : 's'} · {portCountText(project.index, d)}</p>
+		<!-- only the ports a cord can go on (User 2026-10-26: "Patch all 48 ports" on a panel with 1–24 tied) -->
+		{@const ready = d.kind !== 'pdu' && ws.portSel?.on !== d.id ? patchablePorts(project.index, d) : []}
+		{#if ready.length}
+			<div class="pt-1"><button class="link" title="Patch {ready.length === d.portCount ? 'all this device’s ports' : `the ${ready.length} ports a cord can go on (${portRanges(ready)}) — the others are patched${d.kind === 'panel' ? ' or have no label yet' : ''}`} to another device: click its first port next — the cords are listed to OK before they're made" onclick={() => ws.patchDevice(d, ready)}>⇄ Patch {ready.length === d.portCount ? (d.portCount > 1 ? `all ${d.portCount} ports` : 'its port') : `${ready.length} free port${ready.length === 1 ? '' : 's'} (${portRanges(ready)})`} to…</button></div>
 		{/if}
 		<!-- W15: the allocated ports (an outlet cable on them) with no cord yet, picked for you — then Patch to… / P -->
 		{@const todo = d.kind === 'panel' ? allocatedUnpatched(project.index, d) : []}

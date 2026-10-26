@@ -2,7 +2,7 @@
 // cable plugged into it (to an outlet port, or another panel's port: a tie / backbone) and the patch cords on it.
 // Pure; tested in portTip.test.ts. Shown by PortTip.svelte.
 import type { ProjectIndex } from '../domain/project'
-import type { Outlet, PortRef } from '../domain/types'
+import type { Device, Outlet, PortRef } from '../domain/types'
 import type { Prim } from './display'
 import { inPolygon, primDist } from './primGeom'
 import { patchProblem, cordAt } from '../domain/cords'
@@ -46,18 +46,22 @@ export function portTip(ix: ProjectIndex, r: PortRef): string[] {
 	return out
 }
 
-/** The tip's foot line: how the device's ports are used — "Panel 1: 4 of 24 used · 20 free" ('' off a device). */
+/** The tip's foot line: how the device's ports are used — "Panel 1: 4 cabled · 2 patched · 2 free to patch · 20
+ *  unlabelled" ('' off a device). */
 export function portTipUse(ix: ProjectIndex, r: PortRef): string {
 	const d = ix.get(r.on)
 	if (d?.type !== 'device' || !d.portCount) return ''
-	// the permanent cable and the cord counted apart (User 2026-10-26: a tied panel read "24 of 24 used · 0 free", its
-	// ports all free for cords): cabled (outlet / tie / backbone), patched, free to patch, and — a panel — the ports
-	// with no label yet, which can't take a cord
+	return `${d.name}: ${portCountText(ix, d)}`
+}
+/** A device's ports, the permanent cable and the cord counted apart (User 2026-10-26: a tied panel read "24 of 24 used ·
+ *  0 free", its ports all free for cords): cabled (outlet / tie / backbone), patched, free to patch, and — a panel —
+ *  the ports with no label yet, which can't take a cord. The port tip and Properties › Ports and labels. */
+export function portCountText(ix: ProjectIndex, d: Device): string {
 	const ports = Array.from({ length: d.portCount }, (_, i) => i + 1), ref = (n: number) => ({ on: d.id, port: n })
 	const cabled = ports.filter((n) => ix.linkAt(ref(n))).length, patched = ports.filter((n) => cordAt(ix, ref(n))).length
 	const bare = d.kind === 'panel' ? ports.filter((n) => !cordAt(ix, ref(n)) && !ix.portLabel(ref(n))).length : 0
 	const free = d.portCount - patched - bare
-	return `${d.name}: ${cabled ? `${cabled} cabled · ` : ''}${patched} patched · ${free} free to patch${bare ? ` · ${bare} unlabelled` : ''}`
+	return `${cabled ? `${cabled} cabled · ` : ''}${patched} patched · ${free} free to patch${bare ? ` · ${bare} unlabelled` : ''}`
 }
 
 /** The OUTLET under `p` on a plan (backlog "Usage colors and outlet tips"): the topmost prim of an outlet within

@@ -389,8 +389,12 @@ export class Workspace {
 	}
 	/** Arm a bulk patch from these ports; the next port click is where the cords start on the other device. */
 	patchFrom(sel: PortSel): void { this.#armBulk({ on: sel.on, ports: [...sel.ports], face: sel.face }) }
-	/** Patch to… from a whole device: all its ports, from its patching face (a panel's front). */
-	patchDevice(d: Device): void { this.#armBulk({ on: d.id, ports: Array.from({ length: d.portCount }, (_, i) => i + 1), face: d.face === 'rear' ? 'rear' : 'front' }) }
+	/** Patch to… from a whole device: the ports a cord can go on (`ports`, cords.ts patchablePorts), from its patching
+	 *  face (a panel's front). None: says why. */
+	patchDevice(d: Device, ports: number[]): void {
+		if (!ports.length) { this.say(`${d.name}: no port can take a cord — ${d.kind === 'panel' ? 'they are patched or have no label yet (tie or label them first)' : 'they are all patched'}`); return }
+		this.#armBulk({ on: d.id, ports, face: d.face === 'rear' ? 'rear' : 'front' })
+	}
 	/** Arm an interconnect from these ports (backbone / tie cables, Phase 5): the next port clicked — in any room, on
 	 *  any floor — is where they start on the other panel. */
 	interconnectFrom(sel: PortSel): void { this.#armBulk({ on: sel.on, ports: [...sel.ports], face: sel.face, kind: 'link' }) }

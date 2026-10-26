@@ -4439,3 +4439,8 @@ User: "Yes, cords kept inside the set" (the ❓ entry of 2026-10-17).
   nothing in any dialog opened from a press in the drawing. It now takes the focus again once that press is over (if
   it fell to the page); the patch list's own workaround is gone. Checked live: Link to… → click → the list has the
   focus, Esc cancels. Backlog: "Plan: containment between 33F 3303 and 33F 3307".
+- **Patch … to… on a whole device takes only the ports a cord can go on** (User 2026-10-26: P3C U40 offered "Patch all
+  48 ports" with only 1–24 tied). New `patchablePorts` (no cord; a panel's: labelled): Properties says "Patch all 48
+  ports to…" only when all can, else "Patch 24 free ports (1–24) to…", and hides it when none can; P on a selected
+  device arms the same ports (none: says why). Properties' port line now reads like the port tip — "48 ports · 24
+  cabled · 0 patched · 24 free to patch · 24 unlabelled" (`portCountText`, shared).

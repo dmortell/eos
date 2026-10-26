@@ -9,6 +9,7 @@ import type { Tabs } from '../app/tabs.svelte'
 import type ViewCanvas from './ViewCanvas.svelte'
 import { labelKind } from '../domain/labelEdit'
 import { linkStarts } from '../domain/interconnect'
+import { patchablePorts } from '../domain/cords'
 import { composing, typingIn } from './keyGuards'
 import type { Device } from '../domain/types'
 import { duplicateViewports } from '../app/sheetActions'
@@ -99,8 +100,8 @@ export const KEY_COMMANDS: KeyCommand[] = [
 		run: (e, c) => { pd(e); c.ws.interconnectPanels(c.ws.selection.map((id) => c.project.index.get(id) as Device)) } },
 	// P / L with ports selected: Patch to… / Link to… (a panel's) — then click the other device's first port
 	{ label: 'Patch the selected ports to… (then click the first port on the other device)', keys: KEYS.patch, group: 'Racks', when: (e, c, k, mod) => !mod && !e.altKey && k === 'p' && !!c.ws.portSel, run: (e, c) => { pd(e); c.ws.patchFrom(c.ws.portSel!) } },
-	{ label: 'Patch all the selected device’s ports to… (then click the first port on the other device; the cords are listed to OK first)', keys: KEYS.patch, group: 'Racks', when: (e, c, k, mod) => !mod && !e.altKey && k === 'p' && !c.ws.portSel && c.ws.selection.length === 1 && patchable(c, c.ws.selection[0]),
-		run: (e, c) => { pd(e); c.ws.patchDevice(c.project.index.get(c.ws.selection[0]) as Device) } },
+	{ label: 'Patch the selected device’s ports to… (those a cord can go on; then click the first port on the other device; the cords are listed to OK first)', keys: KEYS.patch, group: 'Racks', when: (e, c, k, mod) => !mod && !e.altKey && k === 'p' && !c.ws.portSel && c.ws.selection.length === 1 && patchable(c, c.ws.selection[0]),
+		run: (e, c) => { pd(e); const d = c.project.index.get(c.ws.selection[0]) as Device; c.ws.patchDevice(d, patchablePorts(c.project.index, d)) } },
 	{ label: 'Link the selected panel ports to… (then click the first port on the other panel)', keys: KEYS.link, group: 'Racks', when: (e, c, k, mod) => !mod && !e.altKey && k === 'l' && !!c.ws.portSel && isPanel(c, c.ws.portSel.on), run: (e, c) => { pd(e); c.ws.interconnectFrom(c.ws.portSel!) } },
 	{ label: 'Rack view: the other face (front ↔ rear)', keys: KEYS.flip, group: 'Racks', when: (e, c, k, mod) => !mod && !e.altKey && !e.shiftKey && k === 'f' && c.flipFace(), run: (e) => pd(e) },
 	{ label: 'Turn the selection 90° right (clockwise) / left', keys: `${KEYS.turnRight} / ${KEYS.turnLeft}`, group: 'Edit', when: (e, c, k, mod) => !mod && !e.altKey && k === 'r' && c.ws.toolId === 'select' && c.ws.selection.length > 0, run: (e, c) => { pd(e); c.turn90(e.shiftKey ? -1 : 1) } },
