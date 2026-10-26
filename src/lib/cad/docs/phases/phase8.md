@@ -4427,3 +4427,7 @@ User: "Yes, cords kept inside the set" (the ❓ entry of 2026-10-17).
   patched, label changed since printed, reserved, selected) and while patching / linking. The port tip's foot counts
   "cabled · patched · free to patch · unlabelled" (it said "24 of 24 used · 0 free" for a tied panel). Help: "What
   the port colors mean", "Patch cord or link?".
+- **Enter OKs the patch / link list when it opened from a click** (seen live tying 33IDF2): the list opened by a click
+  in the drawing had no focus (the click's up lands on the page), so Enter did nothing — and the next click outside
+  cancelled it ("Nothing linked"). Enter on the page now OKs it too. 33IDF2 tied: R311-P3C → P3C-R311 (P3C U41
+  1–24), R312-P3C → P3C-R312 (U41 25–48), R313-P3C → P3C-R313 (U40 1–24) — 72 ties.
