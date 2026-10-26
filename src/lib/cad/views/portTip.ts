@@ -5,7 +5,7 @@ import type { ProjectIndex } from '../domain/project'
 import type { Outlet, PortRef } from '../domain/types'
 import type { Prim } from './display'
 import { inPolygon, primDist } from './primGeom'
-import { portUse, patchProblem, cordAt } from '../domain/cords'
+import { patchProblem, cordAt } from '../domain/cords'
 import { linkLands } from '../domain/interconnect'
 
 /** The port cell under `p` in a rack-view display list (a `port…` box with the device as src and the port as sub). */
@@ -50,10 +50,14 @@ export function portTip(ix: ProjectIndex, r: PortRef): string[] {
 export function portTipUse(ix: ProjectIndex, r: PortRef): string {
 	const d = ix.get(r.on)
 	if (d?.type !== 'device' || !d.portCount) return ''
-	const u = portUse(ix, d)
-	// a panel: its free ports without a label can't be patched yet — said apart from the free ones that can
-	const bare = d.kind === 'panel' && u.free ? Array.from({ length: d.portCount }, (_, i) => i + 1).filter((n) => !ix.portLabel({ on: d.id, port: n }) && !ix.linkAt({ on: d.id, port: n }) && !cordAt(ix, { on: d.id, port: n })).length : 0
-	return `${d.name}: ${u.used} of ${u.ports} used · ${u.free - bare} free${bare ? ` · ${bare} unlabelled` : ''}`
+	// the permanent cable and the cord counted apart (User 2026-10-26: a tied panel read "24 of 24 used · 0 free", its
+	// ports all free for cords): cabled (outlet / tie / backbone), patched, free to patch, and — a panel — the ports
+	// with no label yet, which can't take a cord
+	const ports = Array.from({ length: d.portCount }, (_, i) => i + 1), ref = (n: number) => ({ on: d.id, port: n })
+	const cabled = ports.filter((n) => ix.linkAt(ref(n))).length, patched = ports.filter((n) => cordAt(ix, ref(n))).length
+	const bare = d.kind === 'panel' ? ports.filter((n) => !cordAt(ix, ref(n)) && !ix.portLabel(ref(n))).length : 0
+	const free = d.portCount - patched - bare
+	return `${d.name}: ${cabled ? `${cabled} cabled · ` : ''}${patched} patched · ${free} free to patch${bare ? ` · ${bare} unlabelled` : ''}`
 }
 
 /** The OUTLET under `p` on a plan (backlog "Usage colors and outlet tips"): the topmost prim of an outlet within

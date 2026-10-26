@@ -7,7 +7,7 @@ import { styleOf } from './pdf'
 
 /** Classes that exist only on screen (selection, hover, grips, tracing, drafts, the screen-only fill meters …). */
 const SCREEN_ONLY = new Set([
-	'sel-line', 'sel-box', 'sel', 'band', 'grip', 'grip-bar', 'grip-bar-sel', 'grip-hover', 'grip-sel', 'grip-plus', 'workplane-grip', 'workplane-label',
+	'sel-line', 'sel-box', 'sel', 'band', 'grip', 'grip-bar', 'grip-bar-sel', 'grip-hover', 'grip-sel', 'grip-plus', 'grip-link', 'workplane-grip', 'workplane-label',
 	'seg-sel', 'port-sel', 'trace-cord', 'trace-route', 'trace-route-est', 'trace-port', 'all-route', 'all-route-est', 'hover', 'snap', 'pick-order',
 	'logo-sel', 'far', 'band-edge', 'draft-bad', 'draft-label', 'section-extent', 'fill-band', 'fill-ok', 'fill-warn', 'fill-over', 'fill-label', 'guide', 'guide-hot', 'chg-new', 'chg-gone',
 	'port-label-sel', 'port-label-trace', 'cord-installed', 'cord-change', 'on-ports', 'port-count', 'line', 'filled',

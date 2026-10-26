@@ -37,6 +37,8 @@ export interface PatchPreview {
 	start?: number; ports?: number; setStart?(n: number): void
 	/** the heading and the OK button; default "Patch N cords" / "Patch N" */
 	title?: string; okLabel?: string
+	/** what is being made, said plainly over the list (Link to…: permanent cables, not cords — User 2026-10-26) */
+	note?: string
 	ok(): void
 	cancel(): void
 }
@@ -129,8 +131,8 @@ export class CordTool implements Tool {
 			// nothing can be linked from this click (a PDU, a port with a cable): say why and stay armed for another port
 			if (!n) { this.#tell(c, `Not linked — ${res.skipped[0] ?? 'nothing to link'}`, 'error'); return }
 			const host = this.previewHost
-			// as Patch to…: the cables are listed to OK first (review follow-up to R93); one port onto a free port goes at once
-			if (!host || (n === 1 && !res.skipped.length)) { write(); return }
+			// the cables are listed to OK first — even one (User 2026-10-26: a link made by mistake for a patch cord went at once)
+			if (!host) { write(); return }
 			const dev = (on: Id) => { const d = c.index.get(on); return d?.type === 'device' ? d.name : on }
 			const name = (on: Id) => { const d = c.index.get(on); return d?.type === 'device' ? `${c.index.nameOf(d.rackId)} · ${d.name}` : on }
 			const several = !!bulk.more?.length
@@ -138,6 +140,7 @@ export class CordTool implements Tool {
 				from: several ? `${name(bulk.on)} + ${bulk.more!.length} more` : name(bulk.on), to: name(r.on), fill: false, skipped: res.skipped,
 				title: cores > 1 ? `Link ${cables} ${cores}-core ${kind} cable${cables === 1 ? '' : 's'} (${n * per} cores)` : `Link ${n} ${kind} cable${n === 1 ? '' : 's'}`,
 				okLabel: `Link ${n}`,
+				note: `Permanent ${kind === 'tie' ? 'tie' : 'backbone'} cable${n === 1 ? '' : 's'} between panels — what the cabling contractor installs, not ${n === 1 ? 'a patch cord' : 'patch cords'}. To plug a cord in, Cancel and use Patch to….`,
 				rows: res.links.map((k) => ({ a: k.a.port, aLabel: `${several ? `${dev(k.a.on)} · ` : ''}${c.index.portLabel(k.a)}`, b: k.b.port, bLabel: c.index.portLabel(k.b) })),
 				ok: () => { host.show(null); write() },
 				cancel: () => { host.show(null); this.#tell(c, 'Nothing linked', 'error'); this.bulk = null; this.done() },

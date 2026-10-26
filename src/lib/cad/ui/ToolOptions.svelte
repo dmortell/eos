@@ -14,6 +14,7 @@
 	import ShapeOptions from './ShapeOptions.svelte'
 	import DimOptions from './DimOptions.svelte'
 	import CordMode from './CordMode.svelte'
+	import PortKey from './PortKey.svelte'
 	import { PATH_KINDS } from '../editor/pathTool'
 
 	let { project, ws, level, kind, guidesKey = '' }: {
@@ -95,6 +96,9 @@
 {/if}
 {#if ws.toolId === 'cord'}
 	<span class="sep"></span>
+	<!-- which of the two this is, in words and color (User 2026-10-26: links were made by mistake for patches) -->
+	{#if ws.bulkFrom?.kind === 'link'}<span class="mode link" title="Link to…: PERMANENT cables (a tie within the room, backbone to another room) — what the cabling contractor installs. To plug a patch cord in, Esc and use the port's + or Patch to… on a port that already has a cable">LINK · permanent cable</span>
+	{:else}<span class="mode cord" title="Patch cord: a cord plugged between two ports in this room (a panel port needs a label — an outlet or a tie — first)">PATCH · cord</span>{/if}
 	{#if ws.bulkFrom?.kind === 'link'}
 		<!-- interconnects take their own type, kept as last chosen (not the cords') -->
 		<label class="opt" title="The cable type for Link to… (ties, backbone) — kept separately from the patch cords' type">Link type
@@ -111,11 +115,15 @@
 	{#if ws.bulkFrom?.kind !== 'link'}<span class="opt" role="group" aria-label="Color">Color <ColorPick value={ws.cordDefaults.colour} onchange={(v) => { if (v) ws.cordDefaults.colour = v }} /></span>
 		<span class="opt" title="What new cords start as: ADD (planning) or INSTALLED (surveying a built site) — a project setting, for everyone on this project">New cords (all users) <CordMode {project} /></span>{/if}
 	{#if ws.bulkFrom}<span class="ml-2 text-xs text-blue-700">{ws.bulkFrom.kind === 'link' ? `Link ${linkPorts} port(s) from ${project.index.nameOf(ws.bulkFrom.on)}${ws.bulkFrom.more?.length ? ` + ${ws.bulkFrom.more.length} more panel(s)` : ''}${linkCores > 1 ? ` in ${Math.ceil(linkPorts / linkPerCable)} × ${linkCores}-core cable(s)` : ''} — open the other room's rack view (any floor) and click the first port · Esc cancels` : `Bulk: ${ws.bulkFrom.ports.length} port(s) — click the first port to patch them to (${ws.patchFill ? 'filling free ports' : 'in step'}; Ctrl-click: ${ws.patchFill ? 'in step' : 'fill free ports'}) · Esc cancels`}</span>{/if}
+	{#if kind === 'row'}<span class="sep"></span><PortKey patching link={ws.bulkFrom?.kind === 'link'} />{/if}
 {/if}
 
 <style>
 	.sep { display: inline-block; margin: 0 8px; height: 1.25rem; width: 1px; background: var(--cad-line); vertical-align: middle; }
 	.opt { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: var(--cad-muted); margin-left: 6px; }
 	.opt input { width: 4.5rem; border: 1px solid var(--cad-line); border-radius: 4px; padding: 0 4px; background: var(--cad-input); color: var(--cad-text); }
+	.mode { margin-left: 6px; padding: 1px 6px; border-radius: 4px; font-size: 11px; font-weight: 700; letter-spacing: 0.02em; color: white; }
+	.mode.cord { background: #2563eb; }
+	.mode.link { background: #7c3aed; }   /* the TIE / link violet (Links table, the link +) */
 	.opt select.tpl { max-width: 13rem; border: 1px solid var(--cad-line); border-radius: 4px; padding: 0 2px; font-size: 12px; background: var(--cad-input); color: var(--cad-text); }
 </style>

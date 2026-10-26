@@ -16,6 +16,7 @@
 	import { exportPortMap } from '../render/exports'
 	import { handOrderDiffers, planOrder } from '../domain/devices'
 	import RiserFloors from './RiserFloors.svelte'
+	import PortKey from './PortKey.svelte'
 
 	export interface PaneNav { back?: string; fwd?: string; go: (dir: -1 | 1) => void }
 
@@ -38,6 +39,14 @@
 		const r = (e.currentTarget as HTMLElement).getBoundingClientRect()
 		dispAt = { x: r.left, y: r.bottom + 2 }
 		dispOpen = !dispOpen
+	}
+	/** The Port colors ▾ key (rack views, User 2026-10-26: "user will also need to know what the different port colors
+	 *  mean"), placed as Display ▾. */
+	let keyOpen = $state(false), keyAt = $state({ x: 0, y: 0 })
+	function openKey(e: MouseEvent) {
+		const r = (e.currentTarget as HTMLElement).getBoundingClientRect()
+		keyAt = { x: r.left, y: r.bottom + 2 }
+		keyOpen = !keyOpen
 	}
 	const go = (s: ViewSpec) => { onfocus?.(); onspec(s) }
 	const building = $derived(spec.kind !== 'row' && spec.kind !== 'sheet' && !isPaperSpec(spec))
@@ -103,6 +112,7 @@
 		{@const off = offPlan(row.spaceId, row.rowId)}
 		{#if off.length}<button class="offplan" title="{off.length === 1 ? `${project.index.nameOf(off[0]) || 'These racks'} — the racks were` : `${off.length} rows — their racks were`} put in order by hand, so this view doesn’t match the plan. Click: back to the plan’s order (left to right as drawn)" onclick={() => toPlanOrder(row.spaceId, off)}>Order ≠ plan · ↺</button>{/if}
 		<button class="disp" class:on={dispOpen} title="What this rack view shows on your screen" onclick={openDisplay}>Display ▾</button>
+		<button class:on={keyOpen} title="What the port colors mean — as drawn, and while a cord or a link is being made" onclick={openKey}>Port colors ▾</button>
 	{:else if spec.kind === 'portmap'}
 		{@const ids = spec.deviceIds}
 		<button title="The same ports as Excel for the network engineers: the outlet(s), what each port is patched to, the cord, and an empty VLAN column" onclick={() => ws.building('the port map', () => exportPortMap(project.index, project.name, ids)).then((n) => n != null && ws.say(`Port map: ${n} ports — fill in the VLAN column`), (e) => (project.error = `Excel export failed: ${(e as Error).message}`))}>Excel (VLAN)</button>
@@ -119,6 +129,12 @@
 	{/if}
 </div>
 
+{#if keyOpen}
+	<button class="dback" aria-label="Close the port colors" onclick={() => (keyOpen = false)}></button>
+	<div class="dpop" style:left="{keyAt.x}px" style:top="{keyAt.y}px" role="dialog" aria-label="Port colors" tabindex="-1" onkeydown={(e) => { if (e.key === 'Escape') keyOpen = false }}>
+		<PortKey />
+	</div>
+{/if}
 {#if dispOpen}
 	<button class="dback" aria-label="Close the Display menu" onclick={() => (dispOpen = false)}></button>
 	<div class="dpop" style:left="{dispAt.x}px" style:top="{dispAt.y}px" role="menu" tabindex="-1" onkeydown={(e) => { if (e.key === 'Escape') dispOpen = false }}>

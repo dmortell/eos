@@ -22,6 +22,7 @@
 
 {#if p}
 	<CadDialog title={p.title ?? `Patch ${p.rows.length} cord${p.rows.length === 1 ? '' : 's'}`} hint="{p.from} → {p.to}" width="28rem" top="8vh" onclose={() => p.cancel()} onkeydown={key}>
+		{#if p.note}<p class="note">{p.note}</p>{/if}
 		{#if p.setFill}{@const setFill = p.setFill}
 		<label class="fill" title="Off: port for port from the one clicked — a pair is skipped when either port is taken. On: every free port goes to the next free port on the other device (taken ones are passed over). Ctrl on the click picks the other way for that time.">
 			<input type="checkbox" checked={p.fill} onchange={(e) => setFill(e.currentTarget.checked)} /> Fill free ports only</label>
@@ -57,6 +58,7 @@
 
 <style>
 	.fill { display: flex; align-items: center; gap: 4px; margin-bottom: 6px; font-size: 12px; }
+	.note { margin: 0 0 8px; padding: 4px 8px; font-size: 12px; border-left: 3px solid #7c3aed; background: rgb(124 58 237 / 0.08); color: var(--cad-text); }
 	.start { width: 4rem; border: 1px solid var(--cad-line, #d4d4d8); border-radius: 4px; padding: 1px 4px; background: var(--cad-input, white); color: inherit; }
 	.of { color: var(--cad-muted, #71717a); }
 	.list { display: grid; grid-template-columns: 2rem minmax(0, 1fr) auto 2rem minmax(0, 1fr); gap: 1px 6px; overflow: auto; min-height: 0; border: 1px solid var(--cad-line, #e4e4e7); border-radius: 4px; padding: 4px 6px; }

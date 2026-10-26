@@ -4417,3 +4417,13 @@ User: "Yes, cords kept inside the set" (the ❓ entry of 2026-10-17).
   `bulkInterconnect`); Port Properties shows Link to… before Patch to… (a panel port is cabled before it's patched).
   Backlog: "Redo the tool icon buttons" (the flyouts hide the tools). Still untied: 33IDF2's R311 / R312 / R313-P3C
   (P3C's panels carry their ranges, no cables) and the 30F IDF1 "48P Rack Tie" panels.
+- **Link or patch — said plainly; a port color key** (User 2026-10-26: "was I making links instead of patches by
+  mistake? … we'll need some way of clearly making sure they know what they are doing. and user will also need to know
+  what the different port colors mean"). The selected port's + is violet (filled, white +) when it starts a LINK, white
+  with a blue + for a PATCH; its hover label says "LINK a permanent cable … not a patch cord". The Cord tool's bar
+  shows the mode as a badge (LINK · permanent cable, violet / PATCH · cord, blue) and, in a rack view, a short key of
+  the lit colors. A link is always listed to OK first, even one cable, with a note that these are permanent cables, not
+  cords. New `PortKey.svelte`: Port colors ▾ in a rack view's strip — the ports as drawn (plain, labelled, cabled,
+  patched, label changed since printed, reserved, selected) and while patching / linking. The port tip's foot counts
+  "cabled · patched · free to patch · unlabelled" (it said "24 of 24 used · 0 free" for a tied panel). Help: "What
+  the port colors mean", "Patch cord or link?".

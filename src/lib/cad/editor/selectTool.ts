@@ -760,12 +760,15 @@ export class SelectTool implements Tool {
 		else for (const g of this.#cordGrips(c)) out.push({ k: 'line', pts: sq(g.at, 8 * px), closed: true, fill: true, cls: 'grip' })
 		// the + on the selected port(s): a round grip with a plus
 		const pl = this.#plus(c), pr = pl ? this.#plusR(c, pl) : 0, arm = pr / 2
-		if (pl) out.push({ k: 'circle', c: pl.at, r: pr, fill: true, cls: 'grip grip-round' },
-			{ k: 'line', pts: [{ x: pl.at.x - arm, y: pl.at.y }, { x: pl.at.x + arm, y: pl.at.y }], cls: 'grip-plus' },
-			{ k: 'line', pts: [{ x: pl.at.x, y: pl.at.y - arm }, { x: pl.at.x, y: pl.at.y + arm }], cls: 'grip-plus' })
+		// a link's + is violet, filled (the TIE color); a patch's white with a blue + (User 2026-10-26: links were made by
+		// mistake for patches — the two looked the same)
+		const lk = pl?.kind === 'link' ? ' grip-link' : ''
+		if (pl) out.push({ k: 'circle', c: pl.at, r: pr, fill: true, cls: `grip grip-round${lk}` },
+			{ k: 'line', pts: [{ x: pl.at.x - arm, y: pl.at.y }, { x: pl.at.x + arm, y: pl.at.y }], cls: `grip-plus${lk}` },
+			{ k: 'line', pts: [{ x: pl.at.x, y: pl.at.y - arm }, { x: pl.at.x, y: pl.at.y + arm }], cls: `grip-plus${lk}` })
 		// …and what it does, while the pointer is on it (User 2026-10-17)
 		if (pl && this.#hovPlus && !this.#gesture) out.push({ k: 'text', at: { x: pl.at.x + pr + 4 * px, y: pl.at.y - 8 * px }, size: 11 * px, anchor: 'start', cls: 'draft-label',
-			text: pl.kind === 'cord' ? 'Patch from here — click, then the port to patch to' : 'Link from here — click, then the first port to link to (another room or floor: switch views)' })
+			text: pl.kind === 'cord' ? 'PATCH a cord from here — click, then the port to patch to' : 'LINK a permanent cable (tie / backbone) from here — not a patch cord: click, then the other panel’s first port' })
 		// the grip under the pointer, larger (UX07: "larger on hover")
 		if (this.#hovRoom?.span && !this.#gesture) out.push({ k: 'line', pts: this.#hovRoom.span, cls: 'grip-bar' })
 		const gripLive = this.#hovFor === c.selection.join(',') && c.selection.every((id, i) => { const e = c.store.get(id); return e && e === this.#hovEnts[i] })
