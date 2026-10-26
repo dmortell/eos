@@ -78,7 +78,9 @@ CadShell, ViewCanvas and selectTool were split 2026-10-07; split again only when
   the popouts") — the flyouts hide most tools behind the last-used one, so finding a tool means opening each popout.
   Options to weigh with the strip review above: every tool its own button again (grouped, the groups as the menus), a
   label under / beside each icon, a searchable tool picker (type "cord"), or the palette (4) with labels. Ask before
-  building. **P2 · M**.
+  building. **P2 · M**. Mock-ups (2026-10-26, https://claude.ai/artifact/7hUNmZYq8gfnLCfkB3xHYz): A every tool its own
+  button · B task tabs with labels (ribbon) · C labelled palette docked left · D today's strip + Find a tool · E floating
+  toolbox (icons, or names on). User to pick.
 
 ## User's todos (2026-10-14)
 

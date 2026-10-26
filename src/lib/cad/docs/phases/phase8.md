@@ -4444,3 +4444,5 @@ User: "Yes, cords kept inside the set" (the ❓ entry of 2026-10-17).
   ports to…" only when all can, else "Patch 24 free ports (1–24) to…", and hides it when none can; P on a selected
   device arms the same ports (none: says why). Properties' port line now reads like the port tip — "48 ports · 24
   cabled · 0 patched · 24 free to patch · 24 unlabelled" (`portCountText`, shared).
+- **33IDF2 PDUs patched** (User 2026-10-26): R311 / R312 / R313, each rack's PDUs to ports 1 and 24 of its tie panel
+  (1.5 m and 2 m, as 33IDF1). P3C U40 named P3C-R313. Tool strip mock-ups A–E published for the backlog item.
