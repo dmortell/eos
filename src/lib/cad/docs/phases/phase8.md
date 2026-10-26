@@ -4431,3 +4431,11 @@ User: "Yes, cords kept inside the set" (the ❓ entry of 2026-10-17).
   in the drawing had no focus (the click's up lands on the page), so Enter did nothing — and the next click outside
   cancelled it ("Nothing linked"). Enter on the page now OKs it too. 33IDF2 tied: R311-P3C → P3C-R311 (P3C U41
   1–24), R312-P3C → P3C-R312 (U41 25–48), R313-P3C → P3C-R313 (U40 1–24) — 72 ties.
+- **Link only from structured cabling; every dialog keeps its keys when opened from a click** (User 2026-10-26: "will
+  the link version appear if a device port (or PDU port) is selected? … Will the Enter/Esc key bug affect other
+  dialogs?"). New `linkStarts` (a panel or a fibre enclosure): the port's violet +, Link to… and L. Enclosures were
+  patch-only before; a switch, PDU or server port only ever patches. The focus bug was general: `dialogFocus` took the
+  focus at once, then the mousedown of the press that opened the dialog put it back on the page, so Enter and Esc did
+  nothing in any dialog opened from a press in the drawing. It now takes the focus again once that press is over (if
+  it fell to the page); the patch list's own workaround is gone. Checked live: Link to… → click → the list has the
+  focus, Esc cancels. Backlog: "Plan: containment between 33F 3303 and 33F 3307".

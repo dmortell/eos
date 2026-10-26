@@ -67,6 +67,13 @@ CadShell, ViewCanvas and selectTool were split 2026-10-07; split again only when
   4. **Floating palette** (M), like the legacy Pages tool — the strip as a window (WinId `tools`): floating over the
      canvas or docked left / right as a vertical column, optional labels, hideable (frees the top bar). Combines with 1
      or 2. **P3 · S–M**.
+- [ ] **Plan: containment between 33F 3303 and 33F 3307** (User 2026-10-26) — the 24 backbone cables P3A-3307 (P3A U40
+  ports 25–48, 33IDF1) → "NEW 24p UTP to 33-IDF1" (3307-R2 U35, IDF3307) say "No route: the runs at the two ends are not
+  connected", so they have no length. Plan how to define the path between the two buildings' server rooms on 33F:
+  which levels / plans the run crosses (3303's plan, 3307's plan, a link between them — a bridge, a shared riser, a
+  ceiling route?), whether it's one run drawn across two plans (multi-building: `multi-building-plan.md`) or two runs
+  joined at a hand-off point, and what a cable's length is meanwhile (Route through / By hand). Plan first, ask
+  before building. **P2 · M?**
 - [ ] **Redo the tool icon buttons** (User 2026-10-26: "I can never find the ones I'm looking for without checking all
   the popouts") — the flyouts hide most tools behind the last-used one, so finding a tool means opening each popout.
   Options to weigh with the strip review above: every tool its own button again (grouped, the groups as the menus), a

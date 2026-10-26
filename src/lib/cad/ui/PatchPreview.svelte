@@ -18,16 +18,7 @@
 	function key(e: KeyboardEvent) {
 		if (p && e.key === 'Enter' && !(e.target instanceof HTMLButtonElement) && p.rows.length) { e.preventDefault(); p.ok() }
 	}
-	/** Opened by a click in the drawing, the dialog can be without the focus (the pointer's up lands on the page — User
-	 *  2026-10-26: Enter did nothing): Enter on the page (not a field or a button) still OKs it. */
-	function pageKey(e: KeyboardEvent) {
-		const t = e.target as Element | null
-		if (t && t !== document.body && t !== document.documentElement) return
-		key(e)
-	}
 </script>
-
-<svelte:window onkeydown={pageKey} />
 
 {#if p}
 	<CadDialog title={p.title ?? `Patch ${p.rows.length} cord${p.rows.length === 1 ? '' : 's'}`} hint="{p.from} → {p.to}" width="28rem" top="8vh" onclose={() => p.cancel()} onkeydown={key}>

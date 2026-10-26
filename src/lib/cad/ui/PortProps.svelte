@@ -10,7 +10,7 @@
 	import { newId } from '../domain/ids'
 	import { traceCircuit, removeCords, removedText } from '../domain/cords'
 	import Trace from './Trace.svelte'
-	import { containmentRuns } from '../domain/interconnect'
+	import { containmentRuns, linkStarts } from '../domain/interconnect'
 	import { viaList, viaValue } from '../domain/routing'
 	import type { Device, Link } from '../domain/types'
 	import { cablesOf } from '../domain/multicore'
@@ -101,7 +101,7 @@
 <p class="pt-1 font-semibold" title="Click a port · Shift-click a range · Ctrl-click to add or drop one">Port{sel.ports.length > 1 ? 's' : ''} {portRanges(sel.ports)} <span class="font-normal text-zinc-500">({sel.face})</span></p>
 <div class="acts main">
 	<!-- Link to… first, Patch to… after: a panel port is cabled (tied / linked) before it is patched (User 2026-10-26) · click (or P / I, or right-click a port), then click the first port; or DRAG the button onto that port in a rack view (backlog "Bulk patching by drag") -->
-	{#if device?.kind === 'panel'}<button title="Permanent cables from these ports to another panel — in another room or on another floor (backbone, through a riser) or the same room (tie): open its rack view and click its first port — or drag this onto that port" onclick={() => ws.interconnectFrom(sel)}
+	{#if device && linkStarts(device)}<button title="Permanent cables from these ports to another panel — in another room or on another floor (backbone, through a riser) or the same room (tie): open its rack view and click its first port — or drag this onto that port" onclick={() => ws.interconnectFrom(sel)}
 		draggable="true" ondragstart={(e) => { const s = { ...sel, ports: [...sel.ports] }; ws.startDrag(() => ws.interconnectFrom(s), () => { ws.bulkFrom = null }); e.dataTransfer?.setData('application/x-cad-ports', 'link') }} ondragend={() => ws.endDrag()} class="primary">⟷ Link to… <kbd>L</kbd></button>{/if}
 	<button title="Patch these ports to another device: click its first port next — or drag this onto that port. Several ports: the cords are listed to OK first, with the busy / unlabelled ports skipped" onclick={() => ws.patchFrom(sel)}
 		draggable="true" ondragstart={(e) => { const s = { ...sel, ports: [...sel.ports] }; ws.startDrag(() => ws.patchFrom(s), () => { ws.bulkFrom = null }); e.dataTransfer?.setData('application/x-cad-ports', 'patch') }} ondragend={() => ws.endDrag()} class="primary">⇄ Patch {sel.ports.length > 1 ? `${sel.ports.length} ports ` : ''}to… <kbd>P</kbd></button>

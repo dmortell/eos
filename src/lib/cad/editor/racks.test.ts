@@ -374,6 +374,13 @@ describe('devices in the rack row', () => {
 		const sel = new SelectTool()
 		sel.down(at(plus.at.x, plus.at.y), ctx()); sel.up(at(plus.at.x, plus.at.y), ctx())
 		expect(armed).toEqual([[[10], 'link']])
+		// a fibre enclosure is structured cabling: an empty port links; a server's (a PDU's) port only ever patches
+		const base = h.store.get('SW1') as Device
+		h.store.transact('add', (tx) => { tx.put({ ...base, id: 'FE1', name: 'Fibre', kind: 'enclosure', u: 5, portCount: 24 }); tx.put({ ...base, id: 'SV1', name: 'Server', kind: 'server', u: 3, portCount: 2 }) })
+		pick('FE1', 1)
+		expect(portPlus(ctx().index, h.ports(), 'front', ctx().prims())?.kind).toBe('link')
+		pick('SV1', 1)
+		expect(portPlus(ctx().index, h.ports(), 'front', ctx().prims())?.kind).toBe('cord')
 	})
 	it('Delete on cords: a planned one goes, an installed one is only marked `remove`', () => {
 		const h = harness(ROW)

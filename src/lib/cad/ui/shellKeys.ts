@@ -8,6 +8,7 @@ import type { Panels } from '../app/panels.svelte'
 import type { Tabs } from '../app/tabs.svelte'
 import type ViewCanvas from './ViewCanvas.svelte'
 import { labelKind } from '../domain/labelEdit'
+import { linkStarts } from '../domain/interconnect'
 import { composing, typingIn } from './keyGuards'
 import type { Device } from '../domain/types'
 import { duplicateViewports } from '../app/sheetActions'
@@ -75,7 +76,8 @@ export interface KeyCommand {
 	when: (e: KeyboardEvent, c: ShellKeyCtx, k: string, mod: boolean) => boolean
 	run: (e: KeyboardEvent, c: ShellKeyCtx, k: string) => void
 }
-const isPanel = (c: ShellKeyCtx, id: string) => { const d = c.project.index.get(id); return d?.type === 'device' && d.kind === 'panel' }
+// structured cabling (a panel, a fibre enclosure): L links from it
+const isPanel = (c: ShellKeyCtx, id: string) => { const d = c.project.index.get(id); return d?.type === 'device' && linkStarts(d) }
 const pd = (e: KeyboardEvent) => e.preventDefault()
 const patchable = (c: ShellKeyCtx, id: string) => { const d = c.project.index.get(id); return d?.type === 'device' && d.portCount > 0 && d.kind !== 'pdu' }
 

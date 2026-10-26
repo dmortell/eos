@@ -6,6 +6,7 @@ import type { Id, Pt } from '../domain/types'
 import type { ProjectIndex } from '../domain/project'
 import type { PortSel } from './tools'
 import { cordAt } from '../domain/cords'
+import { linkStarts } from '../domain/interconnect'
 
 export interface CordEndGrip { cord: Id; end: 'a' | 'b'; at: Pt; other: Pt }
 
@@ -21,13 +22,14 @@ export function cordEndGrips(prims: Prim[], cordId: Id): CordEndGrip[] {
 export interface PortPlus { at: Pt; kind: 'cord' | 'link'; cell: number }
 
 /** The + on the selected ports, at the top-right corner of the clicked one's cell, when none has a cord: on a panel a
- *  patch when every one has a link, a link when none has; on a switch (any other device) a patch — links run panel to
- *  panel (Port Properties offers Link to… on panels only). Null otherwise (mixed, patched) or on the other face. */
+ *  patch when every one has a link, a link when none has; on a switch, a PDU, a server (any device that isn't
+ *  structured cabling — a panel or a fibre enclosure, `linkStarts`) always a patch. Null otherwise (mixed, patched) or
+ *  on the other face. */
 export function portPlus(ix: ProjectIndex, sel: PortSel | null, face: 'front' | 'rear', prims: Prim[]): PortPlus | null {
 	if (!sel?.ports.length || sel.face !== face) return null
 	if (sel.ports.some((n) => cordAt(ix, { on: sel.on, port: n }))) return null
 	const d = ix.get(sel.on), linked = sel.ports.filter((n) => ix.linkAt({ on: sel.on, port: n, face })).length
-	const kind = d?.type === 'device' && d.kind !== 'panel' ? 'cord' : linked === sel.ports.length ? 'cord' : linked === 0 ? 'link' : null
+	const kind = d?.type === 'device' && !linkStarts(d) ? 'cord' : linked === sel.ports.length ? 'cord' : linked === 0 ? 'link' : null
 	if (!kind) return null
 	const n = sel.ports.includes(sel.anchor) ? sel.anchor : sel.ports[0]
 	const cell = prims.find((p) => p.k === 'line' && p.src === sel.on && p.sub === String(n) && p.role === 'port')

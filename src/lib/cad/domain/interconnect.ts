@@ -9,7 +9,11 @@ import { intoCables, linkCores, portsPerCable } from './multicore'
 
 /** Can a tie / backbone land on this device? A panel or an enclosure (or a switch's harness ports) — not a PDU or a
  *  server (User 2026-10-26: the + on an untied panel port, then a PDU's port, made a "tie" to the PDU). */
-export const linkLands = (d: Device): boolean => d.kind === 'panel' || d.kind === 'enclosure' || d.kind === 'switch'
+export const linkLands = (d: Device): boolean => linkStarts(d) || d.kind === 'switch'
+/** Can a tie / backbone START here (Link to…, the port's violet +, L)? Structured cabling only: a patch panel or a fibre
+ *  enclosure (User 2026-10-26: "Link should only appear for structured cabling panels"). A switch's harness is linked
+ *  from the panels' side; a PDU, a server, a switch port take patch cords. */
+export const linkStarts = (d: Device): boolean => d.kind === 'panel' || d.kind === 'enclosure'
 
 /** `a.more`: further panels after the first (several panels selected, User 2026-10-10: four 24-port panels onto one
  *  96-port switch) — their ports carry on from where the one before stopped on the other device. */
