@@ -7,6 +7,7 @@ import type { Tool, ToolCtx, PointerIn } from './tools'
 import type { Prim } from '../views/display'
 import type { Cord, Id, PortRef } from '../domain/types'
 import { pickPrim } from './pick'
+import { portCellUnder } from '../views/portTip'
 import { makeCord, patchProblem, bulkPatch, type CordDefaults } from '../domain/cords'
 import { bulkInterconnect } from '../domain/interconnect'
 import { coresOf, linkCores, portsPerCable } from '../domain/multicore'
@@ -94,6 +95,12 @@ export class CordTool implements Tool {
 
 	/** The device port under a click, on the face being viewed. */
 	#portAt(e: PointerIn, c: ToolCtx): PortRef | null {
+		// the port cell under the pointer first: a cord drawn over a port took the click ("Click a port", User 2026-10-26)
+		const spec = c.space.spec
+		if (spec.kind === 'row') {
+			const cell = portCellUnder(c.prims(), e.p)
+			if (cell && c.store.get(cell.src!)?.type === 'device') return { on: cell.src!, port: Number(cell.sub), face: spec.face }
+		}
 		const hit = pickPrim(c.prims(), e.p, c.tol())
 		const sub = hit && hit.k !== 'image' ? hit.sub : undefined
 		if (!sub || !hit?.src || c.store.get(hit.src)?.type !== 'device' || c.space.spec.kind !== 'row') return null

@@ -6,6 +6,7 @@ import type { Outlet, PortRef } from '../domain/types'
 import type { Prim } from './display'
 import { inPolygon, primDist } from './primGeom'
 import { portUse, patchProblem, cordAt } from '../domain/cords'
+import { linkLands } from '../domain/interconnect'
 
 /** The port cell under `p` in a rack-view display list (a `port…` box with the device as src and the port as sub). */
 export function portUnder(prims: Prim[], p: { x: number; y: number }, face: 'front' | 'rear'): PortRef | null {
@@ -94,8 +95,10 @@ export function portLights(ix: ProjectIndex, prims: Prim[], face: 'front' | 'rea
 			if (p.k !== 'line' || !p.closed || !p.src || !p.sub || p.role !== 'port') continue
 			const k = `${p.src}:${p.sub}`
 			const r = { on: p.src, port: Number(p.sub), face }
-			// a panel port with no label refuses a cord (Round 10: it showed free): blocked, grey
-			m.set(k, (link ? ix.linkAt(r) : corded.has(k)) ? 'taken' : !link && patchProblem(ix, r) ? 'blocked' : 'free')
+			// a panel port with no label refuses a cord (Round 10: it showed free): blocked, grey; a link: a PDU / server port
+			// refuses it (User 2026-10-26: they lit green)
+			const d = link ? ix.getOf('device', p.src) : undefined
+			m.set(k, (link ? ix.linkAt(r) : corded.has(k)) ? 'taken' : (link ? !!d && !linkLands(d) : patchProblem(ix, r)) ? 'blocked' : 'free')
 		}
 		if (s.first && onFace(s.first)) m.set(`${s.first.on}:${s.first.port}`, 'from')
 		if (s.bulk) for (const n of s.bulk.ports) m.set(`${s.bulk.on}:${n}`, 'from')

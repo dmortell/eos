@@ -67,6 +67,11 @@ CadShell, ViewCanvas and selectTool were split 2026-10-07; split again only when
   4. **Floating palette** (M), like the legacy Pages tool — the strip as a window (WinId `tools`): floating over the
      canvas or docked left / right as a vertical column, optional labels, hideable (frees the top bar). Combines with 1
      or 2. **P3 · S–M**.
+- [ ] **Redo the tool icon buttons** (User 2026-10-26: "I can never find the ones I'm looking for without checking all
+  the popouts") — the flyouts hide most tools behind the last-used one, so finding a tool means opening each popout.
+  Options to weigh with the strip review above: every tool its own button again (grouped, the groups as the menus), a
+  label under / beside each icon, a searchable tool picker (type "cord"), or the palette (4) with labels. Ask before
+  building. **P2 · M**.
 
 ## User's todos (2026-10-14)
 

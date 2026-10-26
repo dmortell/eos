@@ -7,6 +7,10 @@ import type { ProjectIndex } from './project'
 import { newId } from './ids'
 import { intoCables, linkCores, portsPerCable } from './multicore'
 
+/** Can a tie / backbone land on this device? A panel or an enclosure (or a switch's harness ports) — not a PDU or a
+ *  server (User 2026-10-26: the + on an untied panel port, then a PDU's port, made a "tie" to the PDU). */
+export const linkLands = (d: Device): boolean => d.kind === 'panel' || d.kind === 'enclosure' || d.kind === 'switch'
+
 /** `a.more`: further panels after the first (several panels selected, User 2026-10-10: four 24-port panels onto one
  *  96-port switch) — their ports carry on from where the one before stopped on the other device. */
 export function bulkInterconnect(ix: ProjectIndex, a: { on: Id; ports: number[]; face?: 'front' | 'rear'; more?: { on: Id; ports: number[] }[] }, b: { on: Id; start: number; face?: 'front' | 'rear' },
@@ -14,9 +18,7 @@ export function bulkInterconnect(ix: ProjectIndex, a: { on: Id; ports: number[];
 	const devB = ix.getOf('device', b.on)
 	const links: Link[] = [], skipped: string[] = []
 	if (devB?.type !== 'device') return { links, skipped: ['Not a device'] }
-	// a tie / backbone lands on a panel or an enclosure (or a switch's harness ports) — not a PDU or a server (User 2026-10-26: the + on an
-	// untied panel port, then a PDU's port, made a "tie" to the PDU)
-	if (devB.kind !== 'panel' && devB.kind !== 'enclosure' && devB.kind !== 'switch') return { links, skipped: [`${devB.name} is a ${devB.kind} — ties and backbone cables run panel to panel; tie this panel to the frame first, then patch the ${devB.kind} to it with a cord`] }
+	if (!linkLands(devB)) return { links, skipped: [`${devB.name} is a ${devB.kind} — ties and backbone cables run panel to panel; tie this panel to the frame first, then patch the ${devB.kind} to it with a cord`] }
 	const busy = (r: PortRef) => !!ix.linkAt({ on: r.on, port: r.port })
 	let nb = b.start
 	sources: for (const src of [a, ...(a.more ?? [])]) {

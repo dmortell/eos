@@ -338,6 +338,9 @@ describe('devices in the rack row', () => {
 		tool.down(portOf('SV1', 1), h.ctx())
 		expect([h.store.ofType('link').length, bulk?.kind]).toEqual([links, 'link'])
 		expect(toasts.at(-1)).toEqual([expect.stringMatching(/^Not linked — Server is a server — ties and backbone cables run panel to panel/), 'error'])
+		// …and while a link is armed its ports are lit grey (blocked), not green
+		const ix2 = new ProjectIndex(h.store.all()), lit = portLights(ix2, rackRowDisplayList(ix2, { spaceId: 'SR-A', face: 'front' }), 'front', { hover: null, first: null, bulk, patching: true })
+		expect([lit.get('SV1:1'), lit.get('SW1:30')]).toEqual(['blocked', 'free'])
 	})
 	it('a selected cord’s end grip dropped on another port re-patches that end; a taken port refuses (User: grips for repatching)', () => {
 		const h = harness(ROW)

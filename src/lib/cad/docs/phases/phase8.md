@@ -4409,3 +4409,11 @@ User: "Yes, cords kept inside the set" (the ❓ entry of 2026-10-17).
   cords" list; (5) an armed Patch to… / Link to… shows only its own hint (the Cord tool's ran on after it). Toasts:
   every patch, Patch to…, link, re-patch and refusal also shows in the toast, green edge made / red refused
   (`ws.notify(msg, tone)`, `ToolCtx.notify`, `CordToolDeps.notify`).
+- **Patching follow-ups, seen live on Journey R303** (User 2026-10-26). Done there: the stray PDU "tie" removed
+  (Links › Remove), R303-P3A 1–24 tied to P3A-R303 1–24 with the port's + (24 ties, P3A-R303:01–24), then the left
+  PDU → R303-P3A:1 (1.5 m) and the right PDU → :24 (2 m), as R302's. Fixed on the way: the Cord tool takes the port
+  cell under the pointer before a cord drawn over it (a click on port 1, whose cord leaves from it, said "Click a
+  port"); while Link to… is armed, PDU / server ports light grey, not green (`linkLands`, shared with
+  `bulkInterconnect`); Port Properties shows Link to… before Patch to… (a panel port is cabled before it's patched).
+  Backlog: "Redo the tool icon buttons" (the flyouts hide the tools). Still untied: 33IDF2's R311 / R312 / R313-P3C
+  (P3C's panels carry their ranges, no cables) and the 30F IDF1 "48P Rack Tie" panels.
