@@ -1,7 +1,7 @@
 // Lists of the PERMANENT cables (User, 2026-10-05): the backbone / tie cables grouped panel ↔ panel for the sidebar's
 // "Cables (n)" (backlog "Backbone cable list"), and one row per link for the Links table (backlog "Links table").
 // Pure.
-import type { Id, Link, Device, Rack, Level, ProjectSettings } from './types'
+import type { Id, Link, PortRef, Device, Rack, Level, ProjectSettings } from './types'
 import type { ProjectIndex } from './project'
 import { naturalCompare } from './labels'
 import { cableKey, coreLabels, coresOf, linkCores } from './multicore'
@@ -67,8 +67,12 @@ export function cableGroups(ix: ProjectIndex): CableGroup[] {
 export interface LinkRow {
 	id: Id
 	kind: 'run' | 'tie' | 'backbone'
+	/** "Rack · device : port", the port by the name its panel shows ("P3A · 33NACC3 : 73", not its number 23 — User
+	 *  2026-10-27: four panels named alike all read ": 23"); `aPort` / `bPort` = "port 23" when that differs. */
 	a: string
 	b: string
+	aPort?: string
+	bPort?: string
 	/** The port label it carries (the outlet's, or a tie's). */
 	label: string
 	cableType: string
@@ -81,10 +85,18 @@ export interface LinkRow {
 /** Every permanent link as a table row: a horizontal one shows as a "run" (panel → outlet). Panel end first. */
 export function linkRows(ix: ProjectIndex, lengthOf: (id: Id) => number | undefined = () => undefined): LinkRow[] {
 	const st = ix.getOf('settings', 'settings'), cores = coreLabels(ix.links, (t) => coresOf(st?.type === 'settings' ? st : undefined, t), (l) => linkCores((id) => ix.get(id), l))
-	return ix.links.map((l) => ({
-		id: l.id, kind: l.kind === 'horizontal' ? 'run' : l.kind,
-		a: ix.portPlace(l.a), b: ix.portPlace(l.b), label: ix.portLabel(l.b) || ix.portLabel(l.a),
-		cableType: l.cableType ?? '', status: l.status, lengthM: l.lengthM ?? lengthOf(l.id),
-		...(cores.has(l.id) ? { core: cores.get(l.id) } : {}),
-	} satisfies LinkRow)).sort((x, y) => naturalCompare(x.a, y.a))
+	const end = (r: PortRef) => {
+		const name = ix.devicePortLabel(r), d = ix.get(r.on)
+		if (!name || name === String(r.port) || d?.type !== 'device') return { at: ix.portPlace(r) }
+		return { at: `${ix.nameOf(d.rackId)} · ${d.name} : ${name}${r.face ? ` (${r.face})` : ''}`, port: `port ${r.port}` }
+	}
+	return ix.links.map((l) => {
+		const a = end(l.a), b = end(l.b)
+		return {
+			id: l.id, kind: l.kind === 'horizontal' ? 'run' : l.kind,
+			a: a.at, b: b.at, ...(a.port ? { aPort: a.port } : {}), ...(b.port ? { bPort: b.port } : {}), label: ix.portLabel(l.b) || ix.portLabel(l.a),
+			cableType: l.cableType ?? '', status: l.status, lengthM: l.lengthM ?? lengthOf(l.id),
+			...(cores.has(l.id) ? { core: cores.get(l.id) } : {}),
+		} satisfies LinkRow
+	}).sort((x, y) => naturalCompare(x.a, y.a))
 }

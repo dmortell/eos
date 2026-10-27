@@ -42,4 +42,12 @@ describe('cable list', () => {
 		expect(rows.find((r) => r.id === 'k1')).toMatchObject({ kind: 'backbone', a: 'B01 · FP01 : 1', b: 'A01 · FP01 : 1', cableType: 'OS2 12c', status: 'design', lengthM: 42 })
 		expect(rows.find((r) => r.id === 't1')?.label).toMatch(/^A01~A02:/)
 	})
+	it('link rows: a panel port shows by its name — two panels named alike, tied to a switch, read 05 (the switch port) and X-29 (its own label), not 5 and 5', () => {
+		const sw = { type: 'device', id: 'SW', rackId: 'R1b', name: 'NACC', kind: 'switch', u: 3, heightU: 2, portCount: 48 } as Entity
+		const p = (id: string, u: number) => ({ type: 'device', id, rackId: 'R1', name: 'NACC', kind: 'panel', u, heightU: 1, portCount: 24, ...(id === 'N2' ? { portLabels: { '5': 'X-29' } } : {}) }) as Entity
+		const ix = new ProjectIndex([...ents.slice(0, 9), sw, p('N1', 10), p('N2', 11), link('n1', 'tie', 'N1', 'SW', 5), { ...link('n2', 'tie', 'N2', 'SW', 5), b: { on: 'SW', port: 29 } } as Entity])
+		const rows = linkRows(ix)
+		expect(rows.find((r) => r.id === 'n1')).toMatchObject({ a: 'A01 · NACC : 05', aPort: 'port 5', b: 'A02 · NACC : 5' })
+		expect(rows.find((r) => r.id === 'n2')).toMatchObject({ a: 'A01 · NACC : X-29', aPort: 'port 5' })
+	})
 })

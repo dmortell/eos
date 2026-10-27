@@ -80,17 +80,28 @@ export class ProjectIndex {
 		if (e?.type !== 'device') return ''
 		const far = this.farEnd(r), fe = far && this.byId.get(far.on)
 		if (fe?.type === 'outlet') return fe.ports[far!.port - 1]?.label ?? ''
+		const own = this.devicePortLabel(r)
+		if (own) return own
+		if (fe?.type === 'device' && e.kind === 'switch') return String(r.port).padStart(2, '0')
+		const l = this.linkAt(r)
+		return l?.kind === 'tie' ? this.#tieLabel(l) : ''
+	}
+
+	/** A device port's own name, as its panel shows it — not an outlet's label carried to it, nor a tie's made-up one:
+	 *  its `portLabels` text, its labelled range's, or the switch port it's cabled to. '' when none. */
+	devicePortLabel(r: PortRef): string {
+		const e = this.byId.get(r.on)
+		if (e?.type !== 'device') return ''
 		const own = e.portLabels?.[String(r.port)]
 		if (own) return own
+		const far = this.farEnd(r), fe = far && this.byId.get(far.on)
 		// in a labelled range of ports ("P3A-R302:01"), on this panel or on the one its cable comes from
 		const g = groupPortLabel(this, e, r.port) || (fe?.type === 'device' ? groupPortLabel(this, fe, far!.port) : '')
 		if (g) return g
 		// cabled to a SWITCH: the switch's port (its own label, else its number "01"–"96") at both ends — the panels
 		// are named after their switch (User 2026-10-10: Tourney's 33NACC1 panels in P3A ↔ the 33NACC1 switch)
 		if (fe?.type === 'device' && fe.kind === 'switch') return fe.portLabels?.[String(far!.port)] || String(far!.port).padStart(2, '0')
-		if (fe?.type === 'device' && e.kind === 'switch') return String(r.port).padStart(2, '0')
-		const l = this.linkAt(r)
-		return l?.kind === 'tie' ? this.#tieLabel(l) : ''
+		return ''
 	}
 
 	/** A tie with no labels of its own: "RackA~RackB:NN" at both ends — the racks in name order, numbered per pair by

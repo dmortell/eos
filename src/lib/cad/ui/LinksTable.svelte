@@ -101,8 +101,8 @@
 			{#each shown as r (r.id)}
 				<tr class="hov" class:row-sel={selected.has(r.id)} onmousedown={noTextPick} onclick={(e) => pick(r.id, e)}>
 					<td class="px-2 py-0.5 whitespace-nowrap"><StatusChip tone={r.kind} label={r.kind} />{#if r.core} <span class="muted" title="A core of a multi-core cable: type and status changes go to all its cores">{r.core}</span>{/if}</td>
-					<td class="px-2">{r.a}</td>
-					<td class="px-2">{r.b}</td>
+					<td class="px-2" title={r.aPort}>{r.a}</td>
+					<td class="px-2" title={r.bPort}>{r.b}</td>
 					<td class="px-2 font-mono muted">{r.label || '—'}</td>
 					{#if ed.is(r.id, 'type')}
 						<td class="ed"><input class="ed-box" list="cad-link-types" value={r.cableType} placeholder="cable" use:focusCell onkeydown={(e) => ed.key(e, r.id, 'type')} onblur={(e) => ed.blur(r.id, 'type', e.currentTarget.value)} onclick={(e) => e.stopPropagation()} /></td>
