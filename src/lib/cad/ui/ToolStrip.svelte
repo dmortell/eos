@@ -4,7 +4,9 @@
      is already in use opens the others. An item can be a tool's variant (Rectangle / Polygon / Ellipse / Arc; Box /
      Cylinder / Polygon box). Groups: Select / modify · Draw · Build (3D) · Spaces and views · Annotate · Cabling ·
      Drawings; the buttons never move. A tool that doesn't work in this view is greyed, its title saying where it does.
-     `vertical`: the floating palette's two columns (flyouts open to the right), else a row in the top bar (below). -->
+     `vertical`: the floating TOOLBOX (tool strip option E, User 2026-10-27: "3 icons wide, section headings as thin
+     lines") — every item its own button, no flyouts, 3 to a row, a thin line between groups; `names`: one per row with
+     its name. Else a row of flyout buttons in the top bar (below). -->
 <script lang="ts">
 	import { Icon } from '$lib'
 	import { TOOL_FAMILIES, itemOf, itemLabel, itemIcon } from './toolGroups'
@@ -12,8 +14,8 @@
 	import { TOOL_VIEWS, toolWorksIn } from '../app/workspace.svelte'
 	import type { ViewSpec } from '../views/space'
 
-	let { tool, kind, onSheet = false, vertical = false, variantOf = () => undefined, onTool }: {
-		tool: ToolId; kind: ViewSpec['kind']; /** a viewport being edited on a sheet */ onSheet?: boolean; vertical?: boolean
+	let { tool, kind, onSheet = false, vertical = false, names = false, variantOf = () => undefined, onTool }: {
+		tool: ToolId; kind: ViewSpec['kind']; /** a viewport being edited on a sheet */ onSheet?: boolean; vertical?: boolean; names?: boolean
 		/** The variant a tool is set to now (the Shape / Box tools' kind). */
 		variantOf?: (tool: ToolId) => string | undefined
 		onTool: (id: ToolId, variant?: string) => void
@@ -71,10 +73,17 @@
 
 <svelte:window onpointerdown={away} onkeydown={(e) => { if (e.key === 'Escape' && open) { open = null; e.stopPropagation() } }} />
 
-<div class="strip" class:vertical role="toolbar" aria-label="Tools" aria-orientation={vertical ? 'vertical' : 'horizontal'}>
+<div class="strip" class:vertical class:names={vertical && names} role="toolbar" aria-label="Tools" aria-orientation={vertical ? 'vertical' : 'horizontal'}>
 	<!-- the Drawings group (Viewport) only while a sheet is open (User 2026-10-15); it's last, so nothing moves -->
 	{#each TOOL_FAMILIES.filter((g) => g.name !== 'Drawings' || kind === 'sheet') as g, gi (g.name)}
-		{#if gi}<span class="sep" role="separator"></span>{/if}
+		{#if gi}<span class="sep" role="separator" title={g.name}></span>{/if}
+		{#if vertical}
+			{#each g.families as f (fam(f))}
+				{#each f as item (item)}
+					<button class="tool" class:on={inUse(item)} class:off={!ok(item)} aria-label={itemLabel(item)} title={title(item)} onclick={() => pick(f, item)}><Icon name={itemIcon(item)} size={16} />{#if names}<span class="name">{itemLabel(item).replace(/ \(.*\)$/, '')}</span>{/if}</button>
+				{/each}
+			{/each}
+		{:else}
 		{#each g.families as f (fam(f))}
 			{@const item = shown(f)}
 			{@const anyOk = f.some(ok)}
@@ -86,6 +95,7 @@
 				{#if f.length > 1}<button class="mark" class:off={!anyOk} aria-label="More: {f.map(itemLabel).join(', ')}" title="More tools here" onclick={(e) => openFly(f, (e.currentTarget.previousElementSibling as HTMLElement) ?? e.currentTarget)}><i></i></button>{/if}
 			</span>
 		{/each}
+		{/if}
 	{/each}
 </div>
 
@@ -99,7 +109,10 @@
 
 <style>
 	.strip { display: flex; align-items: center; gap: 1px; }
-	.strip.vertical { display: grid; grid-template-columns: repeat(2, 28px); gap: 2px; align-items: start; }
+	.strip.vertical { display: grid; grid-template-columns: repeat(3, 28px); gap: 1px; align-items: start; }
+	.strip.names { grid-template-columns: max-content; }
+	.strip.names .tool { justify-content: flex-start; gap: 7px; width: auto; height: 24px; padding: 0 8px 0 5px; font-size: 12px; white-space: nowrap; }
+	.strip.names .tool.on .name { font-weight: 600; }
 	.cell { position: relative; display: inline-flex; }
 	.tool { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 6px; color: var(--cad-muted); -webkit-touch-callout: none; user-select: none; }
 	.tool:hover { background: var(--cad-hover); color: var(--cad-text); }
