@@ -680,6 +680,7 @@ export class SelectTool implements Tool {
 		if (!r.cord) { const m = r.problem ?? 'Not moved'; c.say?.(m); c.notify?.(m, 'error'); return }
 		const next = r.cord
 		c.store.transact(`Re-patch ${c.index.portPlace(from)} → ${c.index.portPlace(to)}`, (tx) => tx.put(next))
+		c.selectPorts?.(null); c.select([next.id])   // the cord stays picked, its grips on (User 2026-10-28)
 		c.say?.(`Re-patched to ${c.index.portPlace(to)} · Ctrl+Z undoes`); c.notify?.(`Re-patched to ${c.index.portPlace(to)}`, 'ok')
 	}
 	up(e: PointerIn, c: ToolCtx): void {

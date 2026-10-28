@@ -367,6 +367,7 @@ describe('devices in the rack row', () => {
 		expect([h.store.get('C1'), h.ports()]).toMatchObject([{ b: { on: 'SW1', port: 1 } }, { on: 'SW1', ports: [1] }])
 		sel.down(at(from.x, from.y), h.ctx()); sel.move(at(to.x, to.y), h.ctx()); sel.up(at(to.x, to.y), h.ctx())
 		expect(h.store.get('C1')).toMatchObject({ a: { on: 'P1', port: 1 }, b: { on: 'SW1', port: 7 } })
+		expect([h.ctx().selection, h.ports()]).toEqual([['C1'], null])   // the cord stays picked
 		// a drag from a port with no cord still picks a block of ports
 		const f = cell('P1', 10), t = cell('P1', 12)
 		sel.down(at(f.x, f.y), h.ctx()); sel.move(at(t.x, t.y), h.ctx()); sel.up(at(t.x, t.y), h.ctx())
