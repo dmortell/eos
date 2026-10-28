@@ -106,6 +106,8 @@
 	<button title="Patch these ports to another device: click its first port next — or drag this onto that port. Several ports: the cords are listed to OK first, with the busy / unlabelled ports skipped" onclick={() => ws.patchFrom(sel)}
 		draggable="true" ondragstart={(e) => { const s = { ...sel, ports: [...sel.ports] }; ws.startDrag(() => ws.patchFrom(s), () => { ws.bulkFrom = null }); e.dataTransfer?.setData('application/x-cad-ports', 'patch') }} ondragend={() => ws.endDrag()} class="primary">⇄ Patch {sel.ports.length > 1 ? `${sel.ports.length} ports ` : ''}to… <kbd>P</kbd></button>
 	{#if cables.length}<button title="Remove the permanent cables on these ports — outlet links, ties and backbone, patched or not" onclick={() => removeAll(`Remove ${cables.length} link${cables.length === 1 ? '' : 's'}`, cables.map((l) => l.id))}>Remove links ({cables.length})</button>{/if}
+	<!-- one patched port: its cord's end on THIS port goes to the port clicked next (User 2026-10-28) -->
+	{#if sel.ports.length === 1 && cordsHere.length === 1}<button title="Move this end of the cord (the one on port {sel.ports[0]}) to another port: click it next. The other end stays put" onclick={() => ws.moveCordEnd({ on: sel.on, port: sel.ports[0], face: sel.face }, cordsHere[0])}>↦ Move cord end…</button>{/if}
 	{#if cordsHere.length}<button title="Remove the patch cords on these ports — installed ones are marked for removal (they come out on site), planned ones deleted" onclick={removeCordsHere}>Remove cords ({cordsHere.length})</button>{/if}
 </div>
 {#if cables.length}

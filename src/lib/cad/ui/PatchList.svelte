@@ -66,8 +66,8 @@
 	 *  place stays in the To edit box (a blur compares it with the cord's). */
 	const shown = (place: string) => place.replace(/ \(front\)$/, '')
 	const hasWas = $derived(all.some((r) => r.wasFrom || r.wasTo))
-	const rows = $derived(t.apply(all.filter((r) => show[r.status]), (r) => `${r.from} ${r.fromLabel} ${r.to} ${r.toLabel} ${wasText(r)} ${r.cordId} ${r.notes} ${typeLabel(r.cableType)}`,
-		{ from: (r) => r.from, fromLabel: (r) => r.fromLabel, to: (r) => r.to, toLabel: (r) => r.toLabel, was: wasText, type: (r) => typeLabel(r.cableType), len: (r) => r.lengthM, cordId: (r) => r.cordId, status: (r) => STATUSES.indexOf(r.status), notes: (r) => r.notes }))
+	const rows = $derived(t.apply(all.filter((r) => show[r.status]), (r) => `${r.from} ${r.fromLabel} ${r.to} ${r.toLabel} ${r.usage} ${wasText(r)} ${r.cordId} ${r.notes} ${typeLabel(r.cableType)}`,
+		{ from: (r) => r.from, fromLabel: (r) => r.fromLabel, to: (r) => r.to, toLabel: (r) => r.toLabel, usage: (r) => r.usage, was: wasText, type: (r) => typeLabel(r.cableType), len: (r) => r.lengthM, cordId: (r) => r.cordId, status: (r) => STATUSES.indexOf(r.status), notes: (r) => r.notes }))
 	const nSel = $derived(rows.filter((r) => selected.has(r.id)).length)
 	/** The selected rows' cords — what the action bar and the right-click act on (patch-list-plan.md Slice 2). */
 	const selCords = $derived(rows.filter((r) => selected.has(r.id)).map((r) => project.index.get(r.id)).filter((c): c is Cord => c?.type === 'cord'))
@@ -100,7 +100,7 @@
 	function tableKey(e: KeyboardEvent) {
 		if (arrowSelect(e, rows.map((r) => r.id), ws.selection, ws.selectAndReveal) || ed.tableKey(e, ws.selection)) { e.preventDefault(); e.stopPropagation(); return }
 		if (selectAllRows(e, rows.map((r) => r.id), ws.select)) { e.preventDefault(); e.stopPropagation(); return }
-		if (copyRows(e, ['From', 'Label', 'To', 'Label', ...(hasWas ? ['Was'] : []), 'Type', 'Length (m)', 'Cord ID', 'Status', 'Notes'], rows.map((r) => [shown(r.from), r.fromLabel, shown(r.to), r.toLabel, ...(hasWas ? [wasText(r)] : []), typeLabel(r.cableType), r.lengthM, r.cordId, r.status, r.notes]), ws.say)) { e.preventDefault(); e.stopPropagation() }
+		if (copyRows(e, ['From', 'Label', 'To', 'Label', 'Usage', ...(hasWas ? ['Was'] : []), 'Type', 'Length (m)', 'Cord ID', 'Status', 'Notes'], rows.map((r) => [shown(r.from), r.fromLabel, shown(r.to), r.toLabel, r.usage, ...(hasWas ? [wasText(r)] : []), typeLabel(r.cableType), r.lengthM, r.cordId, r.status, r.notes]), ws.say)) { e.preventDefault(); e.stopPropagation() }
 	}
 	const selected = $derived(new Set(ws.selection))
 	/** The cords on the ports picked in a rack view: shown like selected rows. */
@@ -160,7 +160,7 @@
 	{/snippet}
 	<table class="w-full border-collapse">
 		<thead>
-			<tr><SortTh {t} key="from" cls="px-2 py-1">From</SortTh><SortTh {t} key="fromLabel">Label</SortTh><SortTh {t} key="to">To</SortTh><SortTh {t} key="toLabel">Label</SortTh>{#if hasWas}<SortTh {t} key="was">Was</SortTh>{/if}<SortTh {t} key="type">Type</SortTh><SortTh {t} key="len">Len (m)</SortTh><SortTh {t} key="cordId">Cord ID</SortTh><SortTh {t} key="status">Status</SortTh><SortTh {t} key="notes">Notes</SortTh></tr>
+			<tr><SortTh {t} key="from" cls="px-2 py-1">From</SortTh><SortTh {t} key="fromLabel">Label</SortTh><SortTh {t} key="to">To</SortTh><SortTh {t} key="toLabel">Label</SortTh><SortTh {t} key="usage">Usage</SortTh>{#if hasWas}<SortTh {t} key="was">Was</SortTh>{/if}<SortTh {t} key="type">Type</SortTh><SortTh {t} key="len">Len (m)</SortTh><SortTh {t} key="cordId">Cord ID</SortTh><SortTh {t} key="status">Status</SortTh><SortTh {t} key="notes">Notes</SortTh></tr>
 		</thead>
 		<tbody>
 			{#each rows as r (r.id)}
@@ -172,6 +172,7 @@
 						<td class="ed"><input class="ed-box" value={r.to} use:focusCell onkeydown={(e) => ed.key(e, r.id, 'to')} onblur={(e) => ed.blur(r.id, 'to', e.currentTarget.value)} onclick={(e) => e.stopPropagation()} /></td>
 					{:else}<td class="px-2" title="Double-click to re-patch: type device : port (SW1:41), or just the port · several cords at once: select them, Re-patch… (the rest go to the next free ports)" ondblclick={(e) => ed.start(r.id, 'to', e)}>{shown(r.to)}{#if r.wasTo}<span class="was" title="Was {shown(r.wasTo)}">↶</span>{/if}</td>{/if}
 					<td class="px-2 font-mono muted">{r.toLabel || '—'}</td>
+					<td class="px-2 muted" title="The usage of the outlet this cord serves (Settings › Usages)">{r.usage}</td>
 					{#if hasWas}<td class="px-2 was-txt">{wasText(r)}</td>{/if}
 					<td class="px-2"><span class="sw" style:background={r.colour}></span>{typeLabel(r.cableType)}{#if rep}<span class="was" title="Replaces the cord there now — {rep}">↶</span>{/if}</td>
 					<td class="px-2">{r.lengthM}</td>
@@ -188,7 +189,7 @@
 					{:else}<td class="clip px-2 muted" title={r.notes ? `${r.notes} — double-click to edit` : 'Double-click to add a note'} ondblclick={(e) => ed.start(r.id, 'notes', e)}>{r.notes}</td>{/if}
 				</tr>
 			{:else}
-				<tr><td colspan={hasWas ? 10 : 9} class="px-2 py-3 faint">No cords{all.length ? ' match' : ' yet — use the Cord tool in a rack view'}.</td></tr>
+				<tr><td colspan={hasWas ? 11 : 10} class="px-2 py-3 faint">No cords{all.length ? ' match' : ' yet — use the Cord tool in a rack view'}.</td></tr>
 			{/each}
 		</tbody>
 	</table>

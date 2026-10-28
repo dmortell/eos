@@ -76,6 +76,9 @@ export interface PatchRow {
 	lengthM: number
 	cordId: string
 	notes: string
+	/** The usage (its label: Desk, AP …) of the outlet the cord serves — through either end's panel port; '' none
+	 *  (User 2026-10-28). */
+	usage: string
 	/** Where a moved end was (a `change`): shown as ↶ in the list. */
 	wasFrom?: string
 	wasTo?: string
@@ -87,6 +90,11 @@ export function patchList(p: ProjectIndex, opts: { rackIds?: Id[] } = {}): Patch
 		const d = p.get(on)
 		return d?.type === 'device' && opts.rackIds.includes(d.rackId)
 	}
+	const st = p.getOf('settings', 'settings'), usages = st?.type === 'settings' ? st.usages ?? [] : []
+	const usageOf = (r: Cord['a']) => {
+		const far = p.farEnd(r), o = far && p.get(far.on)
+		return o?.type === 'outlet' && o.usage ? usages.find((u) => u.id === o.usage)?.label ?? o.usage : ''
+	}
 	return p.cords
 		.filter((c) => inRacks(c.a.on) || inRacks(c.b.on))
 		.map((c) => ({
@@ -94,6 +102,7 @@ export function patchList(p: ProjectIndex, opts: { rackIds?: Id[] } = {}): Patch
 			from: p.portPlace(c.a), fromLabel: p.portLabel(c.a),
 			to: p.portPlace(c.b), toLabel: p.portLabel(c.b),
 			cableType: c.cableType, colour: c.colour, lengthM: c.lengthM, cordId: c.cordId ?? '', notes: c.notes ?? '',
+			usage: usageOf(c.a) || usageOf(c.b),
 			...(c.status === 'change' && c.previous && !sameEnd(c.previous.a, c.a) ? { wasFrom: p.portPlace(c.previous.a) } : {}),
 			...(c.status === 'change' && c.previous && !sameEnd(c.previous.b, c.b) ? { wasTo: p.portPlace(c.previous.b) } : {}),
 		}))

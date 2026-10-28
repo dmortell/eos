@@ -43,6 +43,14 @@ describe('patch list', () => {
 		expect(rows.map((r) => [r.fromLabel, r.toLabel])).toEqual([['33-001.A', 'SW1-01'], ['33-001.B', 'SW1-02']])
 		expect(rows[0].from).toBe('A01 · Panel 1 : 1 (front)')
 	})
+	it('says the usage of the outlet a cord serves, through either end; none when neither end reaches an outlet (User 2026-10-28)', () => {
+		const ents = demoProject()
+		expect(patchList(new ProjectIndex(ents)).map((r) => r.usage.toLowerCase())).toEqual(['desk', 'desk'])
+		const flipped = ents.map((e) => (e.id === 'C1' && e.type === 'cord' ? { ...e, a: e.b, b: e.a } : e))
+		expect(patchList(new ProjectIndex(flipped)).find((r) => r.id === 'C1')!.usage.toLowerCase()).toBe('desk')
+		const bare = ents.filter((e) => e.type !== 'link')
+		expect(patchList(new ProjectIndex(bare)).map((r) => r.usage)).toEqual(['', ''])
+	})
 	it('a moved end of a change says where it was (↶)', () => {
 		const ents = demoProject().map((e) => (e.id === 'C1' && e.type === 'cord' ? { ...e, status: 'change' as const, b: { on: 'SW1', port: 9 }, previous: { a: e.a, b: e.b, status: 'installed' as const } } : e))
 		const r = patchList(new ProjectIndex(ents)).find((x) => x.id === 'C1')!

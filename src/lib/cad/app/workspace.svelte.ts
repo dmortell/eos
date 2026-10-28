@@ -1,6 +1,6 @@
 // Per-user, per-project session state (ADR 0003 "view and user state"): which level each pane shows, the active tool, its
 // options, the selection, the tool-bar prompt. Never stored on the data. One instance per open project, passed down.
-import type { Id, Level, Outlet, Device, PortRef } from '../domain/types'
+import type { Id, Level, Outlet, Device, PortRef, Cord } from '../domain/types'
 import { heightsOf } from '../domain/floors'
 import { type Tool, type DrawOpts, type PortSel } from '../editor/tools'
 import { gridStepOf } from '../editor/snap'
@@ -389,6 +389,12 @@ export class Workspace {
 	}
 	/** Arm a bulk patch from these ports; the next port click is where the cords start on the other device. */
 	patchFrom(sel: PortSel): void { this.#armBulk({ on: sel.on, ports: [...sel.ports], face: sel.face }) }
+	/** Move cord end… (User 2026-10-28): the cord's end on this port goes to the port clicked next. */
+	moveCordEnd(r: PortRef, cord: Cord): void {
+		const end = cord.a.on === r.on && cord.a.port === r.port ? 'a' : 'b'
+		this.#armBulk({ on: r.on, ports: [r.port], face: r.face ?? 'front', move: { cord: cord.id, end } })
+		this.say(`Click the port to move this end of the cord to (it comes off ${r.port}) · Esc cancels`)
+	}
 	/** Patch to… from a whole device: the ports a cord can go on (`ports`, cords.ts patchablePorts), from its patching
 	 *  face (a panel's front). None: says why. */
 	patchDevice(d: Device, ports: number[]): void {

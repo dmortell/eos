@@ -357,6 +357,17 @@ describe('devices in the rack row', () => {
 		expect(h.store.get('C1')).toMatchObject({ a: { on: 'P1', port: 1 } })
 		expect(h.said.at(-1)).toMatch(/already patched/)
 	})
+	it('Move cord end…: the end on the picked port goes to the port clicked next; a taken port says why and stays armed (User 2026-10-28)', () => {
+		const h = harness(ROW)
+		const cell = (on: string, n: number) => { const p = h.ctx().prims().find((q) => q.k === 'line' && q.src === on && q.sub === String(n) && q.cls.startsWith('port'))!; const xs = p.k === 'line' ? p.pts : []; return at((xs[0].x + xs[2].x) / 2, (xs[0].y + xs[2].y) / 2) }
+		const toasts: [string, string][] = []
+		let bulk: BulkFrom | null = { on: 'SW1', ports: [1], face: 'front', move: { cord: 'C1', end: 'b' } }, done = 0   // C1: P1 1 → SW1 1
+		const tool = new CordTool({ defaults: () => ({ cableType: 'cat6a', colour: '#ef4444' }), bulkFrom: { get: () => bulk, set: (b) => { bulk = b } }, done: () => done++, notify: (m, t) => toasts.push([m, t]) })
+		tool.down(cell('P1', 2), h.ctx())   // C2's
+		expect([h.store.get('C1'), bulk?.move, toasts.at(-1)?.[1]]).toMatchObject([{ b: { on: 'SW1', port: 1 } }, { cord: 'C1' }, 'error'])
+		tool.down(cell('SW1', 7), h.ctx())
+		expect([h.store.get('C1'), bulk, done, h.ctx().selection, toasts.at(-1)?.[1]]).toMatchObject([{ a: { on: 'P1', port: 1 }, b: { on: 'SW1', port: 7 } }, null, 1, ['C1'], 'ok'])
+	})
 	it('a drag from a PATCHED port takes its cord’s end, nothing selected first; a click there still picks the port (User 2026-10-28)', () => {
 		const h = harness(ROW)
 		const cell = (on: string, n: number) => { const p = h.ctx().prims().find((q) => q.k === 'line' && q.src === on && q.sub === String(n) && q.cls.startsWith('port'))!; const xs = p.k === 'line' ? p.pts : []; return { x: (xs[0].x + xs[2].x) / 2, y: (xs[0].y + xs[2].y) / 2 } }

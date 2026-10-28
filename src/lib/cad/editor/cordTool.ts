@@ -8,7 +8,7 @@ import type { Prim } from '../views/display'
 import type { Cord, Id, PortRef } from '../domain/types'
 import { pickPrim } from './pick'
 import { portCellUnder } from '../views/portTip'
-import { makeCord, patchProblem, bulkPatch, type CordDefaults } from '../domain/cords'
+import { makeCord, patchProblem, bulkPatch, repatch, type CordDefaults } from '../domain/cords'
 import { bulkInterconnect } from '../domain/interconnect'
 import { coresOf, linkCores, portsPerCable } from '../domain/multicore'
 import { portFromText } from '../domain/repatchText'
@@ -21,7 +21,9 @@ function noPort(c: ToolCtx, r: PortRef): string | null {
 }
 
 /** Ports armed for a bulk click: patch cords (default) or interconnect cables (`kind: 'link'`, Phase 5). */
-export interface BulkFrom { on: Id; ports: number[]; face: 'front' | 'rear'; kind?: 'cord' | 'link'; /** links only: more panels, in order, after the first */ more?: { on: Id; ports: number[] }[] }
+export interface BulkFrom { on: Id; ports: number[]; face: 'front' | 'rear'; kind?: 'cord' | 'link'; /** links only: more panels, in order, after the first */ more?: { on: Id; ports: number[] }[]
+	/** Move cord end… (User 2026-10-28): the cord on the one port, its end there going to the port clicked next */
+	move?: { cord: Id; end: 'a' | 'b' } }
 
 /** A bulk patch waiting for OK: the cords it would make, the A ports it skips and why; `fill` switches the mapping and
  *  shows the plan again. One transaction on OK (one undo step). */
@@ -147,6 +149,22 @@ export class CordTool implements Tool {
 			})
 			return
 		}
+		if (this.bulk?.move) {
+			// Move cord end…: that end goes to the port clicked; refused (taken, unlabelled), it says why and stays armed
+			const { cord: id, end } = this.bulk.move, cord = c.store.get(id)
+			if (cord?.type !== 'cord') { this.bulk = null; this.done(); return }
+			const from = cord[end]
+			if (from.on === r.on && from.port === r.port) { this.#tell(c, 'That’s where it is now — click another port, or Esc', 'error'); return }
+			const res = repatch(c.index, cord, end, r)
+			if (!res.cord) { this.#tell(c, `Not moved — ${res.problem ?? 'that port can’t take it'}`, 'error'); return }
+			const next = res.cord
+			c.store.transact(`Re-patch ${c.index.portPlace(from)} → ${c.index.portPlace(r)}`, (tx) => tx.put(next))
+			c.select([next.id])
+			this.#tell(c, `Re-patched to ${c.index.portPlace(r)}`, 'ok')
+			this.bulk = null
+			this.done()
+			return
+		}
 		if (this.bulk) {
 			const bulk = this.bulk, target = { on: r.on, start: r.port, face: r.face }
 			const plan = (fill: boolean) => bulkPatch(c.index, bulk, target, this.defaults(), { fill })
@@ -259,13 +277,21 @@ export class CordTool implements Tool {
 
 	/** A rubber band from the first port to the cursor. */
 	preview(c: ToolCtx): Prim[] {
-		if (!this.first || !this.#hover) return []
-		const f = this.first
-		const cell = c.prims().find((p) => p.k === 'line' && p.src === f.on && p.sub === String(f.port) && p.role === 'port')
-		if (!cell || cell.k !== 'line') return []
-		const xs = cell.pts.map((p) => p.x), ys = cell.pts.map((p) => p.y)
-		const from = { x: (Math.min(...xs) + Math.max(...xs)) / 2, y: (Math.min(...ys) + Math.max(...ys)) / 2 }
-		return [{ k: 'line', pts: [from, this.#hover], cls: 'cord cord-add draft', color: this.defaults().colour }]
+		if (!this.#hover) return []
+		const mid = (f: PortRef) => {
+			const cell = c.prims().find((p) => p.k === 'line' && p.src === f.on && p.sub === String(f.port) && p.role === 'port')
+			if (!cell || cell.k !== 'line') return null
+			const xs = cell.pts.map((p) => p.x), ys = cell.pts.map((p) => p.y)
+			return { x: (Math.min(...xs) + Math.max(...xs)) / 2, y: (Math.min(...ys) + Math.max(...ys)) / 2 }
+		}
+		// Move cord end…: the cord from its end that stays (else, off this view, from the end that moves) to the pointer
+		const mv = this.bulk?.move, cord = mv ? c.store.get(mv.cord) : undefined
+		if (mv && cord?.type === 'cord') {
+			const from = mid(cord[mv.end === 'a' ? 'b' : 'a']) ?? mid(cord[mv.end])
+			return from ? [{ k: 'line', pts: [from, this.#hover], cls: 'cord cord-add draft', color: cord.colour }] : []
+		}
+		const from = this.first && mid(this.first)
+		return from ? [{ k: 'line', pts: [from, this.#hover], cls: 'cord cord-add draft', color: this.defaults().colour }] : []
 	}
 	get armed(): boolean { return !!this.first }
 }
