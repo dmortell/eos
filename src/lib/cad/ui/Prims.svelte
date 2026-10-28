@@ -32,7 +32,9 @@
 	 *  lines, and a dashed box round each selected symbol, box or text (a run or wall — open lines only — gets the line
 	 *  alone: a box round a long run says nothing). Padded a few screen px when the zoom is known. */
 	const unmarked = (p: Prim) => p.role === 'opening-pick' || p.role === 'viewport'
-	const overLine = (p: Prim) => !!p.src && selected.has(p.src) && shown(p) && (p.k === 'circle' || (p.k === 'line' && !unmarked(p)))
+	// a device's PORT cells aren't lined (User 2026-10-28: a click on one port picks its device, and the blue on every
+	// port hid their green patched edges) — the device's outline and box say it's picked, the picked port its own blue
+	const overLine = (p: Prim) => !!p.src && selected.has(p.src) && shown(p) && p.role !== 'port' && (p.k === 'circle' || (p.k === 'line' && !unmarked(p)))
 	const selBoxes = $derived.by(() => {
 		if (!selected.size) return []
 		const by = new Map<string, Prim[]>()
