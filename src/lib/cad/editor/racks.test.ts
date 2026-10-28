@@ -357,6 +357,21 @@ describe('devices in the rack row', () => {
 		expect(h.store.get('C1')).toMatchObject({ a: { on: 'P1', port: 1 } })
 		expect(h.said.at(-1)).toMatch(/already patched/)
 	})
+	it('a drag from a PATCHED port takes its cord’s end, nothing selected first; a click there still picks the port (User 2026-10-28)', () => {
+		const h = harness(ROW)
+		const cell = (on: string, n: number) => { const p = h.ctx().prims().find((q) => q.k === 'line' && q.src === on && q.sub === String(n) && q.cls.startsWith('port'))!; const xs = p.k === 'line' ? p.pts : []; return { x: (xs[0].x + xs[2].x) / 2, y: (xs[0].y + xs[2].y) / 2 } }
+		const sel = new SelectTool()
+		h.ctx().select([])
+		const from = cell('SW1', 1), to = cell('SW1', 7)   // C1: P1 1 → SW1 1
+		sel.down(at(from.x, from.y), h.ctx()); sel.up(at(from.x, from.y), h.ctx())
+		expect([h.store.get('C1'), h.ports()]).toMatchObject([{ b: { on: 'SW1', port: 1 } }, { on: 'SW1', ports: [1] }])
+		sel.down(at(from.x, from.y), h.ctx()); sel.move(at(to.x, to.y), h.ctx()); sel.up(at(to.x, to.y), h.ctx())
+		expect(h.store.get('C1')).toMatchObject({ a: { on: 'P1', port: 1 }, b: { on: 'SW1', port: 7 } })
+		// a drag from a port with no cord still picks a block of ports
+		const f = cell('P1', 10), t = cell('P1', 12)
+		sel.down(at(f.x, f.y), h.ctx()); sel.move(at(t.x, t.y), h.ctx()); sel.up(at(t.x, t.y), h.ctx())
+		expect(h.ports()).toMatchObject({ on: 'P1', ports: [10, 11, 12] })
+	})
 	it('the + on a selected port: a patch when it has a link and no cord (a switch: always), a link when it has neither, none when patched', () => {
 		const h = harness(ROW)
 		const armed: [number[], string][] = []

@@ -36,7 +36,8 @@ import { viewportAt } from '../views/sheet'
 import { TOL_PX, snapPt, box, sq, snapMark, tiedScale, type Tool, type ToolCtx, type PointerIn, type PortSel } from './tools'
 import { movePorts } from '../domain/allocate'
 import { cordEndGrips, portPlus, type CordEndGrip, type PortPlus } from './portGrips'
-import { repatch } from '../domain/cords'
+import { cordAt, repatch } from '../domain/cords'
+import { portCellUnder } from '../views/portTip'
 
 /** A press on a picked port (rack views), until the release: a click or a drop on another panel. */
 type PortMove = { sel: PortSel; n: number; start: Pt; moved: boolean }
@@ -127,7 +128,16 @@ export class SelectTool implements Tool {
 	/** The single selected cord's end grips, in a rack view. */
 	#cordGrips(c: ToolCtx): CordEndGrip[] {
 		const one = c.selection.length === 1 ? c.store.get(c.selection[0]) : undefined
-		return one?.type === 'cord' && c.space.spec.kind === 'row' ? cordEndGrips(c.prims(), one.id) : []
+		return one?.type === 'cord' ? this.#cordGripsOf(c, one.id) : []
+	}
+	#cordGripsOf(c: ToolCtx, cordId: Id): CordEndGrip[] { return c.space.spec.kind === 'row' ? cordEndGrips(c.prims(), cordId) : [] }
+	/** A cord end grip's side: 8 px, growing with the port cell it sits on as you zoom in (to 16 px), as the + does
+	 *  (User 2026-10-28: the grip was hard to hit). */
+	#cordGripSide(c: ToolCtx, at: Pt): number {
+		const px = c.tol() / TOL_PX, cell = portCellUnder(c.prims(), at)
+		if (!cell || cell.k !== 'line') return 8 * px
+		const xs = cell.pts.map((p) => p.x), ys = cell.pts.map((p) => p.y)
+		return Math.min(16 * px, Math.max(8 * px, Math.min(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys)) * 0.5))
 	}
 	/** The + on the selected port(s): a click starts a patch cord or a link from them (editor/portGrips.ts). */
 	#plus(c: ToolCtx): PortPlus | null {
@@ -273,7 +283,7 @@ export class SelectTool implements Tool {
 			c.say?.(pl.kind === 'cord' ? 'Click the port to patch to' : 'Click the first port to link to (another room or floor: switch views first)')
 			return
 		}
-		const ce = this.#cordGrips(c).find((q) => near(q.at))
+		const ce = this.#cordGrips(c).find((q) => near(q.at) || Math.hypot(q.at.x - e.p.x, q.at.y - e.p.y) <= this.#cordGripSide(c, q.at) * 0.6)
 		if (ce) { this.#cordEnd = { ...ce, to: ce.at }; return }
 		// a leader / cloud point drags alone; a text's grip (its anchor) is where you grab the text, so that drags it whole
 		// a drawn region's resize grip (corner / edge / axis end / polygon corner)
@@ -376,6 +386,21 @@ export class SelectTool implements Tool {
 			if (range) { c.selectPorts?.(null); c.select(range); return }
 		}
 		if (spec.kind === 'row' && isDev && !e.shift) this.#devAnchor = id
+		// a press on a PATCHED port (its cord drawn in this view) takes that cord's end: dropped on a port it re-patches
+		// there, a click picks the port as before (User 2026-10-28: the cord and its small grip were hard to hit, and each
+		// drag needed a click first). Not on one of several picked ports (a drag there moves their outlets).
+		if (spec.kind === 'row' && isDev && sub && !e.shift && !e.ctrl && !e.alt) {
+			const n = Number(sub), prev = c.portSel?.(), many = !!prev && prev.on === id && prev.ports.length > 1 && prev.ports.includes(n)
+			const cord = many ? undefined : cordAt(c.index, { on: id!, port: n })
+			const grips = cord ? this.#cordGripsOf(c, cord.id) : []
+			if (cord && grips.length) {
+				const end = cord.a.on === id && cord.a.port === n ? 'a' : 'b'
+				const here = grips.reduce((x, y) => Math.hypot(y.at.x - e.p.x, y.at.y - e.p.y) < Math.hypot(x.at.x - e.p.x, x.at.y - e.p.y) ? y : x)
+				c.select([id!]); c.selectPorts?.({ on: id!, face: spec.face, ports: [n], anchor: n })
+				this.#cordEnd = { cord: cord.id, end, at: e.p, other: here.other, to: e.p }
+				return
+			}
+		}
 		// a port on a device (rack rows): select the port; Shift = a range from the first, Ctrl = toggle one
 		if (sub && id && c.selectPorts && c.space.spec.kind === 'row' && c.store.get(id)?.type === 'device') {
 			const n = Number(sub), face = c.space.spec.face, prev = c.portSel?.()
@@ -757,7 +782,7 @@ export class SelectTool implements Tool {
 		// rack views: a selected cord's end grips — the end being dragged: a line from the other end to the pointer
 		const ce = this.#cordEnd, cord = ce ? c.store.get(ce.cord) : undefined
 		if (ce) out.push({ k: 'line', pts: [ce.other, ce.to], cls: 'cord cord-add draft', color: cord?.type === 'cord' ? cord.colour : undefined })
-		else for (const g of this.#cordGrips(c)) out.push({ k: 'line', pts: sq(g.at, 8 * px), closed: true, fill: true, cls: 'grip' })
+		else for (const g of this.#cordGrips(c)) out.push({ k: 'line', pts: sq(g.at, this.#cordGripSide(c, g.at)), closed: true, fill: true, cls: 'grip' })
 		// the + on the selected port(s): a round grip with a plus
 		const pl = this.#plus(c), pr = pl ? this.#plusR(c, pl) : 0, arm = pr / 2
 		// a link's + is violet, filled (the TIE color); a patch's white with a blue + (User 2026-10-26: links were made by

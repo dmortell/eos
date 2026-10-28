@@ -10,6 +10,7 @@
 	import { untrack } from 'svelte'
 	import { toScreen, type Camera } from '../editor/camera'
 	import { portCellUnder, portTip, portTipUse } from '../views/portTip'
+	import { cordAt } from '../domain/cords'
 
 	let { ix, prims, cursor, cam, face, dragging, grab = false, onport }: { ix: ProjectIndex; prims: Prim[]; cursor: Pt | null; cam: Camera; face: 'front' | 'rear'; dragging: boolean
 		/** the Select tool: Alt-drag from a port takes the device — said in the tip, and with Alt held the port isn't lit */
@@ -25,6 +26,11 @@
 	$effect(() => { const p = port; untrack(() => onport?.(p)) })
 	const lines = $derived(port ? portTip(ix, port) : [])
 	const use = $derived(port ? portTipUse(ix, port) : '')
+	// the Select tool: a drag from a patched port takes its cord's end (its cord on this face)
+	const cordHere = $derived.by(() => {
+		const c = port && grab ? cordAt(ix, port) : undefined, end = c && (c.a.on === port!.on && c.a.port === port!.port ? c.a : c.b)
+		return !!end && (end.face ?? 'front') === face
+	})
 	const at = $derived(cursor ? toScreen(cam, cursor) : { x: 0, y: 0 })
 	// the cell on screen
 	const box = $derived.by(() => {
@@ -45,7 +51,7 @@
 	<div class="tip" style:left="{at.x + 14}px" style:top="{at.y + 14}px">
 		{#each lines as l, i (i)}<div class:head={i === 0} class:lbl={i === 1 && !l.includes('→')}>{l}</div>{/each}
 		{#if use}<div class="use">{use}</div>{/if}
-		{#if grab}<div class="use">{alt ? 'Drag moves the device · with Ctrl, copies it' : 'Alt-drag moves the device · Ctrl+Alt-drag copies it'}</div>{/if}
+		{#if grab}<div class="use">{alt ? 'Drag moves the device · with Ctrl, copies it' : `${cordHere ? 'Drag takes this cord’s end to another port · ' : ''}Alt-drag moves the device · Ctrl+Alt-drag copies it`}</div>{/if}
 	</div>
 {/if}
 
