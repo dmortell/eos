@@ -201,7 +201,7 @@
 	<!-- svelte-ignore a11y_no_static_element_interactions -->
 	<div class="row k-{n.kind}" tabindex="-1" oncontextmenu={(e) => { if (rowMenu(n).length) { e.preventDefault(); openMenu(n, e) } }}
 		onkeydown={(e) => { if (e.key === 'F2' && renameOf(n)) { e.preventDefault(); e.stopPropagation(); renameOf(n)!() } }} class:cur={isCurrent(n) || picked === n.key} class:hi={hiKey === n.key} class:sel={!!n.select && ws.selection.includes(n.select)} style:padding-left="{4 + depth * 12}px" role="treeitem" aria-selected={isCurrent(n)} aria-expanded={kids.length ? unfolded : undefined}>
-		{#if kids.length}<button class="tw" aria-label={unfolded ? 'Fold' : 'Unfold'} onclick={() => toggle(n.key)}>{unfolded ? '▾' : '▸'}</button>{:else}<span class="tw"></span>{/if}
+		{#if kids.length}<button class="tw" aria-label={unfolded ? 'Fold' : 'Unfold'} onclick={() => toggle(n.key)}><Icon name={unfolded ? 'chevronDown' : 'chevronRight'} size={13} /></button>{:else}<span class="tw"></span>{/if}
 		{#if ws.navRename && n.id === ws.navRename.id && n.kind !== 'rack'}
 			{@const r = ws.navRename}
 			<span class="lbl"><Icon name={ICON[n.kind]} size={12} />
@@ -234,7 +234,9 @@
 	.row:focus-visible { outline: 1px solid #93c5fd; outline-offset: -1px; }
 	.row.cur { background: var(--cad-sel); }
 	.row.sel .t { color: #1d4ed8; font-weight: 600; }
-	.tw { width: 14px; flex: 0 0 14px; font-size: 9px; color: var(--cad-muted); text-align: center; }
+	/* the fold chevron: a real icon in the text color (User 2026-10-28: the 9 px muted ▸ didn't say a row opens) */
+	.tw { width: 16px; flex: 0 0 16px; display: inline-flex; align-items: center; justify-content: center; color: var(--cad-text); border-radius: 3px; }
+	button.tw:hover { background: var(--cad-hover); }
 	/* a finger-sized ▸ on a touch screen (folding is the ▸'s alone now) */
 	@media (pointer: coarse) { .tw { width: 26px; flex-basis: 26px; min-height: 28px; font-size: 13px; } }
 	.lbl { flex: 1; min-width: 0; display: flex; align-items: center; gap: 5px; padding: 1px 0; text-align: left; color: var(--cad-text); }
