@@ -8,7 +8,7 @@
 		{ c: 'labelled', t: 'Labelled, no cable', tip: 'It has a label (a range on the panel, or typed) but no permanent cable yet — tie or link it' },
 		{ c: 'linked', t: 'Cabled', tip: 'A permanent cable: to an outlet, a tie to another panel in the room, or backbone to another room' },
 		{ c: 'usage', t: 'Outlet’s usage (top bar)', tip: 'Cabled to an outlet: a thin bar of the outlet’s usage color along the top, patched or not' },
-		{ c: 'patched', t: 'Patched (solid dark)', tip: 'A patch cord is plugged in' },
+		{ c: 'patched', t: 'Patched (dark dot)', tip: 'A patch cord is plugged in: a dark dot in the port’s top-right corner' },
 		{ c: 'stale', t: 'Label changed since printed', tip: 'The panel’s labels were printed and this port’s label has changed since — reprint' },
 		{ c: 'reserved', t: 'Reserved for a usage', tip: 'Properties › Reserve for… — Patch to… keeps it for that usage’s outlets' },
 		{ c: 'sel', t: 'Selected', tip: 'The ports you picked' },
@@ -44,7 +44,7 @@
 	.sw.labelled { background: #fef9c3; }
 	.sw.linked { background: #e0f2fe; border-color: #0284c7; }
 	.sw.usage { background: linear-gradient(#10b981 0 3px, #e0f2fe 3px); border-color: #0284c7; }
-	.sw.patched { background: #334155; border-color: #0f172a; }
+	.sw.patched { background: radial-gradient(circle at 10px 3.5px, #0f172a 2.5px, transparent 3px), #e0f2fe; border-color: #0284c7; }
 	.sw.stale { border: 2px solid #dc2626; }
 	.sw.reserved { background: #f5f3ff; border: 1px dashed #8b5cf6; }
 	.sw.sel { background: rgb(37 99 235 / 0.3); border: 2px solid #1d4ed8; }

@@ -65,15 +65,19 @@ describe('the rack row', () => {
 		expect(textOf(5)).toEqual([])
 		expect(prims.find((p) => p.src === 'P1' && p.sub === '1' && p.k === 'line')?.cls).toContain('port-linked')
 	})
-	it('a port with a cord in is drawn patched (solid dark) — both ends; a linked port with none isn’t (User: "patched ports should have an indicator")', () => {
-		const cls = (on: string, n: number) => (view('front').find((p) => p.k === 'line' && p.src === on && p.sub === String(n)) as { cls: string }).cls
-		expect(cls('P1', 1)).toContain('port-patched')    // C1
-		expect(cls('SW1', 1)).toContain('port-patched')
-		expect(cls('P1', 3)).not.toContain('port-patched')   // linked, not patched
-		// its label in white over the dark cell; an unpatched port's label stays as it was
-		const lcls = (n: number) => view('front').filter((p) => p.k === 'text' && p.src === 'P1' && p.sub === String(n)).map((p) => (p as { cls: string }).cls)
-		expect(lcls(1).every((c) => c === 'port-label port-label-patched')).toBe(true)
-		expect(lcls(3).every((c) => c === 'port-label')).toBe(true)
+	it('a port with a cord in is marked patched, with a dot in its top-right corner — both ends; a linked port with none isn’t (User: "patched ports should have an indicator")', () => {
+		const prims = view('front')
+		const cell = (on: string, n: number) => prims.find((p) => p.k === 'line' && p.src === on && p.sub === String(n)) as { cls: string; pts: { x: number; y: number }[] }
+		expect(cell('P1', 1).cls).toContain('port-patched')    // C1
+		expect(cell('SW1', 1).cls).toContain('port-patched')
+		expect(cell('P1', 3).cls).not.toContain('port-patched')   // linked, not patched
+		const dots = prims.filter((p) => p.k === 'circle' && p.cls === 'port-plug') as { c: { x: number; y: number }; src?: string }[]
+		const inCell = (on: string, n: number) => { const xs = cell(on, n).pts.map((q) => q.x), ys = cell(on, n).pts.map((q) => q.y), mx = (Math.min(...xs) + Math.max(...xs)) / 2, my = (Math.min(...ys) + Math.max(...ys)) / 2
+			return dots.filter((d) => d.c.x > mx && d.c.x <= Math.max(...xs) + 1 && d.c.y < my && d.c.y >= Math.min(...ys) - 1).length }   // on the top-right corner (y down)
+		expect(inCell('P1', 1)).toBe(1)
+		expect(inCell('SW1', 1)).toBe(1)
+		expect(inCell('P1', 3)).toBe(0)
+		expect(dots.every((d) => !d.src)).toBe(true)   // the port takes the clicks
 	})
 	it('patch cords are drawn between their ports, in their own color, on their face only', () => {
 		const cords = (face: 'front' | 'rear') => view(face).filter((p) => p.k === 'line' && p.cls.startsWith('cord'))

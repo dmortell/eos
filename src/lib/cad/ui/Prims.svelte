@@ -193,7 +193,8 @@
 	.port { stroke: #94a3b8; fill: #f8fafc; }
 	.port-labelled { fill: #fef9c3; }
 	.port-linked { fill: #e0f2fe; stroke: #0284c7; }
-	.port-patched { fill: #334155; stroke: #0f172a; stroke-width: 1; }   /* a cord is plugged in: solid dark, its label white (User, C2) */
+	/* a cord is plugged in: a dark dot in the top-right corner, haloed white (rackRow.ts plugDot; User 2026-10-28) */
+	.port-plug.filled { fill: #0f172a; stroke: #ffffff; stroke-width: 1.5; pointer-events: none; }
 	.port-stale { stroke: #dc2626; stroke-width: 2; }
 	.port-mid { stroke: #334155; stroke-width: 1.5; }   /* the tick under the middle of a 24+ port device's ports */
 	.trace-cord { stroke: #f59e0b; stroke-width: 4; opacity: 0.9; }
@@ -265,9 +266,7 @@
 	text.port-label { fill: #0c4a6e; font-family: ui-monospace, monospace; }
 	/* a selected / traced port's label, redrawn over its highlight cell */
 	text.port-label-sel { fill: #0b1f4d; font-weight: 700; }
-	text.port-label-trace { fill: #78350f; }
-	text.port-label-patched { fill: #ffffff; }   /* over a patched port's dark cell (after -sel / -trace: it wins) */
-	text.u-label { fill: #94a3b8; }
+	text.port-label-trace { fill: #78350f; }	text.u-label { fill: #94a3b8; }
 	text.u-label.u-clash { fill: #dc2626; font-weight: 700; }
 	.riser-break { stroke: #64748b; stroke-width: 1; fill: none; }
 	/* a run of hidden floors in the riser view: a light hatched spacer saying how many (the Sheets tool's look) */
