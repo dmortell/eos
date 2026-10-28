@@ -214,20 +214,24 @@ export function rackRowDisplayList(ix: ProjectIndex, spec: RowSpec, o: RowOpts =
 				const ref = { on: d.id, port: n, face: spec.face }
 				const label = ix.portLabel(ref), linked = !!ix.linkAt(ref)
 				const reserved = !!reservedFor(d, n)   // a panel's, or a switch's (W16)
-				const cls = (label ? (linked ? 'port port-linked' : 'port port-labelled') : 'port') + (patched.has(`${d.id}:${n}`) ? ' port-patched' : '') + (stale.has(n) ? ' port-stale' : '') + (reserved && !linked ? ' port-reserved' : '')
+				const plugged = patched.has(`${d.id}:${n}`)
+				const cls = (label ? (linked ? 'port port-linked' : 'port port-labelled') : 'port') + (plugged ? ' port-patched' : '') + (stale.has(n) ? ' port-stale' : '') + (reserved && !linked ? ' port-reserved' : '')
 				out.push({ k: 'line', pts: [{ x: c.x + 1, y: c.y + 1 }, { x: c.x + c.w - 1, y: c.y + 1 }, { x: c.x + c.w - 1, y: c.y + c.h - 1 }, { x: c.x + 1, y: c.y + c.h - 1 }], closed: true, fill: true, cls, role: 'port', src: d.id, sub: String(n) })
-				// a port cabled to an outlet: a light tint of the outlet's usage color, inside its edge (backlog "Usage colors")
+				// a port cabled to an outlet: a thin bar of the outlet's usage color along its top, patched or not — not a fill,
+				// so a patched port (drawn solid dark) reads the same whatever the usage (User 2026-10-28: AP's green tint hid
+				// the green patched edge; option C2)
 				const far = linked ? ix.farEnd(ref) : null, fo = far ? ix.get(far.on) : undefined
 				const tint = fo?.type === 'outlet' ? usageColour((id) => ix.get(id), fo.usage) : undefined
-				if (tint) out.push({ k: 'line', pts: [{ x: c.x + 3, y: c.y + 3 }, { x: c.x + c.w - 3, y: c.y + 3 }, { x: c.x + c.w - 3, y: c.y + c.h - 3 }, { x: c.x + 3, y: c.y + c.h - 3 }], closed: true, fill: true, cls: 'port-usage', color: tint })
+				const bar = Math.max(0.8, c.h * 0.16)
+				if (tint) out.push({ k: 'line', pts: [{ x: c.x + 1, y: c.y + 1 }, { x: c.x + c.w - 1, y: c.y + 1 }, { x: c.x + c.w - 1, y: c.y + 1 + bar }, { x: c.x + 1, y: c.y + 1 + bar }], closed: true, fill: true, cls: 'port-usage', color: tint })
 				portAt.set(`${d.id}:${n}`, { x: c.x + c.w / 2, y: c.y + c.h / 2, hh: c.h / 2, rack: frame })
 				if (!label) continue
 				const { full, short } = labelLines(label)
 				const sizeFor = (lines: string[]) => Math.min((c.h * 0.85) / lines.length, (c.w * 0.92) / (Math.max(...lines.map((l) => l.length)) * 0.6))
-				const sS = sizeFor(short), sF = sizeFor(full)
+				const sS = sizeFor(short), sF = sizeFor(full), lc = plugged ? 'port-label port-label-patched' : 'port-label'
 				minLabel = Math.min(minLabel, sS)
-				short.forEach((t, li) => out.push({ k: 'text', at: { x: c.x + c.w / 2, y: c.y + c.h / 2 + (li - (short.length - 1) / 2) * sS + sS * 0.35 }, text: t, size: sS, anchor: 'middle', cls: 'port-label', role: 'port-label', src: d.id, sub: String(n), minPx: LABEL_MIN_PX, maxPx: full.length > short.length ? FULL_MIN_PX * (sS / sF) : undefined }))
-				if (full.length > short.length) full.forEach((t, li) => out.push({ k: 'text', at: { x: c.x + c.w / 2, y: c.y + c.h / 2 + (li - (full.length - 1) / 2) * sF + sF * 0.35 }, text: t, size: sF, anchor: 'middle', cls: 'port-label', role: 'port-label', src: d.id, sub: String(n), minPx: FULL_MIN_PX }))
+				short.forEach((t, li) => out.push({ k: 'text', at: { x: c.x + c.w / 2, y: c.y + c.h / 2 + (li - (short.length - 1) / 2) * sS + sS * 0.35 }, text: t, size: sS, anchor: 'middle', cls: lc, role: 'port-label', src: d.id, sub: String(n), minPx: LABEL_MIN_PX, maxPx: full.length > short.length ? FULL_MIN_PX * (sS / sF) : undefined }))
+				if (full.length > short.length) full.forEach((t, li) => out.push({ k: 'text', at: { x: c.x + c.w / 2, y: c.y + c.h / 2 + (li - (full.length - 1) / 2) * sF + sF * 0.35 }, text: t, size: sF, anchor: 'middle', cls: lc, role: 'port-label', src: d.id, sub: String(n), minPx: FULL_MIN_PX }))
 			}
 			// 24 ports or more: a tick under the middle of the ports, up from the device's bottom edge to the ports (6 mm at most)
 			// (User: cable a frame's left-hand outlets to the switch's left-hand ports, its right-hand ones to the right)

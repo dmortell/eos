@@ -46,7 +46,9 @@ function namesOver(prims: Prim[], devices: Id[]): Prim[] {
 /** The port labels of these ports (`device:port`), restyled, to draw over a highlight cell (no layer color: the
  *  class decides). */
 function labelsOf(prims: Prim[], keys: Set<string>, cls: string): Prim[] {
-	return prims.flatMap((p) => (p.k === 'text' && p.src && p.sub && p.role === 'port-label' && keys.has(`${p.src}:${p.sub}`) ? [{ ...p, cls, src: undefined, color: undefined }] : []))
+	// a patched port's label stays white over its dark cell
+	return prims.flatMap((p) => (p.k === 'text' && p.src && p.sub && p.role === 'port-label' && keys.has(`${p.src}:${p.sub}`)
+		? [{ ...p, cls: p.cls.includes('port-label-patched') ? `${cls} port-label-patched` : cls, src: undefined, color: undefined }] : []))
 }
 
 /** The circuit of a selected cord or single port (rack rows): its cords and ports drawn highlighted. */

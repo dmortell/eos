@@ -52,7 +52,13 @@ describe('outlet tips and usage colors (plan)', () => {
 		expect(prims.filter((p) => p.k !== 'text').every((p) => p.color === '#2563eb')).toBe(true)
 		expect(prims.filter((p) => p.k === 'text').some((p) => p.color === '#2563eb')).toBe(false)
 		const row = rackRowDisplayList(ix, { spaceId: 'SR-A', face: 'front' })
-		expect(row.filter((p) => p.k === 'line' && p.cls === 'port-usage' && p.color === '#2563eb').length).toBe(4)   // K1–K4 to the two desk outlets
+		const bars = row.filter((p) => p.k === 'line' && p.cls === 'port-usage' && p.color === '#2563eb') as { pts: { x: number; y: number }[]; src?: string }[]
+		expect(bars.length).toBe(4)   // K1–K4 to the two desk outlets
+		// a thin bar along the cell's top (C2), not a fill: well under a quarter of its port's height, and unpickable
+		const cellH = (row.find((p) => p.k === 'line' && p.role === 'port') as { pts: { y: number }[] }).pts.map((q) => q.y)
+		const barH = bars[0].pts.map((q) => q.y)
+		expect(Math.max(...barH) - Math.min(...barH)).toBeLessThan((Math.max(...cellH) - Math.min(...cellH)) / 4)
+		expect(bars[0].src).toBeUndefined()
 	})
 	it('the project can draw outlets by layer instead (Usage colors off)', () => {
 		const byLayer = new ProjectIndex([...demoProject(), { ...settings, outletColour: 'layer' } as Entity])

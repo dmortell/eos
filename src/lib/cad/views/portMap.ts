@@ -40,11 +40,12 @@ export function portMapDisplayList(ix: ProjectIndex, deviceIds: Id[]): Prim[] {
 			const [row, col] = portAt(d.portNumbering, r.port, g.rows, g.cols), x = PAD + col * CELL_W, cy = top + PAD + row * CELL_H
 			out.push({ k: 'line', pts: [{ x, y: cy }, { x: x + CELL_W, y: cy }, { x: x + CELL_W, y: cy + CELL_H }, { x, y: cy + CELL_H }], closed: true, fill: true,
 				cls: r.far ? `port port-linked${r.cordStatus ? ' port-patched' : ''}` : 'port', role: 'port', src: d.id, sub: String(r.port) })
-			out.push({ k: 'text', at: { x: x + 0.7, y: cy + 2 }, text: d.portLabels?.[String(r.port)] || String(r.port), size: 1.6, cls: 'u-label' })
+			const plugged = !!(r.far && r.cordStatus)   // drawn solid dark: its text in white
+			out.push({ k: 'text', at: { x: x + 0.7, y: cy + 2 }, text: d.portLabels?.[String(r.port)] || String(r.port), size: 1.6, cls: plugged ? 'u-label port-label-patched' : 'u-label' })
 			const lines = farLines(r.far)
 			if (!lines.length) continue
 			const size = fitSize(lines), lh = size * 1.2, t = cy + 2.4 + (CELL_H - 2.4 - lines.length * lh) / 2 + size * 0.85
-			lines.forEach((s, i) => out.push({ k: 'text', at: { x: x + CELL_W / 2, y: t + i * lh }, text: s, size, anchor: 'middle', cls: 'port-label' }))
+			lines.forEach((s, i) => out.push({ k: 'text', at: { x: x + CELL_W / 2, y: t + i * lh }, text: s, size, anchor: 'middle', cls: plugged ? 'port-label port-label-patched' : 'port-label' }))
 		}
 		y = top + h + GAP
 	}

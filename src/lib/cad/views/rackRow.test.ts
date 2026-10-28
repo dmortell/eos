@@ -65,11 +65,15 @@ describe('the rack row', () => {
 		expect(textOf(5)).toEqual([])
 		expect(prims.find((p) => p.src === 'P1' && p.sub === '1' && p.k === 'line')?.cls).toContain('port-linked')
 	})
-	it('a port with a cord in has a green edge — both ends; a linked port with none doesn’t (User: "patched ports should have an indicator")', () => {
+	it('a port with a cord in is drawn patched (solid dark) — both ends; a linked port with none isn’t (User: "patched ports should have an indicator")', () => {
 		const cls = (on: string, n: number) => (view('front').find((p) => p.k === 'line' && p.src === on && p.sub === String(n)) as { cls: string }).cls
 		expect(cls('P1', 1)).toContain('port-patched')    // C1
 		expect(cls('SW1', 1)).toContain('port-patched')
 		expect(cls('P1', 3)).not.toContain('port-patched')   // linked, not patched
+		// its label in white over the dark cell; an unpatched port's label stays as it was
+		const lcls = (n: number) => view('front').filter((p) => p.k === 'text' && p.src === 'P1' && p.sub === String(n)).map((p) => (p as { cls: string }).cls)
+		expect(lcls(1).every((c) => c === 'port-label port-label-patched')).toBe(true)
+		expect(lcls(3).every((c) => c === 'port-label')).toBe(true)
 	})
 	it('patch cords are drawn between their ports, in their own color, on their face only', () => {
 		const cords = (face: 'front' | 'rear') => view(face).filter((p) => p.k === 'line' && p.cls.startsWith('cord'))

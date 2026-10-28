@@ -6,8 +6,9 @@
 	const DRAWN = [
 		{ c: 'plain', t: 'Not cabled, no label', tip: 'Nothing on it yet. A panel port needs a label (an outlet, a tie or a typed label) before a cord goes on it' },
 		{ c: 'labelled', t: 'Labelled, no cable', tip: 'It has a label (a range on the panel, or typed) but no permanent cable yet — tie or link it' },
-		{ c: 'linked', t: 'Cabled', tip: 'A permanent cable: to an outlet (tinted with the outlet’s usage color), a tie to another panel in the room, or backbone to another room' },
-		{ c: 'patched', t: 'Patched (green edge)', tip: 'A patch cord is plugged in' },
+		{ c: 'linked', t: 'Cabled', tip: 'A permanent cable: to an outlet, a tie to another panel in the room, or backbone to another room' },
+		{ c: 'usage', t: 'Outlet’s usage (top bar)', tip: 'Cabled to an outlet: a thin bar of the outlet’s usage color along the top, patched or not' },
+		{ c: 'patched', t: 'Patched (solid dark)', tip: 'A patch cord is plugged in' },
 		{ c: 'stale', t: 'Label changed since printed', tip: 'The panel’s labels were printed and this port’s label has changed since — reprint' },
 		{ c: 'reserved', t: 'Reserved for a usage', tip: 'Properties › Reserve for… — Patch to… keeps it for that usage’s outlets' },
 		{ c: 'sel', t: 'Selected', tip: 'The ports you picked' },
@@ -42,7 +43,8 @@
 	/* the ports as drawn (Prims.svelte) */
 	.sw.labelled { background: #fef9c3; }
 	.sw.linked { background: #e0f2fe; border-color: #0284c7; }
-	.sw.patched { border: 2px solid #16a34a; }
+	.sw.usage { background: linear-gradient(#10b981 0 3px, #e0f2fe 3px); border-color: #0284c7; }
+	.sw.patched { background: #334155; border-color: #0f172a; }
 	.sw.stale { border: 2px solid #dc2626; }
 	.sw.reserved { background: #f5f3ff; border: 1px dashed #8b5cf6; }
 	.sw.sel { background: rgb(37 99 235 / 0.3); border: 2px solid #1d4ed8; }

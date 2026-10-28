@@ -193,7 +193,7 @@
 	.port { stroke: #94a3b8; fill: #f8fafc; }
 	.port-labelled { fill: #fef9c3; }
 	.port-linked { fill: #e0f2fe; stroke: #0284c7; }
-	.port-patched { stroke: #16a34a; stroke-width: 2; }   /* a cord is plugged in (User) */
+	.port-patched { fill: #334155; stroke: #0f172a; stroke-width: 1; }   /* a cord is plugged in: solid dark, its label white (User, C2) */
 	.port-stale { stroke: #dc2626; stroke-width: 2; }
 	.port-mid { stroke: #334155; stroke-width: 1.5; }   /* the tick under the middle of a 24+ port device's ports */
 	.trace-cord { stroke: #f59e0b; stroke-width: 4; opacity: 0.9; }
@@ -248,8 +248,8 @@
 	text.fill-label.fill-over { fill: #b91c1c; }
 	/* the route a selected outlet's cables take: green dashes, so it doesn't read as selected (selection is amber) */
 	/* every cable's route (the plan's Routes toggle), in its server room's color */
-	/* a panel port cabled to an outlet: a light tint of its usage color (backlog "Usage colors") */
-	.port-usage { stroke: none; fill-opacity: 0.35; pointer-events: none; }
+	/* a panel port cabled to an outlet: a thin bar of its usage color along the top (backlog "Usage colors"; C2) */
+	.port-usage { stroke: none; pointer-events: none; }
 	.all-route { stroke-width: 3; opacity: 0.75; fill: none; stroke-linecap: round; }
 	/* estimated cables (outlet ports not linked yet): dashed and lighter */
 	.all-route-est { opacity: 0.4; stroke-dasharray: 8 6; stroke-linecap: butt; }
@@ -266,6 +266,7 @@
 	/* a selected / traced port's label, redrawn over its highlight cell */
 	text.port-label-sel { fill: #0b1f4d; font-weight: 700; }
 	text.port-label-trace { fill: #78350f; }
+	text.port-label-patched { fill: #ffffff; }   /* over a patched port's dark cell (after -sel / -trace: it wins) */
 	text.u-label { fill: #94a3b8; }
 	text.u-label.u-clash { fill: #dc2626; font-weight: 700; }
 	.riser-break { stroke: #64748b; stroke-width: 1; fill: none; }
