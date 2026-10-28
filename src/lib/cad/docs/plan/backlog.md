@@ -85,6 +85,11 @@ CadShell, ViewCanvas and selectTool were split 2026-10-07; split again only when
   highlights its outline AND every port cell on it. Hover should light just the device's border; a port lights on its
   own, one at a time, only while the pointer is over that port. (Same reasoning as the 2026-10-28 click fix, a74cf468:
   a picked device's ports aren't lined blue.) **P2 · S**.
+- [ ] **Tooltips: wait once, then instant on the next** (User 2026-10-29) — on a row of buttons (toolbox icons, toolbars)
+  the first hovered button's tip waits ~0.5s; moving on to a neighbour shows its tip at once. CSS interest invokers:
+  `<button interestfor="tip-x">` + `<span id="tip-x" popover="hint">`, with `.bar button { interest-delay-start: 0.5s }`
+  and `.bar:has(:interest-source) button { interest-delay-start: 0s }`. Needs a fallback where `interestfor` isn't
+  supported (a small shared tooltip action with the same warm-up timer). **P2 · S**.
 
 ## User's todos (2026-10-14)
 
