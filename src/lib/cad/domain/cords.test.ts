@@ -177,6 +177,12 @@ describe('bulk patch', () => {
 		const end = bulkPatch(ix(), { on: 'P1', ports: [3, 4], face: 'front' }, { on: 'SW1', start: 48 }, D, { fill: true })
 		expect([pairs(end), end.skipped]).toEqual([['3→48'], [expect.stringMatching(/no free port left/)]])
 	})
+	it('a run onto the main ports doesn’t spill onto the side ports (a switch’s uplinks); one started on them may use them', () => {
+		const i = new ProjectIndex(demoProject().map((e) => (e.id === 'SW1' ? { ...e, portCount: 50, sidePorts: 2 } as Entity : e)))
+		const end = bulkPatch(i, { on: 'P1', ports: [3, 4], face: 'front' }, { on: 'SW1', start: 48 }, D, { fill: true })
+		expect([pairs(end), end.skipped]).toEqual([['3→48'], [expect.stringMatching(/no free port left/)]])
+		expect(pairs(bulkPatch(i, { on: 'P1', ports: [3, 4], face: 'front' }, { on: 'SW1', start: 49 }, D))).toEqual(['3→49', '4→50'])
+	})
 	it('surveying a built site: new cords start as installed (one, or in bulk); planning (default) = add', () => {
 		expect(makeCord(ix(), { on: 'P1', port: 3, face: 'front' }, { on: 'SW1', port: 3 }, { ...D, status: 'installed' }).cord?.status).toBe('installed')
 		expect(bulkPatch(ix(), { on: 'P1', ports: [3, 4], face: 'front' }, { on: 'SW1', start: 3 }, { ...D, status: 'installed' }).cords.map((c) => c.status)).toEqual(['installed', 'installed'])

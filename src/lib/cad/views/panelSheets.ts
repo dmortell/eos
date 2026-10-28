@@ -7,7 +7,7 @@ import type { ProjectIndex } from '../domain/project'
 import type { Device, Id } from '../domain/types'
 import type { Prim } from './display'
 import type { PdfPage } from '../render/pdf'
-import { panelsInFillOrder, portAt, portGrid } from '../domain/devices'
+import { panelsInFillOrder, portGrid, portSlot } from '../domain/devices'
 import { labelLines } from './rackRow'
 
 const PAGE = { w: 297, h: 210 }, M = 10, TOP = 20
@@ -16,8 +16,8 @@ const CELL_W = (PAGE.w - 2 * M) / 24, CELL_H = 13, TITLE_H = 6, GAP = 5
 
 /** The panel's port grid, laid out as the rack view shows it (portGrid), numbered along rows or down columns. */
 function grid(d: Device): { rows: number; cols: number; at: (n: number) => [number, number] } {
-	const { rows, cols } = portGrid(d)
-	return { rows, cols, at: (n) => portAt(d.portNumbering, n, rows, cols) }
+	const { rows, cols, sideCols } = portGrid(d)
+	return { rows, cols: cols + sideCols, at: (n) => portSlot(d, n) }   // a switch's side ports: columns after the rest
 }
 
 /** The text size (mm) that fits these lines in a cell. */

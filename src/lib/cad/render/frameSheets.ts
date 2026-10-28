@@ -6,7 +6,7 @@
 import type { Workbook, Worksheet, Cell, Border, Borders, Fill, PaperSize } from 'exceljs'
 import type { ProjectIndex } from '../domain/project'
 import type { Device, Id, ProjectSettings, Rack } from '../domain/types'
-import { racksInOrder, portAt, portGrid } from '../domain/devices'
+import { racksInOrder, portGrid, portSlot } from '../domain/devices'
 import { fileSafe, saveFile } from './download'
 import { sheetName } from './exports'
 
@@ -44,10 +44,10 @@ export function frameRacks(ix: ProjectIndex, spaceId: Id): FrameRoom {
 				us.forEach((u) => taken.add(u))
 				const top = d.u + d.heightU - 1
 				if (d.kind !== 'panel' || !d.portCount) { blocks.push({ kind: 'device', u: top, heightU: d.heightU, text: `${d.kind.toUpperCase()}: ${d.name}` }); continue }
-				const { rows: nRows, cols } = portGrid(d), res = reservedFor(d)   // the rack view's layout, so a 72-port 1U panel is 2 rows, not 3 over the next U
-				const rows: (FrameCell | null)[][] = Array.from({ length: nRows }, () => Array<FrameCell | null>(Math.max(COLS, cols)).fill(null))
+				const { rows: nRows, cols, sideCols } = portGrid(d), res = reservedFor(d)   // the rack view's layout, so a 72-port 1U panel is 2 rows, not 3 over the next U
+				const rows: (FrameCell | null)[][] = Array.from({ length: nRows }, () => Array<FrameCell | null>(Math.max(COLS, cols + sideCols)).fill(null))
 				for (let n = 1; n <= d.portCount; n++) {
-					const [row, col] = portAt(d.portNumbering, n, nRows, cols)
+					const [row, col] = portSlot(d, n)
 					const far = ix.farEnd({ on: d.id, port: n }), o = far ? ix.get(far.on) : undefined
 					const usage = o?.type === 'outlet' ? o.usage : undefined
 					rows[row][col] = { label: ix.portLabel({ on: d.id, port: n }), ...(usage ? { usage } : res.has(n) ? { usage: res.get(n), reserved: true } : {}) }

@@ -17,6 +17,7 @@ export interface DeviceTemplate {
 	portNumbering?: Device['portNumbering']
 	modules?: number
 	portRows?: number
+	sidePorts?: number
 	/** Which face it mounts on by default; panels default to 'both' (front patching, rear terminations). */
 	face?: Device['face']
 	widthMm?: number
@@ -46,10 +47,23 @@ export const deviceMatches = (d: Pick<Device, 'name' | 'kind' | 'model'>, r: Pic
  *  its top two rows and 49 under 2 (User 2026-10-10: Tourney's Arista CCS-720XP-96). */
 /** The rows and columns of a device's ports — ONE layout for the rack view, the port map and the printed panel labels:
  *  ~24 a row, up to two rows a U (a 48-port 1U panel = 2 × 24; a 96-port 2U switch = 4 × 24). */
-export function portGrid(d: Pick<Device, 'portCount' | 'heightU' | 'portRows'>): { rows: number; cols: number } {
-	// its own rows when set (a 24-port fiber enclosure: 2 × 12)
-	const rows = d.portRows ? Math.max(1, Math.min(d.portRows, d.portCount || 1)) : d.portCount > 24 ? Math.max(1, Math.min(d.heightU * 2, Math.ceil(d.portCount / 24))) : 1   // 0U: one row, not ∞ columns
-	return { rows, cols: Math.max(1, Math.ceil(d.portCount / rows)) }
+export function portGrid(d: Pick<Device, 'portCount' | 'heightU' | 'portRows' | 'sidePorts'>): { rows: number; cols: number; sideCols: number } {
+	// its own rows when set (a 24-port fiber enclosure: 2 × 12); the side ports aren't in the main grid
+	const main = mainPorts(d), side = d.portCount - main
+	const rows = d.portRows ? Math.max(1, Math.min(d.portRows, main || 1)) : main > 24 ? Math.max(1, Math.min(d.heightU * 2, Math.ceil(main / 24))) : 1   // 0U: one row, not ∞ columns
+	return { rows, cols: Math.max(1, Math.ceil(main / rows)), sideCols: side ? Math.ceil(side / rows) : 0 }
+}
+
+/** The ports in the main grid: all but the side block (`sidePorts`, the last ports). */
+export const mainPorts = (d: Pick<Device, 'portCount' | 'sidePorts'>): number => d.portCount - Math.max(0, Math.min(d.sidePorts ?? 0, d.portCount - 1))
+
+/** Where port `n` sits: [row, col] — in the main grid (portAt), or a side port down its own columns, numbered after
+ *  the main grid's (col ≥ cols: the caller adds the gap before the side block). */
+export function portSlot(d: Pick<Device, 'portCount' | 'heightU' | 'portRows' | 'sidePorts' | 'portNumbering'>, n: number): [number, number] {
+	const g = portGrid(d), main = mainPorts(d)
+	if (n <= main) return portAt(d.portNumbering, n, g.rows, g.cols)
+	const i = n - main - 1
+	return [i % g.rows, g.cols + Math.floor(i / g.rows)]
 }
 
 export function portAt(numbering: Device['portNumbering'], n: number, rows: number, cols: number): [number, number] {
@@ -94,7 +108,7 @@ export const BUILTIN_DEVICE_TEMPLATES: DeviceTemplate[] = [
 export function deviceFromTemplate(t: DeviceTemplate, rackId: Id, u: number, name: string, face?: Device['face']): Device {
 	return {
 		type: 'device', id: newId(), rackId, name, kind: t.kind, u, heightU: t.heightU, face: face ?? t.face ?? 'front', portCount: t.portCount,
-		...(t.portType ? { portType: t.portType } : {}), ...(t.portNumbering ? { portNumbering: t.portNumbering } : {}), ...(t.modules ? { modules: t.modules } : {}), ...(t.portRows ? { portRows: t.portRows } : {}),
+		...(t.portType ? { portType: t.portType } : {}), ...(t.portNumbering ? { portNumbering: t.portNumbering } : {}), ...(t.modules ? { modules: t.modules } : {}), ...(t.portRows ? { portRows: t.portRows } : {}), ...(t.sidePorts ? { sidePorts: t.sidePorts } : {}),
 		...(t.widthMm ? { widthMm: t.widthMm } : {}), ...(t.depthMm ? { depthMm: t.depthMm } : {}), ...(t.catalogId ? { catalogId: t.catalogId } : {}),
 		...makerModel(t), ...(t.productUrl ? { productUrl: t.productUrl } : {}), ...(t.kind === 'panel' ? { panel: { tier: 'low' as const } } : {}),
 	}
@@ -104,7 +118,7 @@ export function deviceFromTemplate(t: DeviceTemplate, rackId: Id, u: number, nam
 export function templateFromDevice(d: Device, name: string): DeviceTemplate {
 	return {
 		id: newId(), name, kind: d.kind, heightU: d.heightU, portCount: d.portCount,
-		...(d.portType ? { portType: d.portType } : {}), ...(d.portNumbering ? { portNumbering: d.portNumbering } : {}), ...(d.modules ? { modules: d.modules } : {}), ...(d.portRows ? { portRows: d.portRows } : {}),
+		...(d.portType ? { portType: d.portType } : {}), ...(d.portNumbering ? { portNumbering: d.portNumbering } : {}), ...(d.modules ? { modules: d.modules } : {}), ...(d.portRows ? { portRows: d.portRows } : {}), ...(d.sidePorts ? { sidePorts: d.sidePorts } : {}),
 		face: d.face, ...(d.widthMm ? { widthMm: d.widthMm } : {}), ...(d.depthMm ? { depthMm: d.depthMm } : {}), ...(d.catalogId ? { catalogId: d.catalogId } : {}),
 		...makerModel(d), ...(d.productUrl ? { productUrl: d.productUrl } : {}),
 	}

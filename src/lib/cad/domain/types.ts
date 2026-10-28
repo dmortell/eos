@@ -230,6 +230,10 @@ export interface Device {
 	modules?: number
 	/** Rows of ports on its face, when not the usual (~24 a row, up to 2 a U): a 24-port fiber enclosure is 2 × 12. */
 	portRows?: number
+	/** The LAST this-many ports drawn in their own block on the right, down columns as tall as the main grid (a
+	 *  switch's uplinks, management and console: User 2026-10-28, Arista 720XP-96 = 96 + 8 → 2 columns of 4, Et97–
+	 *  Et104). Counted in `portCount`; a run of cords onto the main ports doesn't spill onto them. */
+	sidePorts?: number
 	catalogId?: Id
 	maker?: string
 	model?: string

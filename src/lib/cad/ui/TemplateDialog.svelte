@@ -47,6 +47,7 @@
 					<select value={t.portNumbering ?? 'row'} onchange={(e) => (t.portNumbering = (e.currentTarget.value === 'row' ? undefined : e.currentTarget.value as Device['portNumbering']))}>
 						<option value="row">Along the rows (1 2 3 …)</option><option value="column">Down the columns (1 over 2)</option><option value="column-up">Up the columns (2 over 1)</option></select></label>
 				<label title="Rows of ports on its face. Blank = the usual: about 24 a row, up to 2 rows a U">Rows <input type="number" min="1" max="8" value={t.portRows ?? ''} placeholder="auto" oninput={(e) => (t.portRows = num(e.currentTarget.value))} /></label>
+				<label title="The last this-many ports drawn in their own block on the right, down columns (a switch's uplinks, management and console). Blank = none">Side ports <input type="number" min="0" max={Math.max(0, t.portCount - 1)} value={t.sidePorts ?? ''} placeholder="none" oninput={(e) => (t.sidePorts = num(e.currentTarget.value) || undefined)} /></label>
 				<label title="Slots across the front (a fiber enclosure's modules): the ports are drawn in this many blocks. Blank = one">Slots <input type="number" min="1" max="12" value={t.modules ?? ''} placeholder="1" oninput={(e) => (t.modules = num(e.currentTarget.value))} /></label>
 			{/if}
 			<label title="Which side of the rack it faces — where it is drawn with its ports: front, rear, both (a patch panel: patched at the front, cabled at the rear) or none (not drawn). Not how it is fixed: a “both” device’s Mount (Properties) says that">Face

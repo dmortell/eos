@@ -9,7 +9,7 @@ import { RU_MM, rackHeight, rackUBase } from '../domain/units'
 import type { ProjectIndex } from '../domain/project'
 import type { Prim } from './display'
 import { changedSincePrinted, reservedFor } from '../domain/ports'
-import { racksInOrder, RACK_DEVICE_W, sidesOf, sharesU, clashUs, roomFloor, portAt, portGrid } from '../domain/devices'
+import { racksInOrder, RACK_DEVICE_W, sidesOf, sharesU, clashUs, roomFloor, portGrid, portSlot, mainPorts } from '../domain/devices'
 import { channelRoute, type RackFrame } from './cordRoute'
 import { rangeLabel } from '../domain/portGroups'
 import { usageColour } from '../domain/usages'
@@ -66,16 +66,18 @@ export function portCell(d: Device, n: number, devX: number, devZ0: number): { x
 	if (!d.portCount || d.kind === 'pdu') return null
 	// ~24 ports a row, up to two rows a U: a 48-port 1U panel = 2 × 24; a 96-port 2U switch = 4 × 24 (User: it read as
 	// 48 — its two rows of 48 tiny cells looked like one)
-	const { rows, cols } = portGrid(d)
+	const { rows, cols, sideCols } = portGrid(d)
 	// a port is at most a patch panel port's size (24 across 19") — a 2-port server or a tower PC keeps small ports
 	// the port area is the device's own front (less a margin): a narrow device (a tower PC) keeps its ports on itself
 	const area = Math.min(PORT_AREA_W, (d.widthMm ?? DEVICE_W) - 20)
-	// a fiber enclosure's slots: the columns in `modules` blocks, a gap between them
-	const m = d.modules && d.modules > 1 && cols % d.modules === 0 ? d.modules : 1, gap = m > 1 ? MODULE_GAP : 0
-	const w = Math.min((area - gap * (m - 1)) / cols, MAX_PORT_W), hDev = d.heightU * RU_MM, h = Math.min((hDev * 0.8) / rows, w * 1.6, MAX_PORT_H)
-	const [row, col] = portAt(d.portNumbering, n, rows, cols)
+	// a fiber enclosure's slots: the columns in `modules` blocks, a gap between them; the side ports (a switch's
+	// uplinks) their own block after a gap at the right, the main ports a little narrower to make room
+	const m = d.modules && d.modules > 1 && cols % d.modules === 0 ? d.modules : 1, gap = m > 1 ? MODULE_GAP : 0, sideGap = sideCols ? MODULE_GAP : 0
+	const w = Math.min((area - gap * (m - 1) - sideGap) / (cols + sideCols), MAX_PORT_W), hDev = d.heightU * RU_MM, h = Math.min((hDev * 0.8) / rows, w * 1.6, MAX_PORT_H)
+	const [row, col] = portSlot(d, n)
 	const top = devZ0 + hDev / 2 + (rows * h) / 2   // the grid is centred vertically on the device
-	return { x: devX - area / 2 + col * w + Math.floor(col / (cols / m)) * gap, y: -(top - row * h), w, h }
+	const shift = col >= cols ? gap * (m - 1) + sideGap : Math.floor(col / (cols / m)) * gap
+	return { x: devX - area / 2 + col * w + shift, y: -(top - row * h), w, h }
 }
 
 /** A label split for stacking: "L01.A.001-A01" → ["L01.A", "001", "A01"]; short form = the last two parts. */
@@ -210,7 +212,8 @@ export function rackRowDisplayList(ix: ProjectIndex, spec: RowSpec, o: RowOpts =
 			for (let n = 1; n <= d.portCount; n++) {
 				const c = portCell(d, n, dx, z0)
 				if (!c) break
-				gx0 = Math.min(gx0, c.x); gx1 = Math.max(gx1, c.x + c.w); gBottom = Math.max(gBottom, c.y + c.h)
+				if (n <= mainPorts(d)) { gx0 = Math.min(gx0, c.x); gx1 = Math.max(gx1, c.x + c.w) }   // the mid tick: the main ports' middle
+				gBottom = Math.max(gBottom, c.y + c.h)
 				const ref = { on: d.id, port: n, face: spec.face }
 				const label = ix.portLabel(ref), linked = !!ix.linkAt(ref)
 				const reserved = !!reservedFor(d, n)   // a panel's, or a switch's (W16)
@@ -234,7 +237,7 @@ export function rackRowDisplayList(ix: ProjectIndex, spec: RowSpec, o: RowOpts =
 			}
 			// 24 ports or more: a tick under the middle of the ports, up from the device's bottom edge to the ports (6 mm at most)
 			// (User: cable a frame's left-hand outlets to the switch's left-hand ports, its right-hand ones to the right)
-			if (d.portCount >= 24 && gx1 > gx0) {
+			if (mainPorts(d) >= 24 && gx1 > gx0) {
 				const x = (gx0 + gx1) / 2
 				out.push({ k: 'line', pts: [{ x, y: -z0 }, { x, y: Math.max(gBottom, -z0 - 6) }], cls: 'port-mid' })
 			}

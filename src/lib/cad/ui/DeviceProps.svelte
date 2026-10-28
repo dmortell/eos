@@ -152,6 +152,11 @@
 		{@const todo = d.kind === 'panel' ? allocatedUnpatched(project.index, d) : []}
 		{#if todo.length}<div class="pt-1"><button class="link" title="Select the ports with an outlet on them but no patch cord yet (ports {todo.length > 6 ? `${todo.slice(0, 6).join(', ')} …` : todo.join(', ')}) — then Patch to… (P) and click the first switch port" onclick={() => ws.selectPorts({ on: d.id, ports: todo, face: 'front', anchor: todo[0] })}>☐ Select the {todo.length} allocated port{todo.length === 1 ? '' : 's'} not patched yet</button></div>{/if}
 	{/if}
+	{#if devices.some((d) => d.portCount > 1)}
+		<NumberField label="Side ports" min={0} blank placeholder="none" title="The last this-many ports drawn in their own block on the right, down columns (a switch's uplinks, management and console: 104 ports with 8 side = 96 + 2 columns of 4). A run of cords onto the other ports doesn't spill onto them."
+			value={dv((d) => d.sidePorts).value} mixed={dv((d) => d.sidePorts).mixed}
+			onchange={(v) => setAll('Side ports', { sidePorts: v != null && Number.isInteger(v) && v > 0 ? v : undefined })} />
+	{/if}
 	{#if devices.some((d) => d.portCount)}
 		<SelectField label="Numbering" value={dv((d) => d.portNumbering ?? 'row').value} mixed={dv((d) => d.portNumbering ?? 'row').mixed}
 			options={[['row', 'Across (2 beside 1)'], ['column', 'Down (2 under 1)'], ['column-up', 'Up (2 above 1)']]} onchange={(v) => setAll('Port numbering', { portNumbering: v === 'column' || v === 'column-up' ? v : undefined })} />

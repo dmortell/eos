@@ -5,7 +5,7 @@ import type { Id, Cord, Device, PortRef, Rack } from './types'
 import { RU_MM, RAIL_W } from './units'
 import type { ProjectIndex } from './project'
 import type { Entity } from './drawing'
-import { racksInOrder, portGrid, portAt } from './devices'
+import { racksInOrder, portGrid, portSlot, mainPorts } from './devices'
 import { newId } from './ids'
 import { reservationsOf } from './ports'
 
@@ -68,8 +68,10 @@ export function roomProblem(ix: ProjectIndex, a: { on: Id }, b: { on: Id }): str
 
 /** A port's column as the rack view draws it (portGrid / portAt), and the cable channel it goes to — a column-numbered
  *  switch's port 13 is in column 7, on the LEFT (Review 2 Q3: `(port − 1) % 24` put it on the right). */
-export function portColumn(d: Device, port: number): number { const g = portGrid(d); return portAt(d.portNumbering, port, g.rows, g.cols)[1] }
-export function portSide(d: Device, port: number): 'left' | 'right' { return portColumn(d, port) < portGrid(d).cols / 2 ? 'left' : 'right' }
+export function portColumn(d: Device, port: number): number { return portSlot(d, port)[1] }
+/** All its columns, the side block's (a switch's uplinks) included. */
+const allCols = (d: Device) => { const g = portGrid(d); return g.cols + g.sideCols }
+export function portSide(d: Device, port: number): 'left' | 'right' { return portColumn(d, port) < allCols(d) / 2 ? 'left' : 'right' }
 
 /**
  * Estimated cord length in metres, snapped up to stock (the Patching tool's model, on real mm geometry): down/up the
@@ -85,7 +87,7 @@ export function cordLength(ix: ProjectIndex, a: PortRef, b: PortRef): number {
 	const uOf = (d: Device) => d.u + (d.heightU - 1) / 2
 	// the port's column as the rack view draws it (portGrid / portAt): a column-numbered switch's port 13 is in column 7,
 	// not 13 (Review 2 Q3)
-	const cols = (d: Device) => portGrid(d).cols
+	const cols = allCols
 	const col = portColumn
 	const left = (d: Device, port: number) => portSide(d, port) === 'left'
 	const toChannel = (d: Device, port: number) => { const w = RAIL_W / cols(d), c = col(d, port); return left(d, port) ? (c + 0.5) * w : (cols(d) - c - 0.5) * w }
@@ -267,6 +269,8 @@ export function bulkPatch(ix: ProjectIndex, a: { on: Id; ports: number[]; face?:
 	const room = roomProblem(ix, a, b)
 	if (room) return { cords, skipped: [room] }
 	let nb = b.start
+	// a run started on the main ports stays on them: it doesn't spill onto a switch's uplinks (its side ports)
+	const lastB = b.start <= mainPorts(devB) ? mainPorts(devB) : devB.portCount
 	const usedB = new Set<number>()
 	const held = reservationsOf(devB), heldFor = (n: number) => held.find((r) => r.ports.includes(n))?.usage
 	/** The usage of the outlet cabled to an A port ('' = none). */
@@ -290,12 +294,12 @@ export function bulkPatch(ix: ProjectIndex, a: { on: Id; ports: number[]; face?:
 			return
 		}
 		if (!opts.fill) nb = b.start + i
-		if (nb > devB.portCount) { skipped.push(`${ix.portPlace(ra)}: ${devB.name} has no ${opts.fill ? 'free port left' : `port ${nb}`}`); return }
+		if (nb > lastB) { skipped.push(`${ix.portPlace(ra)}: ${devB.name} has no ${opts.fill ? 'free port left' : `port ${nb}`}`); return }
 		const pr = patchProblem(ix, ra)
 		if (pr) { skipped.push(pr); return }
 		if (opts.fill) {
-			while (nb <= devB.portCount && (usedB.has(nb) || heldFor(nb) || patchProblem(ix, { on: b.on, port: nb }))) nb++
-			if (nb > devB.portCount) { skipped.push(`${ix.portPlace(ra)}: ${devB.name} has no free port left`); return }
+			while (nb <= lastB && (usedB.has(nb) || heldFor(nb) || patchProblem(ix, { on: b.on, port: nb }))) nb++
+			if (nb > lastB) { skipped.push(`${ix.portPlace(ra)}: ${devB.name} has no free port left`); return }
 		} else {
 			const pb = patchProblem(ix, { on: b.on, port: nb }) ?? (heldFor(nb) ? `${devB.name} port ${nb} is reserved for ${heldFor(nb)}` : null)
 			if (pb) { skipped.push(`${ix.portPlace(ra)}: ${pb}`); return }

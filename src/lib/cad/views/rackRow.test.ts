@@ -193,6 +193,21 @@ describe('port cells and labels', () => {
 		expect(ys.size).toBe(4)
 		expect(portCell(big, 1, 0, 0)!.w).toBeCloseTo(430 / 24)
 	})
+	it('side ports: a 720XP-96’s 8 uplink / management ports (97–104) in 2 columns of 4 on the right, the 96 squeezed up (User 2026-10-28)', () => {
+		const sw: Device = { type: 'device', id: 'S104', rackId: 'R1', name: 'S104', kind: 'switch', u: 1, heightU: 2, face: 'front', portCount: 104, sidePorts: 8, portNumbering: 'column' }
+		const at = (n: number) => portCell(sw, n, 0, 0)!
+		// the main grid as before: still 4 rows of 24, numbered down; narrower to make room
+		expect(new Set(Array.from({ length: 96 }, (_, i) => Math.round(at(i + 1).y))).size).toBe(4)
+		expect(at(2).x).toBe(at(1).x)
+		expect(at(1).w).toBeLessThan(430 / 24)
+		// 97–100 down the first side column, 101–104 the second, each as tall as a main row; a gap after port 96's column
+		expect([97, 98, 99, 100].map((n) => at(n).x)).toEqual(Array(4).fill(at(97).x))
+		expect([97, 98, 99, 100].map((n) => Math.round(at(n).y))).toEqual([1, 2, 3, 4].map((r) => Math.round(at(1).y + (r - 1) * at(1).h)))
+		expect(at(101).x).toBeCloseTo(at(97).x + at(97).w)
+		expect(at(101).y).toBeCloseTo(at(97).y)
+		expect(at(97).x).toBeGreaterThan(at(95).x + at(95).w + 1)
+		expect(at(104).x + at(104).w).toBeLessThanOrEqual(215 + 1e-6)   // inside the 430 mm port area
+	})
 	it('numbered down, a 96-port 2U switch goes down each U’s pair of rows: 2 under 1, 49 under 2, 50 under 49 (User: Tourney’s Arista CCS-720XP-96)', () => {
 		const big: Device = { type: 'device', id: 'S96', rackId: 'R1', name: 'S96', kind: 'switch', u: 1, heightU: 2, face: 'front', portCount: 96, portNumbering: 'column' }
 		const at = (p: number) => portCell(big, p, 0, 0)!
