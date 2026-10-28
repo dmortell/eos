@@ -81,6 +81,10 @@ CadShell, ViewCanvas and selectTool were split 2026-10-07; split again only when
   building. **P2 · M**. Mock-ups (2026-10-26, https://claude.ai/artifact/7hUNmZYq8gfnLCfkB3xHYz): A every tool its own
   button · B task tabs with labels (ribbon) · C labelled palette docked left · D today's strip + Find a tool · E floating
   toolbox (icons, or names on). User to pick.
+- [ ] **Hover a device: its border only, not all its ports** (User 2026-10-28) — today hovering a device in a rack view
+  highlights its outline AND every port cell on it. Hover should light just the device's border; a port lights on its
+  own, one at a time, only while the pointer is over that port. (Same reasoning as the 2026-10-28 click fix, a74cf468:
+  a picked device's ports aren't lined blue.) **P2 · S**.
 
 ## User's todos (2026-10-14)
 
