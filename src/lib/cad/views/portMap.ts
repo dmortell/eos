@@ -8,7 +8,7 @@ import type { Device, Id } from '../domain/types'
 import type { Prim } from './display'
 import { portAt, portGrid } from '../domain/devices'
 import { portMapRows, type PortMapRow } from '../domain/portMap'
-import { labelLines, plugDot } from './rackRow'
+import { labelLines } from './rackRow'
 
 /** A port cell (mm): 24 across ≈ 290 mm, fits an A3 landscape sheet at 1:1; tall enough for three stacked lines. */
 const CELL_W = 12, CELL_H = 11, PAD = 2, TITLE_H = 6, GAP = 8
@@ -40,7 +40,6 @@ export function portMapDisplayList(ix: ProjectIndex, deviceIds: Id[]): Prim[] {
 			const [row, col] = portAt(d.portNumbering, r.port, g.rows, g.cols), x = PAD + col * CELL_W, cy = top + PAD + row * CELL_H
 			out.push({ k: 'line', pts: [{ x, y: cy }, { x: x + CELL_W, y: cy }, { x: x + CELL_W, y: cy + CELL_H }, { x, y: cy + CELL_H }], closed: true, fill: true,
 				cls: r.far ? `port port-linked${r.cordStatus ? ' port-patched' : ''}` : 'port', role: 'port', src: d.id, sub: String(r.port) })
-			if (r.far && r.cordStatus) out.push(plugDot({ x, y: cy, w: CELL_W, h: CELL_H }))
 			out.push({ k: 'text', at: { x: x + 0.7, y: cy + 2 }, text: d.portLabels?.[String(r.port)] || String(r.port), size: 1.6, cls: 'u-label' })
 			const lines = farLines(r.far)
 			if (!lines.length) continue

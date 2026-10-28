@@ -79,14 +79,6 @@ export function portCell(d: Device, n: number, devX: number, devZ0: number): { x
 }
 
 /** A label split for stacking: "L01.A.001-A01" → ["L01.A", "001", "A01"]; short form = the last two parts. */
-/** A patched port's mark: a dark dot in its cell's top-right corner, haloed white so it reads on any fill (User
- *  2026-10-28: solid dark patched ports were easy to spot but didn't look good). No src: the port takes the clicks. */
-export function plugDot(c: { x: number; y: number; w: number; h: number }): Prim {
-	// as the option A mockup: ~⅜ of the cell's height across, on the corner and just over it
-	const r = Math.min(c.w, c.h) * 0.19
-	return { k: 'circle', c: { x: c.x + c.w - r * 0.35, y: c.y + r * 0.35 }, r, fill: true, cls: 'port-plug' }
-}
-
 export function labelLines(label: string): { full: string[]; short: string[] } {
 	const parts = label.split(/[.\-]/).filter(Boolean)
 	if (parts.length <= 1) return { full: [label], short: [label] }
@@ -188,7 +180,6 @@ export function rackRowDisplayList(ix: ProjectIndex, spec: RowSpec, o: RowOpts =
 					const cy = z1 - 8 - (n - 1) * 40, c = { x: x + 4, y: -cy, w: 32, h: 32 }
 					const ref = { on: d.id, port: n, face: spec.face }, linked = !!ix.linkAt(ref)
 					out.push({ k: 'line', pts: [{ x: c.x, y: c.y }, { x: c.x + c.w, y: c.y }, { x: c.x + c.w, y: c.y + c.h }, { x: c.x, y: c.y + c.h }], closed: true, fill: true, cls: (linked ? 'port port-linked' : 'port') + (patched.has(`${d.id}:${n}`) ? ' port-patched' : ''), role: 'port', src: d.id, sub: String(n) })
-					if (patched.has(`${d.id}:${n}`)) out.push(plugDot(c))
 					portAt.set(`${d.id}:${n}`, { x: c.x + c.w / 2, y: c.y + c.h / 2, hh: c.h / 2, rack: frame })
 				}
 				continue
@@ -227,13 +218,11 @@ export function rackRowDisplayList(ix: ProjectIndex, spec: RowSpec, o: RowOpts =
 				const cls = (label ? (linked ? 'port port-linked' : 'port port-labelled') : 'port') + (plugged ? ' port-patched' : '') + (stale.has(n) ? ' port-stale' : '') + (reserved && !linked ? ' port-reserved' : '')
 				out.push({ k: 'line', pts: [{ x: c.x + 1, y: c.y + 1 }, { x: c.x + c.w - 1, y: c.y + 1 }, { x: c.x + c.w - 1, y: c.y + c.h - 1 }, { x: c.x + 1, y: c.y + c.h - 1 }], closed: true, fill: true, cls, role: 'port', src: d.id, sub: String(n) })
 				// a port cabled to an outlet: a thin bar of the outlet's usage color along its top, patched or not — not a fill,
-				// so the patched mark reads the same whatever the usage (User 2026-10-28: AP's green tint hid the green patched
-				// edge; option C2)
+				// so the green patched edge never sits on a green fill (User 2026-10-28: AP's green tint hid it; option C2's bar)
 				const far = linked ? ix.farEnd(ref) : null, fo = far ? ix.get(far.on) : undefined
 				const tint = fo?.type === 'outlet' ? usageColour((id) => ix.get(id), fo.usage) : undefined
 				const bar = Math.max(0.8, c.h * 0.16)
 				if (tint) out.push({ k: 'line', pts: [{ x: c.x + 1, y: c.y + 1 }, { x: c.x + c.w - 1, y: c.y + 1 }, { x: c.x + c.w - 1, y: c.y + 1 + bar }, { x: c.x + 1, y: c.y + 1 + bar }], closed: true, fill: true, cls: 'port-usage', color: tint })
-				if (plugged) out.push(plugDot(c))
 				portAt.set(`${d.id}:${n}`, { x: c.x + c.w / 2, y: c.y + c.h / 2, hh: c.h / 2, rack: frame })
 				if (!label) continue
 				const { full, short } = labelLines(label)
