@@ -4,6 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Build & Dev Commands
 
+- **Use `bin/agent-cli` first** — prefer it over re-reading files or guessing commands (`bin/agent-cli` lists its subcommands: test, check, compile, def, uses, backlog, helpq, status, snippet, worktree; each has `--help` and `--json`).
 - `pnpm dev` — Start dev server
 - `pnpm build` — Production build
 - `pnpm check` — Run svelte-check for type errors
