@@ -90,6 +90,9 @@ CadShell, ViewCanvas and selectTool were split 2026-10-07; split again only when
   `<button interestfor="tip-x">` + `<span id="tip-x" popover="hint">`, with `.bar button { interest-delay-start: 0.5s }`
   and `.bar:has(:interest-source) button { interest-delay-start: 0s }`. Needs a fallback where `interestfor` isn't
   supported (a small shared tooltip action with the same warm-up timer). **P2 · S**.
+- [ ] **Data: patch the IDF2 TVs to IDF1** (User 2026-10-31 todo) — project data, not code: patch the TV outlets served
+  from IDF2 through to IDF1 (in the live project, via the rack views). Details (which floor, which panels / switch
+  ports) to confirm with the User when picked up. **P? · S**.
 
 ## User's todos (2026-10-14)
 
