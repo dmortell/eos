@@ -55,6 +55,22 @@ describe('copy', () => {
 		expect(b.geom).toMatchObject({ centre: { x: 50, y: 50 }, size: { x: 20, y: 10 } })
 		expect(c.geom).toMatchObject({ centre: { x: 50, y: 50 }, r: 5 })
 	})
+	it('copied on its own sheet it stays tied, at its real size (User 2026-11-10: a 5.8 m box came out 58 mm)', () => {
+		const vp = { id: 'V', view: { levelId: 'L33', spec: { kind: 'plan' as const } }, rect: { x: 0, y: 0, w: 100, h: 100 }, scale: 100, centre: { x: 0, y: 0 } }
+		const paper = { size: 'A3', orientation: 'landscape', marginMm: 10 } as Sheet['paper']
+		const sheet: Sheet = { type: 'sheet', id: 'S', number: 'S1', title: 'S', order: 0, status: 'active', paper, viewports: [vp] }
+		const other: Sheet = { ...sheet, id: 'S2', number: 'S2', viewports: [] }
+		const box = { type: 'shape', id: 'B', sheetId: 'S', vpId: 'V', geom: { kind: 'rect', centre: { x: 0, y: 0 }, size: { x: 5800, y: 1200 } } } as Shape
+		const i = ix([sheet, other, box]), clip = copy(i, ['B'])
+		// Ctrl-drag 30 paper mm to the right: 3000 view mm at 1:100
+		const b = pasteClip(clip, target(i, { kind: 'sheet', id: 'S' }, { d: { x: 30, y: 0 } })).put[0] as Shape
+		expect(b).toMatchObject({ sheetId: 'S', vpId: 'V', geom: { centre: { x: 3000, y: 0 }, size: { x: 5800, y: 1200 } } })
+		expect(b.id).not.toBe('B')
+		// onto another sheet there is no such viewport: the paper shape, at the size it showed
+		const p = pasteClip(clip, target(i, { kind: 'sheet', id: 'S2' })).put[0] as Shape
+		expect(p.vpId).toBeUndefined()
+		expect(p).toMatchObject({ sheetId: 'S2', geom: { centre: { x: 50, y: 50 }, size: { x: 58, y: 12 } } })
+	})
 })
 
 describe('paste', () => {

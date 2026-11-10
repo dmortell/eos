@@ -25,12 +25,15 @@ export interface Clip {
 	 *  (another project's levels have other ids). */
 	viewports?: Viewport[]
 	levelNames?: Record<Id, string>
+	/** The copied notes that were tied to a viewport, as they were (view mm; `items` holds them as paper shapes): a paste
+	 *  back onto their own sheet, with that viewport still there, stays tied — a 5.8 m box stays 5.8 m. */
+	tied?: Shape[]
 	/** The project layers the items are on (system layers need no record). */
 	layers: Layer[]
 }
 
-/** A note drawn inside a viewport, as plain paper shapes where it showed, at its printed size (a copy isn't tied to a
- *  viewport). */
+/** A note drawn inside a viewport, as plain paper shapes where it showed, at its printed size (pasted anywhere but its
+ *  own sheet, a copy isn't tied to a viewport — see `Clip.tied`). */
 function untieNote(s: Shape, ix: ProjectIndex): Shape {
 	if (!s.sheetId || !s.vpId) return s
 	const vp = ix.getOf('sheet', s.sheetId)?.viewports.find((v) => v.id === s.vpId)
@@ -42,7 +45,7 @@ function untieNote(s: Shape, ix: ProjectIndex): Shape {
 /** The selection as a clip: plan items (shapes, outlets, racks with their devices), sheet notes, or devices on their
  *  own (from any racks). Null = nothing. */
 export function makeClip(ix: ProjectIndex, ids: Id[], pid: string): Clip | null {
-	const items: Entity[] = []
+	const items: Entity[] = [], tied: Shape[] = []
 	let from: Clip['from'] | null = null
 	for (const id of ids) {
 		const e = ix.get(id)
@@ -52,6 +55,7 @@ export function makeClip(ix: ProjectIndex, ids: Id[], pid: string): Clip | null 
 		if (!at || (from && (from.kind !== at.kind || (from.kind !== 'rack' && from.id !== at.id)))) continue
 		from = at
 		items.push(e.type === 'shape' ? untieNote(e, ix) : e)
+		if (e.type === 'shape' && e.sheetId && e.vpId) tied.push(e)
 		if (e.type === 'rack') items.push(...ix.devices.filter((d) => d.rackId === e.id))
 	}
 	if (!from || !items.length) return null
@@ -62,7 +66,7 @@ export function makeClip(ix: ProjectIndex, ids: Id[], pid: string): Clip | null 
 		items.push(...ix.cords.filter((c) => c.status !== 'remove' && inside(c)), ...ix.links.filter(inside))
 	}
 	const used = new Set(items.map((e) => (e as { layerId?: Id }).layerId).filter(Boolean))
-	return { mark: CLIP_MARK, pid, from, items, layers: ix.layers.filter((l) => used.has(l.id) && !l.id.startsWith('sys:')) }
+	return { mark: CLIP_MARK, pid, from, items, ...(tied.length ? { tied } : {}), layers: ix.layers.filter((l) => used.has(l.id) && !l.id.startsWith('sys:')) }
 }
 
 /** The picked viewports of a sheet as a clip: each with its view, and the notes tied to it (they stay tied). */
@@ -148,13 +152,24 @@ export function pasteClip(clip: Clip, t: PasteTarget): Pasted {
 	const vps = sheet?.type === 'sheet' ? clip.viewports ?? [] : []
 	const racks = new Set(clip.items.filter((e) => e.type === 'rack').map((e) => e.id))
 	const fits = (e: Entity) => (toLevel ? e.type === 'outlet' || e.type === 'rack' || (e.type === 'device' && racks.has(e.rackId)) || (e.type === 'shape' && !!e.levelId) : e.type === 'shape' && !!e.sheetId)
-	const things = clip.items.filter((e) => e.type !== 'cord' && e.type !== 'link' && fits(e)), pasted = new Set(things.map((e) => e.id))
+	// a note that was tied to a viewport of this very sheet, still there: its copy stays tied (in view mm, its real
+	// size — User 2026-11-10: a Ctrl-dragged 5.8 m box came out 58 mm); anywhere else it is the paper shape
+	const scales = new Map<Id, number>()   // the tied copies → their viewport's scale (view mm per paper mm)
+	const stayTied = (e: Entity): Entity => {
+		const was = sheet?.type === 'sheet' && e.type === 'shape' ? clip.tied?.find((s) => s.id === e.id && s.sheetId === sheet.id) : undefined
+		const vp = was && sheet?.viewports.find((v) => v.id === was.vpId)
+		if (!was || !vp) return e
+		scales.set(was.id, vp.scale)
+		return was
+	}
+	const things = clip.items.filter((e) => e.type !== 'cord' && e.type !== 'link' && fits(e)).map(stayTied), pasted = new Set(things.map((e) => e.id))
 	const kept = [...things, ...clip.items.filter((e) => (e.type === 'cord' || e.type === 'link') && pasted.has(e.a.on) && pasted.has(e.b.on))]
 	const skipped = clip.items.length - kept.length + (clip.viewports?.length ?? 0) - vps.length
 	if (!kept.length && !vps.length) return { put: [], select: [], skipped }
 
 	// new ids; every reference to a copied item (a device's rack, a run attached to a copied outlet) follows
 	const ids = new Map([...kept, ...vps].map((e) => [e.id, newId()]))
+	const tiedScale = new Map([...scales].map(([id, k]) => [ids.get(id)!, k]))
 	const re = new RegExp(`"(${[...ids.keys()].map((s) => s.replace(/[.*+?^${}()|[\]\\-]/g, '\\$&')).join('|')})"`, 'g')
 	let items = JSON.parse(JSON.stringify(kept).replace(re, (_, id: string) => `"${ids.get(id)}"`)) as Entity[]
 
@@ -219,7 +234,9 @@ export function pasteClip(clip: Clip, t: PasteTarget): Pasted {
 		// on an elevation's plane its points are (u, z): a plan move goes along the plane, and up (as moveBy)
 		const along = s.plane?.kind === 'vertical' && s.geom.kind !== 'path' ? s.plane.frame.t : null
 		// a note tied to a copied viewport is in that viewport's view mm: it moves with the viewport, not by `d`
-		let geom = s.vpId && newVps.has(s.vpId) ? s.geom : moveGeometry(s.geom, along ? { x: d.x * along.x + d.y * along.y, y: dz } : d)
+		// one that stays tied to its viewport moves in view mm: the paper move × the scale (as a drag of it does)
+		const k = tiedScale.get(s.id)
+		let geom = s.vpId && newVps.has(s.vpId) ? s.geom : moveGeometry(s.geom, k ? { x: d.x * k, y: d.y * k } : along ? { x: d.x * along.x + d.y * along.y, y: dz } : d)
 		if (geom.kind === 'path') geom = { ...geom, nodes: geom.nodes.map((n) => {
 			const { attach, levelId, ...m } = n
 			return { ...m, ...(ok(attach) ? { attach } : {}), ...(levelId && levelId !== sourceLevel ? { levelId } : {}) }
