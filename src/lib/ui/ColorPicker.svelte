@@ -2,6 +2,7 @@
 	// Shared colour picker: a swatch button that opens a GRID of colours (Sheets-style). Reusable
 	// across tools. `value` is a CSS colour, '' / undefined = By layer (when allowByLayer), or
 	// 'none' = no paint (when allowNone). onchange gives undefined for By layer, 'none' for None.
+	import { tick } from 'svelte'
 	import Icon from './Icon.svelte'
 
 	type Swatch = string | { name?: string; value: string }
@@ -25,6 +26,21 @@
 	} = $props()
 
 	let open = $state(false)
+	// The grid is placed on the SCREEN (position: fixed) from the button's box: below it, or above when there is no room
+	// below (a layer row at the bottom of the window opened it off the screen), and kept inside the window sideways.
+	let btn: HTMLButtonElement | undefined = $state(), pop: HTMLDivElement | undefined = $state()
+	let at = $state<{ left: number; top: number } | null>(null)
+	async function toggle() {
+		open = !open
+		at = null
+		if (!open) return
+		await tick()
+		if (!btn || !pop) return
+		const r = btn.getBoundingClientRect(), w = pop.offsetWidth, h = pop.offsetHeight, m = 4
+		const below = r.bottom + 3, top = below + h <= innerHeight - m ? below : Math.max(m, r.top - 3 - h)
+		const left = r.left + w <= innerWidth - m ? r.left : r.right - w
+		at = { left: Math.max(m, Math.min(left, innerWidth - w - m)), top }
+	}
 	const norm = $derived(colors.map((c) => (typeof c === 'string' ? { value: c, name: c } : { value: c.value, name: c.name ?? c.value })))
 	const isBlank = (v?: string) => v === undefined || v === '' || v === 'none'
 	const nameOf = (v?: string) => (v === undefined || v === '' ? 'By layer' : v === 'none' ? 'None' : (norm.find((c) => c.value === v)?.name ?? v))
@@ -32,7 +48,7 @@
 </script>
 
 <div class="cp">
-	<button type="button" class="cp-btn" onclick={() => (open = !open)} {title}>
+	<button type="button" class="cp-btn" bind:this={btn} onclick={toggle} {title}>
 		<span class="sw" class:blank={isBlank(value)} style:background={isBlank(value) ? undefined : value}></span>
 		<span class="cp-lbl">{mixed ? 'Mixed' : nameOf(value)}</span>
 		<Icon name="chevronDown" size={10} />
@@ -40,7 +56,7 @@
 	{#if open}
 		<!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events -->
 		<div class="cp-back" onclick={() => (open = false)}></div>
-		<div class="cp-pop">
+		<div class="cp-pop" bind:this={pop} style:left="{at?.left ?? 0}px" style:top="{at?.top ?? 0}px" style:visibility={at ? 'visible' : 'hidden'}>
 			<div class="cp-grid" style:grid-template-columns="repeat({cols}, 1fr)">
 				{#if allowByLayer}
 					<button type="button" class="cell" class:sel={isBlank(value) && value !== 'none'} title="By layer" onclick={() => pick(undefined)}><span class="sw blank"></span></button>
@@ -73,7 +89,7 @@
 		linear-gradient(to top right, transparent 44%, #ef4444 44%, #ef4444 56%, transparent 56%),
 		repeating-conic-gradient(#e5e7eb 0% 25%, #ffffff 0% 50%) 0 / 8px 8px; }
 	.cp-back { position:fixed; inset:0; z-index:40; }
-	.cp-pop { position:absolute; z-index:41; top:calc(100% + 3px); right:0; width:max-content; max-width:230px;
+	.cp-pop { position:fixed; z-index:41; width:max-content; max-width:230px;
 		background:var(--panel); border:1px solid var(--line); border-radius:6px; box-shadow:0 10px 30px #0007; padding:6px; }
 	.cp-grid { display:grid; gap:4px; }
 	.cell { padding:2px; border:1px solid transparent; border-radius:4px; background:none; line-height:0; cursor:pointer; }

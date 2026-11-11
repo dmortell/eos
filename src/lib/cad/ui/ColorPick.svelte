@@ -36,5 +36,4 @@
 	.cc.compact { display: inline-block; min-width: 0; }
 	.compact :global(.cp-btn) { padding: 1px; border-color: transparent; background: none; gap: 0; }
 	.compact :global(.cp-lbl), .compact :global(.cp-btn > svg) { display: none; }
-	.compact :global(.cp-pop) { left: 0; right: auto; }
 </style>
