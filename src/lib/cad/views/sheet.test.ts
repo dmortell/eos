@@ -69,7 +69,7 @@ describe('sheets', () => {
 	})
 	it('a cloud tied to a viewport scales with its content (Alt+wheel); its bumps stay paper-sized', () => {
 		const vp = (scale: number) => ({ id: 'V', view: { levelId: 'L33', spec: { kind: 'plan' as const } }, rect: { x: 20, y: 20, w: 200, h: 150 }, scale, centre: { x: 3000, y: 4000 } })
-		const cloud: Shape = { type: 'shape', id: 'C', sheetId: 'SH', vpId: 'V', geom: { kind: 'cloud', pts: [{ x: 3000, y: 4000 }, { x: 5000, y: 4000 }, { x: 5000, y: 6000 }, { x: 3000, y: 6000 }] } }
+		const cloud: Shape = { type: 'shape', id: 'C', sheetId: 'SH', vpId: 'V', geom: { kind: 'cloud', pts: [{ x: 3000, y: 4000 }, { x: 7000, y: 4000 }, { x: 7000, y: 8000 }, { x: 3000, y: 8000 }] } }
 		const box = (scale: number) => {
 			const sh = sheet({ viewports: [vp(scale)] })
 			const pts = sheetDisplayList(new ProjectIndex([...demoProject(), sh, cloud]), sh).flatMap((p) => (p.src === 'C' && p.k === 'line' ? p.pts : []))
@@ -77,7 +77,8 @@ describe('sheets', () => {
 			return { w: Math.max(...xs) - Math.min(...xs), n: pts.length }
 		}
 		const a = box(100), b = box(200)
-		expect(a.w).toBeCloseTo(20 + 2 * 3, 0)         // 2 m at 1:100 = 20 mm, + 3 mm bumps each side
+		expect(a.w).toBeGreaterThan(40 + 2 * 2)        // 4 m at 1:100 = 40 mm, + the 2 – 3 mm bumps each side
+		expect(a.w).toBeLessThan(40 + 2 * 3)
 		expect(b.w).toBeLessThan(a.w * 0.6)            // at 1:200 about half
 		expect(b.n).toBeLessThan(a.n)                  // fewer 6 mm bumps round a smaller outline
 		// and it's clipped to the viewport's window like the view (zoomed in, it mustn't fly off the page)

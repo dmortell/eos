@@ -179,6 +179,7 @@
 	<div class="find">
 		<Icon name="search" size={12} />
 		<input bind:this={search} placeholder="Find a level, view, sheet, room, rack, device, outlet… ({KEYS.find})" bind:value={q} oninput={() => (at = 0)} onkeydown={searchKey} />
+		{#if q}<button class="clr" title="Clear the search" aria-label="Clear the search" onclick={() => { q = ''; at = 0; search?.focus() }}><Icon name="x" size={12} /></button>{/if}
 	</div>
 	<div class="tree" role="tree" bind:this={treeEl}>
 		{#each shown as n (n.key)}{@render row(n, 0)}{/each}
@@ -228,6 +229,8 @@
 	.nav { display: flex; flex-direction: column; height: 100%; min-height: 0; font-size: 12px; }
 	.find { display: flex; align-items: center; gap: 4px; margin: 6px; padding: 0 6px; border: 1px solid var(--cad-line); border-radius: 5px; background: var(--cad-input); color: var(--cad-muted); }
 	.find input { flex: 1; min-width: 0; border: 0; outline: 0; padding: 3px 0; background: transparent; color: var(--cad-text); font-size: 12px; }
+	.find .clr { display: flex; padding: 1px; border: 0; border-radius: 3px; background: transparent; color: var(--cad-muted); cursor: pointer; }
+	.find .clr:hover { color: var(--cad-text); }
 	.tree { flex: 1; min-height: 0; overflow: auto; padding-bottom: 6px; }
 	.row { display: flex; align-items: center; gap: 2px; padding-right: 4px; border-radius: 4px; }
 	.row:hover { background: var(--cad-hover); }

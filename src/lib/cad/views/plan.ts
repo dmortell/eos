@@ -508,19 +508,30 @@ export function wrapLine(text: string, size: number, width: number): string[] {
 	return out
 }
 
-/** A revision cloud: each edge of the outline as a row of outward bumps about `arc` long (polyline points). */
+/** A revision cloud: each edge of the outline as a row of outward bumps about `arc` long (polyline points, 8 a bump).
+ *  The bumps are round arcs, a larger and a smaller one in turn (as a cloud drawn by hand), and a small outline gets
+ *  smaller ones — at least 16 round it (User 2026-11-10: two big bumps a side read as a clover, not a cloud). */
 export function cloudPts(pts: Pt[], arc: number): Pt[] {
 	if (pts.length < 2) return pts
 	// clockwise or not decides which side is "out"
 	const area = pts.reduce((s, p, i) => { const q = pts[(i + 1) % pts.length]; return s + p.x * q.y - q.x * p.y }, 0), side = area > 0 ? -1 : 1
+	const edge = (i: number) => { const a = pts[i], b = pts[(i + 1) % pts.length]; return { a, b, len: Math.hypot(b.x - a.x, b.y - a.y) } }
+	const size = Math.min(arc, pts.reduce((s, _, i) => s + edge(i).len, 0) / 16)
 	const out: Pt[] = []
 	for (let i = 0; i < pts.length; i++) {
-		const a = pts[i], b = pts[(i + 1) % pts.length], len = Math.hypot(b.x - a.x, b.y - a.y)
+		const { a, b, len } = edge(i)
 		if (len < 1e-6) continue
-		const n = Math.max(1, Math.round(len / arc)), ux = (b.x - a.x) / len, uy = (b.y - a.y) / len, step = len / n
-		for (let j = 0; j < n; j++) for (let t = 0; t < 8; t++) {
-			const f = t / 8, along = (j + f) * step, bulge = Math.sin(Math.PI * f) * step * 0.45 * side
-			out.push({ x: a.x + ux * along - uy * bulge, y: a.y + uy * along + ux * bulge })
+		const n = Math.max(1, Math.round(len / size)), ux = (b.x - a.x) / len, uy = (b.y - a.y) / len
+		const w = Array.from({ length: n }, (_, j) => (n === 1 ? 1 : j % 2 ? 0.8 : 1.2)), unit = len / w.reduce((s, x) => s + x, 0)
+		let from = 0
+		for (let j = 0; j < n; j++) {
+			// a round arc on the chord: its height 0.35 of the chord (a little under a half circle, so bumps meet in a notch)
+			const c = w[j] * unit, h = c * 0.35, r = (c * c / 4 + h * h) / (2 * h), half = Math.asin(c / 2 / r)
+			for (let t = 0; t < 8; t++) {
+				const ang = -half + 2 * half * (t / 8), along = from + c / 2 + r * Math.sin(ang), bulge = (r * Math.cos(ang) - (r - h)) * side
+				out.push({ x: a.x + ux * along - uy * bulge, y: a.y + uy * along + ux * bulge })
+			}
+			from += c
 		}
 	}
 	return out
