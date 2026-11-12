@@ -19,7 +19,7 @@
 	// like /projects/{pid}/elevations/patching (they'd resolve against the
 	// parent segment, not the project root).
 	const toolHref = (h: string) => page.params.pid ? `/projects/${page.params.pid}/${h}` : h
-	let {title="EOS 0.3", height=null, children=null, menu=null, saveStatus=''}: {
+	let {title="EOS 0.4", height=null, children=null, menu=null, saveStatus=''}: {
 		title?: string
 		height?: number | null
 		children?: Snippet | null
