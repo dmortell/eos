@@ -217,6 +217,7 @@
 				<Button variant="outline" onclick={back} disabled={idx === 0}>Previous</Button>
 				<Button variant="outline" onclick={skip}>Skip</Button>
 				{#if current?.value}<Button variant="outline" onclick={clearCurrent}>Clear</Button>{/if}
+				<Button variant="outline" icon="copy" onclick={copy}>{copied ? 'Copied' : 'Copy MACs'}</Button>
 			</div>
 		</div>
 
@@ -224,7 +225,6 @@
 		</div>
 
 		<div class="flex flex-wrap items-center gap-2">
-			<Button variant="outline" icon="copy" onclick={copy}>{copied ? 'Copied' : 'Copy MAC column'}</Button>
 			<label class="inline-flex cursor-pointer items-center rounded border px-2 py-1 hover:bg-gray-100">
 				From photo
 				<input type="file" accept="image/*" class="hidden" onchange={fromPhoto} />
