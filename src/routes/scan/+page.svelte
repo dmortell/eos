@@ -195,6 +195,8 @@
 		<textarea class="h-56 w-full rounded border p-2 font-mono" placeholder={'348\n201\n302\n…'} bind:value={pasted}></textarea>
 		<div><Button variant="primary" onclick={loadList} disabled={!parseLabels(pasted).length}>Load {parseLabels(pasted).length || ''} labels</Button></div>
 	{:else}
+		<!-- Camera, the row being scanned and its buttons stay in view while the list scrolls under them -->
+		<div class="sticky top-0 z-10 -mx-3 flex flex-col gap-2 border-b bg-background px-3 py-2">
 		<div class="relative overflow-hidden rounded bg-black {running ? '' : 'hidden'}">
 			<!-- svelte-ignore a11y_media_has_caption -->
 			<video bind:this={video} class="max-h-[40vh] w-full object-cover" playsinline muted></video>
@@ -219,6 +221,7 @@
 		</div>
 
 		<div class="min-h-5 font-mono text-xs {flash ? 'text-green-700' : 'text-gray-700'}" aria-live="polite">{message}</div>
+		</div>
 
 		<div class="flex flex-wrap items-center gap-2">
 			<Button variant="outline" icon="copy" onclick={copy}>{copied ? 'Copied' : 'Copy MAC column'}</Button>
