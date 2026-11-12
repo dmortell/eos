@@ -112,13 +112,13 @@
 		if (twice && pending !== fresh) { pending = fresh; return }
 		pending = ''
 		if (!current) { message = 'Load a list first'; return }
-		if (current.value) { message = `${current.label} has a value — clear it to scan again`; return }
-		const label = current.label
+		// A filled row is only ever current when it was picked on purpose (Back, or a tap): the scan redoes it.
+		const label = current.label, was = current.value
 		items[idx].value = fresh
-		message = `${label} = ${fresh}`
+		message = `${label} = ${fresh}${was ? ` (was ${was})` : ''}`
 		const next = nextEmpty(items, idx + 1)
 		if (next >= 0) idx = next
-		else { message = `${label} = ${fresh} — list complete`; stop() }
+		else { message += ' — list complete'; stop() }
 		beep()
 		flash = true
 		setTimeout(() => (flash = false), 350)
@@ -152,6 +152,12 @@
 		const next = nextEmpty(items, idx + 1)
 		if (next >= 0) idx = next
 		message = ''
+	}
+
+	function back() {
+		if (idx > 0) idx--
+		pending = ''
+		message = current?.value ? `${current.label} — scan to redo it, or Clear` : ''
 	}
 
 	function clearCurrent() {
@@ -206,6 +212,7 @@
 				{:else}
 					<Button variant="primary" icon="scan" onclick={start}>Scan</Button>
 				{/if}
+				<Button variant="outline" onclick={back} disabled={idx === 0}>Previous</Button>
 				<Button variant="outline" onclick={skip}>Skip</Button>
 				{#if current?.value}<Button variant="outline" onclick={clearCurrent}>Clear</Button>{/if}
 			</div>
@@ -226,7 +233,7 @@
 		<ol class="divide-y rounded border">
 			{#each items as item, i (i)}
 				<li>
-					<button class="flex w-full items-center gap-3 px-2 py-1.5 text-left {i === idx ? 'bg-blue-100' : ''}" onclick={() => { idx = i; message = '' }}>
+					<button class="flex w-full items-center gap-3 px-2 py-1.5 text-left {i === idx ? 'bg-blue-100' : ''}" onclick={() => { idx = i; pending = ''; message = item.value ? `${item.label} — scan to redo it, or Clear` : '' }}>
 						<span class="w-8 text-right text-xs text-gray-400">{i + 1}</span>
 						<span class="w-20 font-semibold">{item.label}</span>
 						<span class="font-mono">{item.value}</span>
