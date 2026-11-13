@@ -27,6 +27,12 @@ export function nextEmpty(items: ScanItem[], from: number): number {
 	return -1
 }
 
+/** The whole list as CSV (label, MAC), with a header row. */
+export function toCsv(items: ScanItem[]): string {
+	const q = (s: string) => /[",\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s
+	return ['Label,MAC', ...items.map(i => `${q(i.label)},${q(i.value)}`)].join('\r\n') + '\r\n'
+}
+
 /** The value column as text, one row per line, blank rows kept — pastes into a sheet beside the labels. */
 export function valueColumn(items: ScanItem[]): string {
 	return items.map(i => i.value).join('\n')

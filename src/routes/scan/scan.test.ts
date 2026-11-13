@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { nextEmpty, parseLabels, parseMac, valueColumn } from './scan'
+import { nextEmpty, parseLabels, parseMac, toCsv, valueColumn } from './scan'
 
 describe('parseMac', () => {
 	it('takes the bare and the separated forms, upper-cased', () => {
@@ -27,6 +27,10 @@ describe('walk list', () => {
 		expect(nextEmpty(items, 2)).toBe(3)
 		expect(nextEmpty(items, 4)).toBe(1)
 		expect(nextEmpty(items.map(i => ({ ...i, value: 'x' })), 0)).toBe(-1)
+	})
+	it('exports label and MAC as CSV, quoting where needed', () => {
+		expect(toCsv([{ label: '348', value: 'A' }, { label: 'Desk "A", east', value: '' }]))
+			.toBe('Label,MAC\r\n348,A\r\n"Desk ""A"", east",\r\n')
 	})
 	it('keeps blank rows in the copied column so it lines up with the labels', () => {
 		expect(valueColumn(items)).toBe('A\n\nB\n')

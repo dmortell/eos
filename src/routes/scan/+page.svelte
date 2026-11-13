@@ -4,7 +4,7 @@
 	// the list lives in this browser (localStorage) until it is cleared.
 	import { onMount } from 'svelte'
 	import { Button, Titlebar } from '$lib'
-	import { nextEmpty, parseLabels, parseMac, valueColumn, type ScanItem } from './scan'
+	import { nextEmpty, parseLabels, parseMac, toCsv, valueColumn, type ScanItem } from './scan'
 
 	const KEY = 'eos-scan-v1'
 
@@ -175,6 +175,15 @@
 		}
 	}
 
+	function exportCsv() {
+		const url = URL.createObjectURL(new Blob([toCsv(items)], { type: 'text/csv' }))
+		const a = document.createElement('a')
+		a.href = url
+		a.download = `scan-${new Date().toISOString().slice(0, 10)}.csv`
+		a.click()
+		setTimeout(() => URL.revokeObjectURL(url), 1000)
+	}
+
 	function clearList() {
 		if (!confirmClear) { confirmClear = true; setTimeout(() => (confirmClear = false), 3000); return }
 		stop()
@@ -225,6 +234,7 @@
 		</div>
 
 		<div class="flex flex-wrap items-center gap-2">
+			<Button variant="outline" icon="download" onclick={exportCsv}>Export CSV</Button>
 			<label class="inline-flex cursor-pointer items-center rounded border px-2 py-1 hover:bg-gray-100">
 				From photo
 				<input type="file" accept="image/*" class="hidden" onchange={fromPhoto} />
