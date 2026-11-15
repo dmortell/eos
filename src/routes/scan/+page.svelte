@@ -3,8 +3,10 @@
 	// with the phone camera, copy the column back into the spreadsheet. Nothing is saved to the project —
 	// the list lives in this browser (localStorage) until it is cleared.
 	import { onMount } from 'svelte'
-	import { Button, Titlebar } from '$lib'
+	import { Button, Icon, Titlebar } from '$lib'
 	import { macsInOrder, nextEmpty, parseLabels, toCsv, valueColumn, type Read, type ScanItem } from './scan'
+	import { allPhotos, clearPhotos, deletePhoto, getPhoto, putPhoto, toJpeg } from './photos'
+	import { zip } from './zip'
 
 	const KEY = 'eos-scan-v1'
 
@@ -19,6 +21,8 @@
 	let flash = $state(false)
 	let copied = $state(false)
 	let confirmClear = $state(false)
+	let reading = $state(false)
+	let viewing = $state<{ url: string; label: string; value: string } | null>(null)
 
 	let current = $derived(items[idx])
 	let done = $derived(items.filter(i => i.value).length)
@@ -60,6 +64,7 @@
 	function loadList() {
 		const labels = parseLabels(pasted)
 		if (!labels.length) return
+		clearPhotos().catch(() => {})
 		items = labels.map(label => ({ label, value: '' }))
 		idx = 0
 		pasted = ''
@@ -97,7 +102,10 @@
 	async function loop(det: Detector) {
 		while (running) {
 			if (video && video.readyState >= 2) {
-				try { take(await det.detect(video), true) } catch { /* a frame that would not decode */ }
+				try {
+					const row = take(await det.detect(video), true)
+					if (row >= 0) savePhoto(row, video)
+				} catch { /* a frame that would not decode */ }
 			}
 			await new Promise(r => setTimeout(r, 120))
 		}
@@ -105,34 +113,36 @@
 
 	/** Every barcode read in one frame / photo. A label can carry several (part no., serial, WLAN MAC…):
 	 *  the upper MAC on the label is the wired one, and a label already in the list is ignored whole — so
-	 *  the phone just scanned is never entered twice, nor its WLAN MAC taken for the next row. */
-	function take(reads: readonly Read[], twice: boolean) {
+	 *  the phone just scanned is never entered twice, nor its WLAN MAC taken for the next row.
+	 *  `twice`: the live camera needs the same MAC in two frames running; a photo or Read now does not.
+	 *  Returns the row the MAC went to, or -1. */
+	function take(reads: readonly Read[], twice: boolean): number {
 		const macs = macsInOrder(reads)
 		if (!macs.length) {
 			pending = ''
 			if (!twice) message = reads.length ? 'No MAC address among the barcodes read' : 'No barcode found'
-			return
+			return -1
 		}
 		const known = macs.find(m => items.some((it, i) => i !== idx && it.value === m))
 		if (known) {
 			pending = ''
-			if (known !== lastTaken) message = `${known} is already on ${items.find(i => i.value === known)?.label}`
-			return
+			if (known !== lastTaken || !twice) message = `${known} is already on ${items.find(i => i.value === known)?.label}`
+			return -1
 		}
 		if (macs.length > 1) wlanLabels = true
 		if (wlanLabels && macs.length < 2) {
 			pending = ''
 			message = 'Only one MAC read — get MAC and WLAN MAC both in view (or untick "WLAN MAC labels")'
-			return
+			return -1
 		}
 		const mac = macs[0]
-		if (mac === current?.value) { pending = ''; return }
-		if (twice && pending !== mac) { pending = mac; return }
+		if (mac === current?.value) { pending = ''; return -1 }
+		if (twice && pending !== mac) { pending = mac; return -1 }
 		pending = ''
-		if (!current) { message = 'Load a list first'; return }
+		if (!current) { message = 'Load a list first'; return -1 }
 		// A filled row is only ever current when it was picked on purpose (Back, or a tap): the scan redoes it.
-		const label = current.label, was = current.value
-		items[idx].value = mac
+		const row = idx, label = current.label, was = current.value
+		items[row].value = mac
 		lastTaken = mac
 		message = `${label} = ${mac}${was ? ` (was ${was})` : ''}`
 		const next = nextEmpty(items, idx + 1)
@@ -141,6 +151,70 @@
 		beep()
 		flash = true
 		setTimeout(() => (flash = false), 350)
+		return row
+	}
+
+	/** Keep the frame a MAC was read from with its row, for checking later (serial numbers…). */
+	async function savePhoto(row: number, src: HTMLVideoElement | ImageBitmap) {
+		try {
+			const blob = await toJpeg(src)
+			if (!blob) return
+			await putPhoto(row, blob)
+			if (items[row]) items[row].photo = true
+		} catch (e) {
+			message += ` (photo not saved: ${e instanceof Error ? e.message : e})`
+		}
+	}
+
+	/** Read the frame in view now, without waiting for a second frame to agree. */
+	async function readNow() {
+		if (!video || !running || reading) return
+		reading = true
+		try {
+			const frame = await createImageBitmap(video)
+			const row = take(await (await getDetector()).detect(frame), false)
+			if (row >= 0) await savePhoto(row, frame)
+			frame.close()
+		} catch (e) {
+			message = `Could not read the frame: ${e instanceof Error ? e.message : e}`
+		} finally {
+			reading = false
+		}
+	}
+
+	async function showPhoto(row: number) {
+		const blob = await getPhoto(row).catch(() => undefined)
+		if (!blob) { message = `No photo kept for ${items[row]?.label}`; return }
+		viewing = { url: URL.createObjectURL(blob), label: items[row].label, value: items[row].value }
+	}
+
+	function closePhoto() {
+		if (viewing) URL.revokeObjectURL(viewing.url)
+		viewing = null
+	}
+
+	async function downloadPhotos() {
+		try {
+			const photos = (await allPhotos()).filter(p => items[p.row]).sort((a, b) => a.row - b.row)
+			if (!photos.length) { message = 'No photos kept yet'; return }
+			const safe = (s: string) => s.replace(/[^\w.-]+/g, '_')
+			const entries = await Promise.all(photos.map(async p => ({
+				name: `${String(p.row + 1).padStart(3, '0')}-${safe(items[p.row].label)}${items[p.row].value ? '-' + items[p.row].value : ''}.jpg`,
+				data: new Uint8Array(await p.blob.arrayBuffer()),
+			})))
+			download(new Blob([zip(entries)], { type: 'application/zip' }), `scan-photos-${new Date().toISOString().slice(0, 10)}.zip`)
+		} catch (e) {
+			message = `Could not make the zip: ${e instanceof Error ? e.message : e}`
+		}
+	}
+
+	function download(blob: Blob, name: string) {
+		const url = URL.createObjectURL(blob)
+		const a = document.createElement('a')
+		a.href = url
+		a.download = name
+		a.click()
+		setTimeout(() => URL.revokeObjectURL(url), 1000)
 	}
 
 	function beep() {
@@ -160,7 +234,8 @@
 		if (!file) return
 		try {
 			const bitmap = await createImageBitmap(file)
-			take(await (await getDetector()).detect(bitmap), false)
+			const row = take(await (await getDetector()).detect(bitmap), false)
+			if (row >= 0) await savePhoto(row, bitmap)
 			bitmap.close()
 		} catch (e) {
 			message = `Could not read the photo: ${e instanceof Error ? e.message : e}`
@@ -180,7 +255,10 @@
 	}
 
 	function clearCurrent() {
-		if (current) items[idx].value = ''
+		if (!current) return
+		items[idx].value = ''
+		items[idx].photo = false
+		deletePhoto(idx).catch(() => {})
 		message = ''
 	}
 
@@ -195,17 +273,13 @@
 	}
 
 	function exportCsv() {
-		const url = URL.createObjectURL(new Blob([toCsv(items)], { type: 'text/csv' }))
-		const a = document.createElement('a')
-		a.href = url
-		a.download = `scan-${new Date().toISOString().slice(0, 10)}.csv`
-		a.click()
-		setTimeout(() => URL.revokeObjectURL(url), 1000)
+		download(new Blob([toCsv(items)], { type: 'text/csv' }), `scan-${new Date().toISOString().slice(0, 10)}.csv`)
 	}
 
 	function clearList() {
 		if (!confirmClear) { confirmClear = true; setTimeout(() => (confirmClear = false), 3000); return }
 		stop()
+		clearPhotos().catch(() => {})
 		items = []
 		idx = 0
 		message = ''
@@ -238,6 +312,7 @@
 			</div>
 			<div class="flex flex-wrap justify-end gap-2">
 				{#if running}
+					<Button variant="primary" icon="camera" onclick={readNow} disabled={reading}>{reading ? 'Reading…' : 'Read now'}</Button>
 					<Button variant="outline" onclick={stop}>Stop camera</Button>
 				{:else}
 					<Button variant="primary" icon="scan" onclick={start}>Scan</Button>
@@ -254,6 +329,7 @@
 
 		<div class="flex flex-wrap items-center gap-2">
 			<Button variant="outline" icon="download" onclick={exportCsv}>Export CSV</Button>
+			<Button variant="outline" icon="image" onclick={downloadPhotos}>Download photos</Button>
 			<label class="inline-flex cursor-pointer items-center rounded border px-2 py-1 hover:bg-gray-100">
 				From photo
 				<input type="file" accept="image/*" class="hidden" onchange={fromPhoto} />
@@ -267,14 +343,27 @@
 
 		<ol class="divide-y rounded border">
 			{#each items as item, i (i)}
-				<li>
-					<button class="flex w-full items-center gap-3 px-2 py-1.5 text-left {i === idx ? 'bg-blue-100' : ''}" onclick={() => { idx = i; pending = ''; message = item.value ? `${item.label} — scan to redo it, or Clear` : '' }}>
+				<li class="flex items-center {i === idx ? 'bg-blue-100' : ''}">
+					<button class="flex flex-1 items-center gap-3 px-2 py-1.5 text-left" onclick={() => { idx = i; pending = ''; message = item.value ? `${item.label} — scan to redo it, or Clear` : '' }}>
 						<span class="w-8 text-right text-xs text-gray-400">{i + 1}</span>
 						<span class="w-20 font-semibold">{item.label}</span>
 						<span class="font-mono">{item.value}</span>
 					</button>
+					{#if item.photo}
+						<button class="px-3 py-1.5 text-gray-500 hover:text-gray-900" title="Photo" aria-label="Photo of {item.label}" onclick={() => showPhoto(i)}>
+							<Icon name="image" />
+						</button>
+					{/if}
 				</li>
 			{/each}
 		</ol>
 	{/if}
 </div>
+
+{#if viewing}
+	<!-- The kept photo, full width; tap anywhere to close -->
+	<button class="fixed inset-0 z-50 flex flex-col items-center justify-center gap-2 bg-black/90 p-2 text-white" onclick={closePhoto} aria-label="Close photo">
+		<span class="font-mono text-sm">{viewing.label} · {viewing.value}</span>
+		<img src={viewing.url} alt="Label of {viewing.label}" class="max-h-[90vh] max-w-full object-contain" />
+	</button>
+{/if}

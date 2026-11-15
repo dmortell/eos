@@ -1,6 +1,6 @@
 // Barcode walk-list helpers — pure, no DOM. See +page.svelte.
 
-export type ScanItem = { label: string; value: string }
+export type ScanItem = { label: string; value: string; photo?: boolean }
 
 /** A scanned string as a MAC address (12 hex digits, upper case), or null when it is not one.
  *  Accepts the bare form (884F59CB74D9) and the usual separated forms (88:4F:…, 88-4F-…, 884F.59CB.74D9). */
