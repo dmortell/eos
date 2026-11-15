@@ -13,6 +13,24 @@ export function parseMac(raw: string): string | null {
 	return ok ? s.replace(/[^0-9a-f]/gi, '').toUpperCase() : null
 }
 
+export type Read = { rawValue: string; cornerPoints?: readonly { x: number; y: number }[] }
+
+/** The MAC addresses read in one frame, top line of the label first, however the label is turned.
+ *  A 1D barcode has no "up", only a reading direction (corner 0 → 1, along the label's text line);
+ *  the label's down is that direction turned 90° clockwise (screen y points down).
+ *  Cisco labels with a WLAN MAC print the wired MAC above it, so the first one is the wired MAC. */
+export function macsInOrder(reads: readonly Read[]): string[] {
+	const macs = reads
+		.map(r => ({ mac: parseMac(r.rawValue), p: r.cornerPoints }))
+		.filter((m): m is { mac: string; p: Read['cornerPoints'] } => !!m.mac)
+	const c = macs.find(m => m.p && m.p.length >= 2)?.p
+	const down = c ? { x: -(c[1].y - c[0].y), y: c[1].x - c[0].x } : { x: 0, y: 1 }
+	const depth = (p: Read['cornerPoints']) =>
+		p?.length ? p.reduce((s, q) => s + q.x * down.x + q.y * down.y, 0) / p.length : 0
+	const ordered = macs.map(m => ({ mac: m.mac, d: depth(m.p) })).sort((a, b) => a.d - b.d).map(m => m.mac)
+	return [...new Set(ordered)]
+}
+
 /** Labels from pasted text: one per line (a spreadsheet column), blanks dropped. */
 export function parseLabels(text: string): string[] {
 	return text.split(/\r?\n/).map(l => l.trim()).filter(Boolean)

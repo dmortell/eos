@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { nextEmpty, parseLabels, parseMac, toCsv, valueColumn } from './scan'
+import { macsInOrder, nextEmpty, parseLabels, parseMac, toCsv, valueColumn } from './scan'
 
 describe('parseMac', () => {
 	it('takes the bare and the separated forms, upper-cased', () => {
@@ -14,6 +14,32 @@ describe('parseMac', () => {
 		expect(parseMac('WZP29129F2B')).toBeNull()       // serial
 		expect(parseMac('MAC 884F59CB74D9')).toBeNull()
 		expect(parseMac('')).toBeNull()
+	})
+})
+
+describe('macsInOrder', () => {
+	// Corner points as the decoder returned them for a photo of a Cisco label (MAC above WLAN MAC)
+	const pt = (...n: number[]) => [0, 2, 4, 6].map(i => ({ x: n[i], y: n[i + 1] }))
+	const wired = '884F59514DD9', wlan = '884F59514DDB'
+	it('takes the upper MAC first, whichever way up the label is', () => {
+		expect(macsInOrder([   // upright
+			{ rawValue: wired, cornerPoints: pt(212, 1112, 1191, 1112, 1194, 1215, 208, 1215) },
+			{ rawValue: wlan, cornerPoints: pt(205, 1392, 1199, 1392, 1195, 1464, 203, 1464) },
+		])).toEqual([wired, wlan])
+		expect(macsInOrder([   // turned 90°, WLAN read first
+			{ rawValue: wlan, cornerPoints: pt(622, 206, 622, 1197, 558, 1196, 558, 203) },
+			{ rawValue: wired, cornerPoints: pt(904, 211, 904, 1192, 801, 1194, 801, 208) },
+		])).toEqual([wired, wlan])
+		expect(macsInOrder([   // upside down, WLAN read first
+			{ rawValue: wlan, cornerPoints: pt(1308, 558, 315, 558, 314, 622, 1305, 622) },
+			{ rawValue: wired, cornerPoints: pt(1303, 801, 317, 801, 319, 904, 1300, 904) },
+		])).toEqual([wired, wlan])
+	})
+	it('drops the barcodes that are not MACs', () => {
+		expect(macsInOrder([
+			{ rawValue: 'DP-9851-K9 V03', cornerPoints: pt(104, 304, 436, 304, 436, 307, 104, 307) },
+			{ rawValue: '884F59CB74D9', cornerPoints: pt(104, 339, 398, 339, 399, 374, 104, 374) },
+		])).toEqual(['884F59CB74D9'])
 	})
 })
 

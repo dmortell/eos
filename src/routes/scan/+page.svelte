@@ -4,7 +4,7 @@
 	// the list lives in this browser (localStorage) until it is cleared.
 	import { onMount } from 'svelte'
 	import { Button, Titlebar } from '$lib'
-	import { nextEmpty, parseLabels, parseMac, toCsv, valueColumn, type ScanItem } from './scan'
+	import { macsInOrder, nextEmpty, parseLabels, toCsv, valueColumn, type Read, type ScanItem } from './scan'
 
 	const KEY = 'eos-scan-v1'
 
@@ -23,23 +23,29 @@
 	let current = $derived(items[idx])
 	let done = $derived(items.filter(i => i.value).length)
 
-	type Detector = { detect(src: HTMLVideoElement | ImageBitmap): Promise<{ rawValue: string }[]> }
+	/** Labels carry a WLAN MAC under the wired one: a frame must show both, so a lone WLAN MAC is never taken.
+	 *  Turns itself on the first time a frame shows two MACs; untick it for labels with a single MAC. */
+	let wlanLabels = $state(false)
+
+	type Detector = { detect(src: HTMLVideoElement | ImageBitmap): Promise<Read[]> }
 	let detector: Detector | null = null
 	let stream: MediaStream | null = null
 	let audio: AudioContext | null = null
 	let pending = ''   // a MAC seen once; taken when the next frame reads it again
+	let lastTaken = '' // the MAC just entered: still in view, so "already on …" is not shown for it
 
 	onMount(() => {
 		try {
 			const saved = JSON.parse(localStorage.getItem(KEY) ?? 'null')
 			if (Array.isArray(saved?.items)) { items = saved.items; idx = Math.min(saved.idx ?? 0, Math.max(0, items.length - 1)) }
+			wlanLabels = !!saved?.wlanLabels
 		} catch { /* nothing saved */ }
 		loaded = true
 		return stop
 	})
 
 	$effect(() => {
-		const data = JSON.stringify({ items, idx })
+		const data = JSON.stringify({ items, idx, wlanLabels })
 		if (loaded) { try { localStorage.setItem(KEY, data) } catch { /* private mode */ } }
 	})
 
@@ -91,31 +97,44 @@
 	async function loop(det: Detector) {
 		while (running) {
 			if (video && video.readyState >= 2) {
-				try { take((await det.detect(video)).map(r => r.rawValue), true) } catch { /* a frame that would not decode */ }
+				try { take(await det.detect(video), true) } catch { /* a frame that would not decode */ }
 			}
 			await new Promise(r => setTimeout(r, 120))
 		}
 	}
 
-	/** Every barcode read in one frame / photo. A label can carry several (part no., serial…): only a MAC
-	 *  that is not in the list yet is taken, so the phone just scanned is never entered twice. */
-	function take(raws: string[], twice: boolean) {
-		const macs = raws.map(parseMac).filter((m): m is string => !!m)
-		const fresh = macs.find(m => !items.some(i => i.value === m))
-		if (!fresh) {
+	/** Every barcode read in one frame / photo. A label can carry several (part no., serial, WLAN MAC…):
+	 *  the upper MAC on the label is the wired one, and a label already in the list is ignored whole — so
+	 *  the phone just scanned is never entered twice, nor its WLAN MAC taken for the next row. */
+	function take(reads: readonly Read[], twice: boolean) {
+		const macs = macsInOrder(reads)
+		if (!macs.length) {
 			pending = ''
-			const at = macs.length ? items.find(i => i.value === macs[0]) : null
-			if (at) message = `${macs[0]} is already on ${at.label}`
-			else if (!twice) message = raws.length ? 'No MAC address among the barcodes read' : 'No barcode found'
+			if (!twice) message = reads.length ? 'No MAC address among the barcodes read' : 'No barcode found'
 			return
 		}
-		if (twice && pending !== fresh) { pending = fresh; return }
+		const known = macs.find(m => items.some((it, i) => i !== idx && it.value === m))
+		if (known) {
+			pending = ''
+			if (known !== lastTaken) message = `${known} is already on ${items.find(i => i.value === known)?.label}`
+			return
+		}
+		if (macs.length > 1) wlanLabels = true
+		if (wlanLabels && macs.length < 2) {
+			pending = ''
+			message = 'Only one MAC read — get MAC and WLAN MAC both in view (or untick "WLAN MAC labels")'
+			return
+		}
+		const mac = macs[0]
+		if (mac === current?.value) { pending = ''; return }
+		if (twice && pending !== mac) { pending = mac; return }
 		pending = ''
 		if (!current) { message = 'Load a list first'; return }
 		// A filled row is only ever current when it was picked on purpose (Back, or a tap): the scan redoes it.
 		const label = current.label, was = current.value
-		items[idx].value = fresh
-		message = `${label} = ${fresh}${was ? ` (was ${was})` : ''}`
+		items[idx].value = mac
+		lastTaken = mac
+		message = `${label} = ${mac}${was ? ` (was ${was})` : ''}`
 		const next = nextEmpty(items, idx + 1)
 		if (next >= 0) idx = next
 		else { message += ' — list complete'; stop() }
@@ -141,7 +160,7 @@
 		if (!file) return
 		try {
 			const bitmap = await createImageBitmap(file)
-			take((await (await getDetector()).detect(bitmap)).map(r => r.rawValue), false)
+			take(await (await getDetector()).detect(bitmap), false)
 			bitmap.close()
 		} catch (e) {
 			message = `Could not read the photo: ${e instanceof Error ? e.message : e}`
@@ -238,6 +257,9 @@
 			<label class="inline-flex cursor-pointer items-center rounded border px-2 py-1 hover:bg-gray-100">
 				From photo
 				<input type="file" accept="image/*" class="hidden" onchange={fromPhoto} />
+			</label>
+			<label class="inline-flex items-center gap-1" title="Labels show MAC and WLAN MAC: take the upper one, and only when both are in view">
+				<input type="checkbox" bind:checked={wlanLabels} /> WLAN MAC labels
 			</label>
 			<span class="flex-1"></span>
 			<Button variant={confirmClear ? 'danger' : 'outline'} onclick={clearList}>{confirmClear ? 'Tap again to clear' : 'Clear list'}</Button>
