@@ -37,6 +37,11 @@
 	let audio: AudioContext | null = null
 	let pending = ''   // a MAC seen once; taken when the next frame reads it again
 	let lastTaken = '' // the MAC just entered: still in view, so "already on …" is not shown for it
+	// With "WLAN MAC labels" on, a frame showing one MAC may be an old single-MAC label, or a new label
+	// with its other MAC out of view: the live camera takes it only after SOLO_HITS reads of it alone
+	// (frames that read nothing don't count against it). Read now / From photo take it at once.
+	const SOLO_HITS = 5
+	let solo = { mac: '', hits: 0 }
 
 	onMount(() => {
 		try {
@@ -130,15 +135,21 @@
 			return -1
 		}
 		if (macs.length > 1) wlanLabels = true
-		if (wlanLabels && macs.length < 2) {
-			pending = ''
-			message = 'Only one MAC read — get MAC and WLAN MAC both in view (or untick "WLAN MAC labels")'
-			return -1
-		}
 		const mac = macs[0]
-		if (mac === current?.value) { pending = ''; return -1 }
-		if (twice && pending !== mac) { pending = mac; return -1 }
+		if (mac === current?.value) { pending = ''; solo = { mac: '', hits: 0 }; return -1 }
+		if (wlanLabels && macs.length < 2 && twice) {
+			pending = ''
+			solo = { mac, hits: solo.mac === mac ? solo.hits + 1 : 1 }
+			if (solo.hits < SOLO_HITS) {
+				message = `One MAC in view (${mac}) — hold steady to take it (old label), or get both MACs in view`
+				return -1
+			}
+		} else {
+			if (macs.length > 1) solo = { mac: '', hits: 0 }
+			if (twice && pending !== mac) { pending = mac; return -1 }
+		}
 		pending = ''
+		solo = { mac: '', hits: 0 }
 		if (!current) { message = 'Load a list first'; return -1 }
 		// A filled row is only ever current when it was picked on purpose (Back, or a tap): the scan redoes it.
 		const row = idx, label = current.label, was = current.value
@@ -344,7 +355,7 @@
 		<ol class="divide-y rounded border">
 			{#each items as item, i (i)}
 				<li class="flex items-center {i === idx ? 'bg-blue-100' : ''}">
-					<button class="flex flex-1 items-center gap-3 px-2 py-1.5 text-left" onclick={() => { idx = i; pending = ''; message = item.value ? `${item.label} — scan to redo it, or Clear` : '' }}>
+					<button class="flex flex-1 items-center gap-3 px-2 py-1.5 text-left" onclick={() => { idx = i; pending = ''; solo = { mac: '', hits: 0 }; message = item.value ? `${item.label} — scan to redo it, or Clear` : '' }}>
 						<span class="w-8 text-right text-xs text-gray-400">{i + 1}</span>
 						<span class="w-20 font-semibold">{item.label}</span>
 						<span class="font-mono">{item.value}</span>
