@@ -31,22 +31,22 @@ full notes for 1–8.
 - [ ] **1. Redo the tool icon buttons** — pick mock-up A–E first (entry below). P2 · M
 - [ ] **2. Tool strip options 1 / 3** — review (entry below). P3
 - [ ] **3. Menus options 1 / 3** — review; plus a Plan / Elevation / Section / Riser switch in View, and where Rename / Delete level go. P3
-- [ ] ⚡ **4. Hover a device: its border only** — not every port (entry below). P2 · S
-- [ ] ⚡ **5. Tooltips: wait once, then instant** (entry below). P2 · S
+- [x] **4. Hover a device: its border only** — done 2026-11-22 (`phase8.md`).
+- [x] **5. Tooltips: wait once, then instant** — done 2026-11-22 (`phase8.md`).
 - [ ] **6. Containment between 33F 3303 and 33F 3307** — 24 backbone cables have "No route"; plan first (entry below). P2 · M?
 - [ ] **7. Data: patch the IDF2 TVs to IDF1** (Journey) — confirm floor / ports first.
 - [ ] **8. Outside review and markup** — PDF round trip recommended; waits on 20.
 - [ ] ⚡ **9. Tidy this backlog's "Suggested order"** — still lists built / moved work (cord workflow, Batch 4).
 
 ### B. Smaller cad bugs and nits (walkthrough)
-- [ ] ⚡ **10. Riser view Floors range** — only floors with a model are listed, so you can't narrow to e.g. 1F–10F with Hide empty off (`workflow-walkthrough.md:792`).
-- [ ] ⚡ **11. New sheet from an empty floor's plan** gets a thin 283 × 105 mm viewport (`workflow-walkthrough.md:687`).
-- [ ] ⚡ **12. Release name doubled** — typing "03 …" gives "Release 03 03 …" in the file name (`workflow-walkthrough.md:703`).
+- [x] **10. Riser view Floors range** (already built 2026-10-21: a floor list with Shift-click ranges) — only floors with a model are listed, so you can't narrow to e.g. 1F–10F with Hide empty off (`workflow-walkthrough.md:792`).
+- [x] **11. New sheet from an empty floor's plan** (already built, e56a5cad) gets a thin 283 × 105 mm viewport (`workflow-walkthrough.md:687`).
+- [x] **12. Release name doubled** (fixed in e56a5cad; backup label 2026-11-22) — typing "03 …" gives "Release 03 03 …" in the file name (`workflow-walkthrough.md:703`).
 - [ ] ⚡ **13. Use as default, then Undo** — the tool bar's Usage / Mount stay adopted until a reload (`workflow-walkthrough.md:748`).
-- [ ] ⚡ **14. Hidden layers still snap on the plan** — no layer filter in `editor/snap.ts` (`layers.md:12`).
+- [x] **14. Hidden layers still snap on the plan** (done 2026-11-22) — no layer filter in `editor/snap.ts` (`layers.md:12`).
 - [ ] **15. Rack-row viewport frame too loose** — takes in slab / ceiling lines; a tighter frame fits two rows at one scale (`workflow-walkthrough.md:865`).
 - [ ] **16. UX nits** (`workflow-walkthrough.md:763-960`):
-  - [ ] ⚡ 16a. Fill rates greyed in elevation with no reason given
+  - [x] 16a. Fill rates greyed in elevation (fill rates in elevations built, e56a5cad)
   - [ ] 16b. Backups Delete buttons sit next to the question's Delete
   - [ ] 16c. Section of a room with no walls shows FFL only
   - [ ] ⚡ 16d. Tab titles truncated
@@ -83,7 +83,7 @@ full notes for 1–8.
 - [ ] **40. Fallback labels for unlabelled panel ports** (`R04-U33-P07`) (`elevations-plan.md:738`)
 
 ### E. App-wide and other pages
-- [ ] ⚡ **41. Uploads subscribes to the whole global `files` collection** — per-project query commented out (`routes/projects/[pid]/uploads/+page.svelte:24`, `docs/firestore-structure.md:142`)
+- [x] **41. Uploads subscribes to the whole global `files` collection** — by design: the list offers other projects’ files to share in (2bbb8405) — per-project query commented out (`routes/projects/[pid]/uploads/+page.svelte:24`, `docs/firestore-structure.md:142`)
 - [ ] **42. `deleteFloor` misses patching docs and area outlets docs**; room letters hard-coded A–D (`docs/firestore-structure.md:115-117`)
 - [ ] **43. Firestore loose ends** — basement `F-1` ids fail `_F(\d+)`; stray floor `3307` and registry drawings on floors 1 / 200; two drawings stores and two 3D stores; `IssueDoc.status` untyped and unread (`docs/firestore-structure.md:118-145`)
 - [ ] **44. Raw `history.pushState`** in frames / outlets / patching / racks pages (or retire with 32)
@@ -159,15 +159,6 @@ full notes for 1–8.
   building. **P2 · M**. Mock-ups (2026-10-26, https://claude.ai/artifact/7hUNmZYq8gfnLCfkB3xHYz): A every tool its own
   button · B task tabs with labels (ribbon) · C labelled palette docked left · D today's strip + Find a tool · E floating
   toolbox (icons, or names on). User to pick.
-- [ ] **Hover a device: its border only, not all its ports** (User 2026-10-28) — today hovering a device in a rack view
-  highlights its outline AND every port cell on it. Hover should light just the device's border; a port lights on its
-  own, one at a time, only while the pointer is over that port. (Same reasoning as the 2026-10-28 click fix, a74cf468:
-  a picked device's ports aren't lined blue.) **P2 · S**.
-- [ ] **Tooltips: wait once, then instant on the next** (User 2026-10-29) — on a row of buttons (toolbox icons, toolbars)
-  the first hovered button's tip waits ~0.5s; moving on to a neighbour shows its tip at once. CSS interest invokers:
-  `<button interestfor="tip-x">` + `<span id="tip-x" popover="hint">`, with `.bar button { interest-delay-start: 0.5s }`
-  and `.bar:has(:interest-source) button { interest-delay-start: 0s }`. Needs a fallback where `interestfor` isn't
-  supported (a small shared tooltip action with the same warm-up timer). **P2 · S**.
 - [ ] **Data: patch the IDF2 TVs to IDF1** (User 2026-10-31 todo) — project data, not code: patch the TV outlets served
   from IDF2 through to IDF1 (in the live project, via the rack views). Details (which floor, which panels / switch
   ports) to confirm with the User when picked up. **P? · S**.

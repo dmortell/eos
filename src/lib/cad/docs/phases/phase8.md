@@ -4446,3 +4446,19 @@ User: "Yes, cords kept inside the set" (the ❓ entry of 2026-10-17).
   cabled · 0 patched · 24 free to patch · 24 unlabelled" (`portCountText`, shared).
 - **33IDF2 PDUs patched** (User 2026-10-26): R311 / R312 / R313, each rack's PDUs to ports 1 and 24 of its tie panel
   (1.5 m and 2 m, as 33IDF1). P3C U40 named P3C-R313. Tool strip mock-ups A–E published for the backlog item.
+
+### Consolidated list, first batch (2026-11-22)
+
+- **4 · Hover a device: its border only** (User 2026-10-28): the hover outline leaves out port cells and their labels
+  unless the pointer is on a port (`isPortPrim` in `views/display.ts`; `selectTool.preview`, and the other pane's
+  `idleOutline`). Checked live on Test Project 33IDF2 racks: a switch's body → its border only; a port → that cell.
+- **5 · Tooltips wait once, then instant** (User 2026-10-29): `ui/warmTips.ts`, an action on the tool strip / toolbox
+  (and its flyout), the view strip and the status bar — the first tip waits 500 ms, a neighbour's shows at once
+  (600 ms grace after one hides). It takes over the buttons' own `title`s (put back on leave), one shared tip in the
+  top layer. JS rather than CSS `interestfor` (not in every browser; it would need a popover per button). Checked live.
+- **12 · Release name doubled**: already fixed in e56a5cad (`issueTitle`); the release's backup label still said
+  "Release 03: 03 Round 8" — now `issueTitle` too.
+- **14 · Hidden layers don't snap**: `SnapOpts.hidden` — the plan's `snapAt` (which reads the model) skips items whose
+  prims a hidden layer took out of the view (`ViewCanvas` `layerHidden`). Test in `editor/snap.test.ts`.
+- Found already built: 10 (riser floor list, 2026-10-21), 11 and 16a (e56a5cad). 41 is by design: Uploads lists every
+  project's files so one can be shared into another project (`projectIds`, 2bbb8405).
