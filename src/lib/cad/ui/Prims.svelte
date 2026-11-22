@@ -55,6 +55,18 @@
 		{#each clips as [key, b] (key)}<clipPath id={clipIds.get(key)}><rect x={b.x0} y={b.y0} width={b.x1 - b.x0} height={b.y1 - b.y0} /></clipPath>{/each}
 	</defs>
 {/if}
+{#if selected.size}
+	<!-- the SELECTION HALO (backlog 52, User 2026-11-22): a soft blue band UNDER each selected line, circle and outline,
+	     so the item's own border — its color, line type — stays on top and the blue shows just outside it (a fill
+	     covers the inner half). Runs drawn at their real width keep the thin line over their centre (below). -->
+	{#each prims as p, i (i)}
+		{#if overLine(p) && !(p.k === 'line' && p.w && !p.closed)}
+			{#if p.k === 'circle'}<circle cx={p.c.x} cy={p.c.y} r={p.r} class="sel-halo" vector-effect="non-scaling-stroke" clip-path={clipOf(p)} />
+			{:else if p.k === 'line' && p.closed}<polygon points={ptsOf(p)} class="sel-halo" vector-effect="non-scaling-stroke" clip-path={clipOf(p)} />
+			{:else if p.k === 'line'}<polyline points={ptsOf(p)} class="sel-halo" vector-effect="non-scaling-stroke" clip-path={clipOf(p)} />{/if}
+		{/if}
+	{/each}
+{/if}
 {#each prims as p, i (i)}
 	{@const sel = !!p.src && selected.has(p.src)}
 	{@const col = p.color}
@@ -97,11 +109,7 @@
 {#if selected.size}
 	<!-- the SELECTION, over everything (Pages / Sheets look): thin blue lines on the item's own lines, dashed boxes -->
 	{#each prims as p, i (i)}
-		{#if overLine(p)}
-			{#if p.k === 'circle'}<circle cx={p.c.x} cy={p.c.y} r={p.r} class="sel-line" vector-effect="non-scaling-stroke" clip-path={clipOf(p)} />
-			{:else if p.k === 'line' && p.closed}<polygon points={ptsOf(p)} class="sel-line" vector-effect="non-scaling-stroke" clip-path={clipOf(p)} />
-			{:else if p.k === 'line'}<polyline points={ptsOf(p)} class="sel-line" vector-effect="non-scaling-stroke" clip-path={clipOf(p)} />{/if}
-		{/if}
+		{#if overLine(p) && p.k === 'line' && p.w && !p.closed}<polyline points={ptsOf(p)} class="sel-line" vector-effect="non-scaling-stroke" clip-path={clipOf(p)} />{/if}
 	{/each}
 	{#each selBoxes as s (s.id)}<rect x={s.b.x0} y={s.b.y0} width={s.b.x1 - s.b.x0} height={s.b.y1 - s.b.y0} class="sel-box" vector-effect="non-scaling-stroke" clip-path={s.clip} />{/each}
 {/if}
@@ -111,6 +119,7 @@
 	.filled { fill: var(--cad-fill, #e2e8f0); }
 	/* the selection (Pages / Sheets): a thin blue line over the item's lines, a dashed box round a symbol / box / text */
 	.sel-line { fill: none !important; stroke: #2563eb; stroke-width: 1.75px; stroke-linejoin: round; pointer-events: none; }
+	.sel-halo { fill: none !important; stroke: #2563eb; stroke-width: 7px; stroke-opacity: 0.4; stroke-linejoin: round; stroke-linecap: round; pointer-events: none; }
 	.sel-box { fill: none !important; stroke: #2563eb; stroke-width: 1.25px; stroke-dasharray: 4 3; opacity: 0.9; pointer-events: none; }
 	.band { stroke-linecap: butt; stroke-linejoin: miter; vector-effect: none; }
 	/* the hairline drawn along every banded run */
