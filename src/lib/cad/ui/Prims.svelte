@@ -303,7 +303,8 @@
 	.band-edge { stroke: #7c3aed; stroke-dasharray: 10 6; stroke-width: 1.2; }
 	.draft.line { opacity: 1; stroke-dasharray: 4 3; }
 	/* a white halo: readable over the drawing's lines (Round 10: the port +'s tip over a rack's edges) */
-	text.draft-label { fill: #2563eb; paint-order: stroke; stroke: white; stroke-width: 3px; stroke-linejoin: round; }
+	/* the halo sized to the text (em): 3 drawing units vanished when zoomed out (backlog 16g: the port + tip over a rack's lines) */
+	text.draft-label { fill: #2563eb; paint-order: stroke; stroke: white; stroke-width: 0.25em; stroke-linejoin: round; }
 	/* a cord to another row: where it goes, under its stub */
 	text.cord-stub-label { fill: #334155; paint-order: stroke; stroke: white; stroke-width: 0.25em; stroke-linejoin: round; }
 	/* the Device tool's drop ghost; red = it can't go there */
