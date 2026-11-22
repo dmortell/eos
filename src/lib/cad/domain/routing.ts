@@ -16,6 +16,7 @@ import type { Shape, PathNode } from './shapes'
 import type { ProjectIndex } from './project'
 import { cablesOf } from './multicore'
 import { roomFloor } from './devices'
+import { placeOf, toMain, mainLevelOf } from './areaPlace'
 
 export const JOIN_MM = 50
 /** The furthest an outlet reaches (plan + height) to join a run (User: 10 m); beyond it the port has no route. */
@@ -59,17 +60,30 @@ export function levelElevation(ix: ProjectIndex, levelId: Id | undefined): numbe
 
 /** The containment graph of the whole project (all levels). */
 export function buildGraph(ix: ProjectIndex): Graph {
-	const segs: Seg[] = []
+	const segs: (Seg & { sp: [string, string] })[] = []
+	// the plan a node is drawn on, for joining: a placed area plan joins its whole floor; any other plan only itself.
+	// Two plans at one elevation (an unplaced area plan and its floor, two buildings' floors) never join just because
+	// their coordinates happen to meet; a riser joins floors through its far node's level.
+	const spaces = new Map<string, string>()
+	const spaceOf = (levelId: Id | undefined): string => {
+		const k = levelId ?? ''
+		let v = spaces.get(k)
+		if (v === undefined) { v = placeOf(ix, levelId) ? (mainLevelOf(ix, ix.getOf('level', levelId))?.id ?? k) : k; spaces.set(k, v) }
+		return v
+	}
 	for (const s of ix.shapes) {
 		if (s.role?.kind !== 'containment' || s.geom.kind !== 'path') continue
 		const nodes = new Map(s.geom.nodes.map((n) => [n.id, n]))
-		const at = (n: PathNode): P3 => ({ x: n.x, y: n.y, z: n.z + levelElevation(ix, n.levelId ?? s.levelId) })
+		// an area plan placed on the whole floor: its run in the whole floor's coordinates, so a run drawn there from its
+		// end joins it (backlog 6). A riser's far node is drawn in its run's coordinates too, so the run's level decides.
+		const pl = placeOf(ix, s.levelId)
+		const at = (n: PathNode): P3 => ({ ...toMain(pl, n), z: n.z + levelElevation(ix, n.levelId ?? s.levelId) })
 		for (const g of s.geom.segs) {
 			const a = nodes.get(g.a), b = nodes.get(g.b)
 			if (!a || !b) continue
 			const p = at(a), q = at(b)
 			const far = b.levelId && b.levelId !== s.levelId ? 1 : a.levelId && a.levelId !== s.levelId ? 0 : -1
-			segs.push({ shape: s, seg: g.id, p, q, len: dist3(p, q), levelIds: new Set([a.levelId ?? s.levelId!, b.levelId ?? s.levelId!]), far })
+			segs.push({ shape: s, seg: g.id, p, q, len: dist3(p, q), levelIds: new Set([a.levelId ?? s.levelId!, b.levelId ?? s.levelId!]), far, sp: [spaceOf(a.levelId ?? s.levelId), spaceOf(b.levelId ?? s.levelId)] })
 		}
 	}
 	// graph nodes: every segment end, merged within JOIN_MM
@@ -77,19 +91,21 @@ export function buildGraph(ix: ProjectIndex): Graph {
 	const nodes: P3[] = []
 	const hash = new Map<string, number[]>()
 	const cell = (v: number) => Math.floor(v / JOIN_MM)
-	const nodeAt = (x: P3): number => {
+	const nodeSpace: string[] = []
+	const nodeAt = (x: P3, sp: string): number => {
 		const cx = cell(x.x), cy = cell(x.y), cz = cell(x.z)
 		let found = -1
 		for (let i = cx - 1; i <= cx + 1; i++) for (let j = cy - 1; j <= cy + 1; j++) for (let k = cz - 1; k <= cz + 1; k++) {
-			for (const n of hash.get(`${i},${j},${k}`) ?? []) if ((found < 0 || n < found) && dist3(nodes[n], x) <= JOIN_MM) found = n
+			for (const n of hash.get(`${sp}|${i},${j},${k}`) ?? []) if ((found < 0 || n < found) && dist3(nodes[n], x) <= JOIN_MM) found = n
 		}
 		if (found >= 0) return found
 		nodes.push(x)
-		const key = `${cx},${cy},${cz}`, list = hash.get(key)
+		nodeSpace.push(sp)
+		const key = `${sp}|${cx},${cy},${cz}`, list = hash.get(key)
 		if (list) list.push(nodes.length - 1); else hash.set(key, [nodes.length - 1])
 		return nodes.length - 1
 	}
-	const ends = segs.map((s) => [nodeAt(s.p), nodeAt(s.q)] as const)
+	const ends = segs.map((s) => [nodeAt(s.p, s.sp[0]), nodeAt(s.q, s.sp[1])] as const)
 	// cut each segment at every node lying on it (a tee), then chain the cuts. The candidates come from a plan grid of
 	// the nodes (cells over the segment's box, widened by JOIN_MM), in index order as a full scan would give them.
 	const pieces: Piece[] = [], piecesOf = new Map<string, number[]>()
@@ -108,7 +124,7 @@ export function buildGraph(ix: ProjectIndex): Graph {
 	segs.forEach((s, i) => {
 		const cuts = [{ t: 0, n: ends[i][0] }, { t: 1, n: ends[i][1] }]
 		for (const n of candidates(s)) {
-			if (n === ends[i][0] || n === ends[i][1]) continue
+			if (n === ends[i][0] || n === ends[i][1] || (nodeSpace[n] !== s.sp[0] && nodeSpace[n] !== s.sp[1])) continue
 			const pr = project3(s.p, s.q, nodes[n])
 			if (pr.d <= JOIN_MM && pr.t > 0 && pr.t < 1) cuts.push({ t: pr.t, n })
 		}
@@ -192,7 +208,7 @@ function tapIndex(g: Graph): TapIndex {
 export function outletTap(g: Graph, ix: ProjectIndex, o: Outlet, roomId: Id | undefined): Tap | null {
 	if (!o.at) return null
 	const level = ix.getOf('level', o.levelId)
-	const x = { ...o.at, z: levelElevation(ix, o.levelId) + outletZ(o, level) }
+	const x = { ...toMain(placeOf(ix, o.levelId), o.at), z: levelElevation(ix, o.levelId) + outletZ(o, level) }
 	const { grid } = tapIndex(g)
 	let best: Tap | null = null
 	const seen = new Set<number>()
@@ -226,7 +242,7 @@ export const RACK_REACH_MM = 3000
  *  nearest point — else just the nearest run. */
 export function rackTaps(g: Graph, ix: ProjectIndex, rack: Rack, device: Device | undefined): Tap[] {
 	if (!rack.at) return []
-	const x = { ...rack.at, z: levelElevation(ix, rack.levelId) + roomFloor(ix, rack.spaceId) + panelZ(device) }   // on its room's floor
+	const x = { ...toMain(placeOf(ix, rack.levelId), rack.at), z: levelElevation(ix, rack.levelId) + roomFloor(ix, rack.spaceId) + panelZ(device) }   // on its room's floor
 	const best = new Map<Id, Tap & { plan: number }>()
 	for (const i of tapIndex(g).byLevel.get(rack.levelId) ?? []) {   // not onto a riser, nor a stub (see tapIndex)
 		const s = g.segs[i]

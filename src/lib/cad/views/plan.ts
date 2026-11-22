@@ -26,6 +26,7 @@ const upright = (g: Shape['geom']) => g.kind === 'path' && g.nodes.every((n) => 
 /** How high a placed 3D-block part reaches (its top), for drawing it from above. */
 const topOf = (s: Shape) => (s.geom.kind === 'path' ? Math.max(...s.geom.nodes.map((n) => n.z)) : (s.plane?.kind === 'plan' ? s.plane.z : 0) + (s.extent ?? 0))
 import { usageColour } from '../domain/usages'
+import { placedAreas, toMain } from '../domain/areaPlace'
 
 export interface PlanOpts {
 	/** 1:N — text and symbols are drawn at a constant paper size, so they scale with N. */
@@ -40,6 +41,32 @@ export interface PlanOpts {
 	byUsage?: boolean
 	/** Compare floorplans (W7, screen only): the file to ghost in red under an underlay, or undefined for none. */
 	compare?: (u: Underlay) => string | undefined
+	/** The area plan being placed on this whole-floor plan (the Place tool): its floorplans are shown too, faint. */
+	placing?: Id
+}
+
+/** The color the placed area plans are drawn in on their whole-floor plan (greyed: shown, not edited there). */
+export const AREA_GHOST = '#94a3b8'
+
+/** A main plan's placed area plans (backlog 6): each one's plan, moved and turned into this plan's coordinates, in grey
+ *  and not pickable (nothing has a `src`) — their floorplans only while that area is being placed. */
+function areaGhosts(ix: ProjectIndex, levelId: Id, o: PlanOpts): Prim[] {
+	const out: Prim[] = []
+	for (const a of placedAreas(ix, levelId)) {
+		const pl = a.place!, T = (p: Pt) => toMain(pl, p), rot = pl.rot
+		for (const p of planDisplayList(ix, a.id, { ...o, compare: undefined, placing: undefined, underlay: o.placing === a.id ? o.underlay : undefined })) {
+			const { src: _s, clip, ...q } = p
+			if (q.k === 'image') {
+				const c = T({ x: q.x + q.w / 2, y: q.y + q.h / 2 })
+				// a crop box can't turn with it: kept when the area isn't turned, else the whole page shows
+				const keep = clip && !(rot % 360) ? { clip: { x0: clip.x0 + pl.x, y0: clip.y0 + pl.y, x1: clip.x1 + pl.x, y1: clip.y1 + pl.y } } : {}
+				out.push({ ...q, x: c.x - q.w / 2, y: c.y - q.h / 2, rot: (q.rot ?? 0) + rot, opacity: 0.35, gray: true, ...keep })
+			} else if (q.k === 'line') out.push({ ...q, pts: q.pts.map(T), ...(q.holes ? { holes: q.holes.map((h) => h.map(T)) } : {}), color: AREA_GHOST })
+			else if (q.k === 'circle') out.push({ ...q, c: T(q.c), color: AREA_GHOST })
+			else out.push({ ...q, at: T(q.at), rot: (q.rot ?? 0) + rot, color: AREA_GHOST })
+		}
+	}
+	return out
 }
 
 /** Paper sizes (mm) of plan symbols. */
@@ -60,6 +87,8 @@ export function planDisplayList(ix: ProjectIndex, levelId: Id, o: PlanOpts): Pri
 		if (old) out.push({ k: 'image', ...old, x: old.x + dx, y: old.y + dy, ...(old.clip ? { clip: { x0: old.clip.x0 + dx, y0: old.clip.y0 + dy, x1: old.clip.x1 + dx, y1: old.clip.y1 + dy } } : {}), opacity: 0.9, tint: 'red' })
 		out.push({ k: 'image', ...pl, x: pl.x + dx, y: pl.y + dy, ...(c ? { clip: { x0: c.x0 + dx, y0: c.y0 + dy, x1: c.x1 + dx, y1: c.y1 + dy } } : {}), opacity: u.opacity ?? 0.6, src: u.id, ...(o.gray ? { gray: true } : {}) })
 	}
+	// the area plans placed on this whole floor, greyed, over its floorplan and under its own drawing
+	out.push(...areaGhosts(ix, levelId, o))
 	// ROOMS (W30): a space with a boundary (drawn with the Room tool, or imported) — a dashed outline with its name in
 	// the middle, picked as the room (Properties: name, kind); on the Rooms layer
 	for (const sp of ix.spaces) {

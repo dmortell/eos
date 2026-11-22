@@ -48,6 +48,9 @@ export interface Level {
 	 *  drawn on its own floorplan with its own coordinates). Same number and elevation as the floor; its own plan,
 	 *  elevations and racks. Unset = the floor's main plan. */
 	area?: string
+	/** An area plan's place on its floor's main plan (the whole floor): its coordinates turned by `rot` degrees, then
+	 *  moved by (x, y) — domain/areaPlace.ts. Unset = not placed (drawn and routed on its own). */
+	place?: { x: number; y: number; rot: number }
 }
 
 /**

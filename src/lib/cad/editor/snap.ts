@@ -4,6 +4,7 @@ import type { Id, Pt } from '../domain/types'
 import type { ProjectIndex } from '../domain/project'
 import type { Prim } from '../views/display'
 import { outlineOf, type Shape } from '../domain/shapes'
+import { placedAreas, toMain } from '../domain/areaPlace'
 
 export type SnapKind = 'node' | 'mid' | 'centre' | 'outlet' | 'rack' | 'grid' | 'guide'
 export interface Snap { p: Pt; kind: SnapKind; z?: number; attach?: Id }
@@ -97,6 +98,14 @@ export function snapAt(ix: ProjectIndex, levelId: Id, p: Pt, tol: number, opts: 
 		for (const g of s.geom.segs) {
 			const a = nodes.get(g.a), b = nodes.get(g.b)
 			if (a && b && (a.x !== b.x || a.y !== b.y)) offer({ p: { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }, kind: 'mid' })
+		}
+	}
+	// on a whole-floor plan: the nodes of the runs of the area plans placed on it (greyed there) — a run drawn from one
+	// joins it, routing reads both in these coordinates (backlog 6)
+	for (const a of placedAreas(ix, levelId)) {
+		for (const s of ix.shapes) {
+			if (s.levelId !== a.id || s.role?.kind !== 'containment' || s.geom.kind !== 'path') continue
+			for (const n of s.geom.nodes) if (!n.levelId || n.levelId === a.id) offer({ p: toMain(a.place!, n), kind: 'node', z: n.z })
 		}
 	}
 	return best ?? (opts.noGrid || opts.grid === 0 ? { p, kind: 'grid' } : { p: gridSnap(p, opts.grid || GRID_MM), kind: 'grid' })
