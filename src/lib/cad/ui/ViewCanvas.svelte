@@ -29,7 +29,7 @@
 	import type { Sheet, Entity } from '../domain/drawing'
 	import { similarTo } from '../domain/similar'
 	import { pickAt, pickPrim, preferPort } from '../editor/pick'
-	import { primBounds, unionBounds, PLOT_SCALE as PLOT } from '../views/display'
+	import { isPortPrim, primBounds, unionBounds, PLOT_SCALE as PLOT } from '../views/display'
 	import { transformItems } from '../editor/transformTool'
 	import { spaceOf, specKey, specLabel, isPaperSpec, type ViewSpec, type WorkPlane } from '../views/space'
 	import { snapAt, snapToPrims, snapDragged } from '../editor/snap'
@@ -144,6 +144,12 @@
 	// (its notes and viewport content are layered inside sheetDisplayList; here only the lock keeps a locked layer's items unpicked)
 	const layered = $derived(spec.kind === 'sheet' ? { draw: raw, pick: ws.layers.locked.size ? applyLayers(raw, project.index, { locked: ws.layers.locked }).pick : raw } : applyLayers(raw, project.index, { hidden: ws.layers.hidden, locked: ws.layers.locked, sort: spec.kind === 'plan' }))
 	const prims = $derived(layered.draw)
+	/** What a hidden layer took out of this view (all of its prims gone): the plan's snaps leave it out too. */
+	const layerHidden = $derived.by((): ReadonlySet<string> | undefined => {
+		if (!ws.layers.hidden.size || spec.kind === 'sheet') return undefined
+		const drawn = new Set(prims.map((p) => p.src))
+		return new Set(raw.flatMap((p) => (p.src && !drawn.has(p.src) ? [p.src] : [])))
+	})
 	// on a sheet the paper and its windows share the sheet's id, so that isn't highlighted (the picked VIEWPORT is, below);
 	// what's drawn on the paper (lines, notes, shapes) is, like in a view (User: a selected line on a sheet showed nothing)
 	const selected = $derived(new Set(spec.kind === 'sheet' ? ws.selection.filter((id) => id !== spec.sheetId) : ws.selection))
@@ -184,7 +190,7 @@
 	const idleOutline = $derived.by((): Prim[] => {
 		const h = idleHover
 		if (!h || active) return []
-		return prims.flatMap((p): Prim[] => (p.src !== h.id || p.k === 'image' || p.k === 'text' || (h.sub !== undefined && p.sub !== h.sub)) ? []
+		return prims.flatMap((p): Prim[] => (p.src !== h.id || p.k === 'image' || p.k === 'text' || (h.sub !== undefined && p.sub !== h.sub) || (h.sub === undefined && isPortPrim(p))) ? []
 			: [p.k === 'line' ? { ...p, cls: 'hover', fill: false, w: undefined } : { ...p, cls: 'hover', fill: false }])
 	})
 	/** Show changes (W23): on this sheet, what is new or changed since its last issue and what has gone — worked out
@@ -452,7 +458,7 @@
 			layerId: ws.layers.current && ws.layers.current !== 'sys:drawing' && (ws.layers.current.startsWith('sys:') || project.index.get(ws.layers.current)?.type === 'layer') ? ws.layers.current : null,
 			prims: () => pick, tol: () => tol,
 			snap: (p, alt, skip, dragged) => {
-				const d = ws.drafting, o = { skip, noGrid: alt || !d.snap, grid: d.grid, noObjects: !d.osnap }
+				const d = ws.drafting, o = { skip, noGrid: alt || !d.snap, grid: d.grid, noObjects: !d.osnap, hidden: f ? undefined : layerHidden }
 				let sn = kind === 'plan' ? snapAt(project.index, lv, p, tol * 1.5, o) : snapToPrims(f ? f.prims : prims, p, tol * 1.5, o)
 				// onto a guide or a crossing of two (OSNAP), unless an object snap is nearer
 				const gp = !alt && d.osnap && viewGuides.length ? guideSnap(viewGuides, p, tol * 1.5) : null

@@ -27,4 +27,13 @@ describe('object snaps', () => {
 		expect(snapAt(ix, 'L32', { x: 4130, y: -8080 }, 100).kind).toBe('grid')
 		expect(snapAt(ix, 'L33', { x: 4130, y: -8080 }, 100, { skip: 'RS' }).kind).toBe('grid')
 	})
+
+	it('nothing on a hidden layer snaps (backlog 14)', () => {
+		const top = { type: 'shape', id: 'TOP', levelId: 'L33', geom: { kind: 'rect', centre: { x: 20000, y: 20000 }, size: { x: 1200, y: 600 } }, extent: 50 } as Shape
+		const ix = new ProjectIndex([...demoProject(), top])
+		expect(snapAt(ix, 'L33', { x: 19403, y: 19704 }, 20, { hidden: new Set(['TOP']) }).kind).toBe('grid')
+		const o = ix.outlets.find((x) => x.levelId === 'L33' && x.at)!
+		expect(snapAt(ix, 'L33', o.at!, 20).kind).toBe('outlet')
+		expect(snapAt(ix, 'L33', o.at!, 20, { hidden: new Set([o.id]) }).kind).not.toBe('outlet')
+	})
 })

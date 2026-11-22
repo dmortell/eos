@@ -11,7 +11,9 @@ export interface Snap { p: Pt; kind: SnapKind; z?: number; attach?: Id }
 export const GRID_MM = 10
 
 /** `noGrid` = no grid point (Alt, or SNAP off); `grid` = the grid step (mm; default 10); `noObjects` = OSNAP off. */
-export interface SnapOpts { skip?: Id | Id[]; noGrid?: boolean; grid?: number; noObjects?: boolean }
+export interface SnapOpts { skip?: Id | Id[]; noGrid?: boolean; grid?: number; noObjects?: boolean
+	/** Items not drawn in the view (their layer is hidden): no snap on them (`snapAt` reads the model, not the drawing). */
+	hidden?: ReadonlySet<Id> }
 
 export function gridSnap(p: Pt, step = GRID_MM): Pt {
 	return { x: onGrid(p.x, step), y: onGrid(p.y, step) }
@@ -59,13 +61,15 @@ export function centreOf(g: Shape['geom']): Pt | null {
 /** The nearest object snap within `tol`, else the grid point. `skip` excludes a shape (the one being edited). */
 export function snapAt(ix: ProjectIndex, levelId: Id, p: Pt, tol: number, opts: SnapOpts = {}): Snap {
 	const skips = new Set(Array.isArray(opts.skip) ? opts.skip : opts.skip ? [opts.skip] : [])
+	for (const id of opts.hidden ?? []) skips.add(id)
 	let best: Snap | undefined, bestD = opts.noObjects ? -1 : tol
 	const offer = (s: Snap) => {
 		const d = Math.hypot(s.p.x - p.x, s.p.y - p.y)
 		if (d <= bestD) { best = s; bestD = d }
 	}
-	for (const o of ix.outlets) if (o.levelId === levelId && o.at) offer({ p: o.at, kind: 'outlet', attach: o.id })
-	for (const r of ix.racks) if (r.levelId === levelId && r.at) offer({ p: r.at, kind: 'rack', attach: r.id })
+	const shown = (id: Id) => !opts.hidden?.has(id)
+	for (const o of ix.outlets) if (o.levelId === levelId && o.at && shown(o.id)) offer({ p: o.at, kind: 'outlet', attach: o.id })
+	for (const r of ix.racks) if (r.levelId === levelId && r.at && shown(r.id)) offer({ p: r.at, kind: 'rack', attach: r.id })
 	for (const s of ix.shapes) {
 		// a riser drawn from another floor ends on this one: its far node snaps here, so a run started on it joins it
 		// (walkthrough 2026-10-14: a GF trunk started by eye 57 mm off the riser's end had no route)
