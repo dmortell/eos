@@ -3,8 +3,9 @@
 This is the replacement for Pages and the per-tool editors (Outlets, Elevations, Sheets, Risers, Fill rate, Packages).
 The analysis behind it is in `docs/pages-analysis.md` (repo root).
 
-**Status (2026-10-03):** Phases 0–6 are done and Phase 7 (decommission) is part done; each phase's plan, decisions and
-progress are in `docs/phases/`. What comes next is in `docs/plan/`.
+**Status (2026-11-22):** Phases 0–6 are built and phase 8 is ongoing (the backlog batches, reviews and walkthrough fixes, logged in
+`docs/phases/phase8.md`); Phase 7 (decommission) is part done — no routes or data are deleted until cad is feature
+complete. What comes next is in `docs/plan/backlog.md` (the numbered "Consolidated todo list" at its top).
 
 ## Docs
 

@@ -34,9 +34,9 @@ full notes for 1–8.
 - [x] **4. Hover a device: its border only** — done 2026-11-22 (`phase8.md`).
 - [x] **5. Tooltips: wait once, then instant** — done 2026-11-22 (`phase8.md`).
 - [ ] **6. Containment between 33F 3303 and 33F 3307** — 24 backbone cables have "No route"; plan first (entry below). P2 · M?
-- [ ] **7. Data: patch the IDF2 TVs to IDF1** (Journey) — confirm floor / ports first.
+- [ ] **7. Data: patch the 33IDF2 TVs to 33IDF1** (Journey, 33F 3303 — User 2026-11-22: it means 33F’s IDF2; the 30F IDF2 room was deleted that day) — confirm the ports first.
 - [ ] **8. Outside review and markup** — PDF round trip recommended; waits on 20.
-- [ ] ⚡ **9. Tidy this backlog's "Suggested order"** — still lists built / moved work (cord workflow, Batch 4).
+- [x] **9. (done 2026-11-22) Tidy this backlog's "Suggested order"** — still lists built / moved work (cord workflow, Batch 4).
 
 - [x] **52. A selected box hides its own border color** — done 2026-11-22: a halo under the item (`phase8.md`) (User 2026-11-22 todo) — with a rectangle (or other shape)
   selected, the blue selection outline covers its border, so a Color / line type change in Properties can't be seen
@@ -47,20 +47,20 @@ full notes for 1–8.
 - [x] **10. Riser view Floors range** (already built 2026-10-21: a floor list with Shift-click ranges) — only floors with a model are listed, so you can't narrow to e.g. 1F–10F with Hide empty off (`workflow-walkthrough.md:792`).
 - [x] **11. New sheet from an empty floor's plan** (already built, e56a5cad) gets a thin 283 × 105 mm viewport (`workflow-walkthrough.md:687`).
 - [x] **12. Release name doubled** (fixed in e56a5cad; backup label 2026-11-22) — typing "03 …" gives "Release 03 03 …" in the file name (`workflow-walkthrough.md:703`).
-- [ ] ⚡ **13. Use as default, then Undo** — the tool bar's Usage / Mount stay adopted until a reload (`workflow-walkthrough.md:748`).
+- [x] **13. (done 2026-11-22) Use as default, then Undo** — the tool bar's Usage / Mount stay adopted until a reload (`workflow-walkthrough.md:748`).
 - [x] **14. Hidden layers still snap on the plan** (done 2026-11-22) — no layer filter in `editor/snap.ts` (`layers.md:12`).
 - [ ] **15. Rack-row viewport frame too loose** — takes in slab / ceiling lines; a tighter frame fits two rows at one scale (`workflow-walkthrough.md:865`).
 - [ ] **16. UX nits** (`workflow-walkthrough.md:763-960`):
   - [x] 16a. Fill rates greyed in elevation (fill rates in elevations built, e56a5cad)
-  - [ ] 16b. Backups Delete buttons sit next to the question's Delete
+  - [x] 16b. (done 2026-11-22) Backups Delete buttons sit next to the question's Delete
   - [ ] 16c. Section of a room with no walls shows FFL only
-  - [ ] ⚡ 16d. Tab titles truncated
+  - [x] 16d. (already built 2026-10-17: cut in the middle, the end shown) Tab titles truncated
   - [ ] 16e. Room-elevation marker over the room name
-  - [ ] ⚡ 16f. Double hint in bulk patch
-  - [ ] 16g. Hover outline only in the active pane; + tip has no halo
+  - [x] 16f. (already fixed: the tool hint gives way to the bulk one) Double hint in bulk patch
+  - [x] 16g. (done: the other pane outlines since Round 10; the tip’s halo 2026-11-22) Hover outline only in the active pane; + tip has no halo
 - [ ] **17. Data on live projects** — 30F IDF1 "48P Rack Tie" panels have no cables; 81 import notes on Journey to clear; 161 LR import notes to review; Tourney tidy-up (`later.md:75-76`, `phase8.md:4306, 4421`).
 - [ ] **18. Port loupe / magnifier** for tiny ports (deferred).
-- [ ] ⚡ **19. Stale status** — README status line (2026-10-03); tick "Change log" in `decisions.md:131` (edit history built 2026-10-17).
+- [x] **19. (done 2026-11-22) Stale status** — README status line (2026-10-03); tick "Change log" in `decisions.md:131` (edit history built 2026-10-17).
 
 ### C. Decisions for the User
 - [ ] **20. Outside review** (`outside-review.md:73-78`) — who imports; comments → Log change or an inbox; verdict per sheet / release / both; does the overlay print; guest accounts ever needed?
@@ -196,19 +196,10 @@ W1–W3 fixed 2026-10-14 (`../phases/phase8.md` "Walkthrough bug fixes"); built 
 
 ## Suggested order
 
-Small, high-value work first; nothing big until User has answered the decisions it depends on.
-
-1. ~~**Batch 1: safety and unblockers**~~ — built 2026-10-04; the live interconnect run done 2026-10-05 (`../phases/phase8.md`).
-2. ~~**Batch 2: tiny P2 wins**~~ — built 2026-10-03; see `../phases/phase8.md`.
-3. **Batch 3: P1 features, medium.** Renumber, the Floor manager (range, names, heights) and dark mode were built
-   2026-10-03, deleting a section asks about its views 2026-10-05 (`../phases/phase8.md`). Still to do: the cord
-   workflow (re-route, end badges, bulk status).
-4. **Batch 4: large, after the decisions they need:**
-   - Layers;
-   - Shape style;
-   - clipboard;
-   - ~~import of Pages sheets (7.2) and Sheets-tool sheets (7.3)~~ — later (User 2026-10-12);
-   - command line + drafting commands.
+Batches 1–5 are built (`../phases/phase8.md`): the cord workflow became the patch list (`patch-list-plan.md`, built);
+layers, shape style and the clipboard are built; Pages / Sheets sheet imports (7.2 / 7.3) and the command line are in
+`later.md`. Since 2026-11-22 the User picks each batch by number from the Consolidated todo list at the top; small,
+high-value work first, nothing big until the User has answered the decisions it depends on.
 
 ## Bugs and data safety
 

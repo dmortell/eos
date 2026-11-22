@@ -4468,3 +4468,18 @@ User: "Yes, cords kept inside the set" (the ❓ entry of 2026-10-17).
   boxes, symbols and text keep the dashed box round them. Same fix for plain lines, circles, walls, outlets and rack
   bodies (all the same path). Runs drawn at their real width (trunks) keep the thin line over their centre — their
   band's color shows either side of it. `ui/Prims.svelte` (screen only; PDFs never drew the selection). Checked live.
+
+### Consolidated list, second batch (2026-11-22)
+
+- **13 · Use as default, then Undo**: the tool bars now follow the project's tool defaults whenever they change
+  (`Workspace.syncDefaults`, a CadShell effect): Use as default, its Undo / Redo or someone else's change. A tool whose
+  default goes back to none gets the tool bar it had before its first default (`#before`). The first look at load
+  changes nothing. Test in `app/workspace.test.ts`.
+- **16b · Backups Delete**: while "Delete …?" is open the rows' Delete buttons are greyed (their tip says to answer
+  first), the row asked about is tinted, and the question names the backup.
+- **16g · + tip halo**: `text.draft-label`'s white halo is 0.25 em (it was 3 drawing units, which vanished zoomed out).
+  Checked live on Test Project R312. The other half (hover outline in the other pane) was built in Round 10.
+- **9 / 19 · docs**: the backlog's Suggested order points at this list; the cad README status line; decisions'
+  "A change log?" ticked (the edit history, 2026-10-17). Item 7 is 33F's IDF2 (User).
+- Found already built: 16d (tab titles cut in the middle, 2026-10-17), 16f (the tool hint gives way to the bulk one),
+  11 (e56a5cad). Journey: the 30F room IDF2 deleted on the User's ask (4 empty racks, 2 rack rows; one Undo step).
