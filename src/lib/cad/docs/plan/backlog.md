@@ -38,7 +38,7 @@ full notes for 1–8.
 - [ ] **8. Outside review and markup** — PDF round trip recommended; waits on 20.
 - [ ] ⚡ **9. Tidy this backlog's "Suggested order"** — still lists built / moved work (cord workflow, Batch 4).
 
-- [ ] **52. A selected box hides its own border color** (User 2026-11-22 todo) — with a rectangle (or other shape)
+- [x] **52. A selected box hides its own border color** — done 2026-11-22: a halo under the item (`phase8.md`) (User 2026-11-22 todo) — with a rectangle (or other shape)
   selected, the blue selection outline covers its border, so a Color / line type change in Properties can't be seen
   until it's deselected. E.g. draw the selection offset outside the shape, or as a thin dashed halo, leaving the
   border's own color showing. P2 · S

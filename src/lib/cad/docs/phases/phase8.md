@@ -4462,3 +4462,9 @@ User: "Yes, cords kept inside the set" (the ❓ entry of 2026-10-17).
   prims a hidden layer took out of the view (`ViewCanvas` `layerHidden`). Test in `editor/snap.test.ts`.
 - Found already built: 10 (riser floor list, 2026-10-21), 11 and 16a (e56a5cad). 41 is by design: Uploads lists every
   project's files so one can be shared into another project (`projectIds`, 2bbb8405).
+- **52 · The selection no longer hides a box's border color** (User 2026-11-22): the thin blue line drawn ON each
+  selected line / outline / circle covered its own color and line type. Now a soft blue halo (7 px, 40 %) is drawn
+  UNDER the item, so its own border stays on top and the blue shows just outside it (a fill covers the inner half);
+  boxes, symbols and text keep the dashed box round them. Same fix for plain lines, circles, walls, outlets and rack
+  bodies (all the same path). Runs drawn at their real width (trunks) keep the thin line over their centre — their
+  band's color shows either side of it. `ui/Prims.svelte` (screen only; PDFs never drew the selection). Checked live.
