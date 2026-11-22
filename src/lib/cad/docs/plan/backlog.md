@@ -33,7 +33,7 @@ full notes for 1–8.
 - [ ] **3. Menus options 1 / 3** — review; plus a Plan / Elevation / Section / Riser switch in View, and where Rename / Delete level go. P3
 - [x] **4. Hover a device: its border only** — done 2026-11-22 (`phase8.md`).
 - [x] **5. Tooltips: wait once, then instant** — done 2026-11-22 (`phase8.md`).
-- [ ] **6. Containment between 33F 3303 and 33F 3307** — 24 backbone cables have "No route"; plan first (entry below). P2 · M? **Proposal 2026-11-22 (User: a whole-floor PDF, mark where 3303 and 3307 are, draw the runs between): see the reply that day — place each area plan on a whole-floor plan by two point pairs, show the areas ghosted there, draw the link run on the whole floor, routing joins the three through the placements.**
+- [ ] **6. Containment between 33F 3303 and 33F 3307** — BUILT 2026-11-22: the whole-floor plan (33F with 33F-Model.pdf; `phase8.md`); left: place 3303 and 3307 on it (User), then draw the link run  — 24 backbone cables have "No route"; plan first (entry below). P2 · M? **Proposal 2026-11-22 (User: a whole-floor PDF, mark where 3303 and 3307 are, draw the runs between): see the reply that day — place each area plan on a whole-floor plan by two point pairs, show the areas ghosted there, draw the link run on the whole floor, routing joins the three through the placements.**
 - [x] **7. (closed 2026-11-22, User: not needed) Data: patch the 33IDF2 TVs to 33IDF1** (Journey, 33F 3303 — User 2026-11-22: it means 33F’s IDF2; the 30F IDF2 room was deleted that day) — confirm the ports first.
 - [ ] **8. Outside review and markup** — PDF round trip recommended; waits on 20.
 - [x] **9. (done 2026-11-22) Tidy this backlog's "Suggested order"** — still lists built / moved work (cord workflow, Batch 4).

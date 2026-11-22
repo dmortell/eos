@@ -4483,3 +4483,21 @@ User: "Yes, cords kept inside the set" (the ❓ entry of 2026-10-17).
   "A change log?" ticked (the edit history, 2026-10-17). Item 7 is 33F's IDF2 (User).
 - Found already built: 16d (tab titles cut in the middle, 2026-10-17), 16f (the tool hint gives way to the bulk one),
   11 (e56a5cad). Journey: the 30F room IDF2 deleted on the User's ask (4 empty racks, 2 rack rows; one Undo step).
+
+### Whole-floor plan (backlog 6, 2026-11-22)
+
+- **Data:** `Level.place` — an area plan's turn + shift onto its floor's main plan (`domain/areaPlace.ts`: `mainLevelOf`,
+  `placeOf`, `toMain` / `fromMain`, `placedAreas`, `solvePlace` from two point pairs, `makeAreaOf`).
+- **Routing:** placed areas' runs, outlets and racks are read in the main plan's coordinates, so a run drawn on the
+  whole floor from one area's run end to another's joins them. Nodes join only within one plan, or across a placed area
+  and its whole floor, or through a riser's far end; before this, two plans at one elevation could join by chance
+  where coordinates met. Tests in `domain/areaPlace.test.ts`.
+- **Plan:** the whole floor draws its placed areas greyed (`AREA_GHOST`, no `src`, not pickable), and snaps to their
+  run nodes (`editor/snap.ts`).
+- **UI:** Project › Floors › Plans & floorplans — per area plan: Placed / Not placed, "Place on the whole floor…" (the
+  Place tool, `editor/placeAreaTool.ts`: four clicks, the area and its floorplans greyed on the whole floor while
+  placing, a note when the two scales differ; the dialog hides meanwhile), Unplace; on a main plan whose name has a
+  suffix ("33F 3303"): "Make this an area plan…" (a new whole-floor plan, everything kept). Help entry. Checked live on
+  Test Project (an area placed and undone).
+- **Journey (User):** 33F 3303 made an area plan of a new whole-floor plan 33F, with 33F-Model.pdf as its floorplan.
+  3303 and 3307 are NOT placed yet — the User places them (four clicks each; 3303 looks turned 180° vs the model).
