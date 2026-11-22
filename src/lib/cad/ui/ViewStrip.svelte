@@ -17,6 +17,7 @@
 	import { handOrderDiffers, planOrder } from '../domain/devices'
 	import RiserFloors from './RiserFloors.svelte'
 	import PortKey from './PortKey.svelte'
+	import { warmTips } from './warmTips'
 
 	export interface PaneNav { back?: string; fwd?: string; go: (dir: -1 | 1) => void }
 
@@ -74,7 +75,7 @@
 	const comparable = $derived.by(() => { void project.rev; return project.index.ofType('underlay').some((u) => u.levelId === levelId && (u.prevFileId || ws.compareWith[u.id])) })
 </script>
 
-<div class="views">
+<div class="views" use:warmTips>
 	{#if nav}
 		<button class="nav" disabled={!nav.back} title={nav.back ? `Back to ${nav.back} (${KEYS.backView})` : `Back (${KEYS.backView})`} onclick={() => { onfocus?.(); nav.go(-1) }}>‹</button>
 		<button class="nav" disabled={!nav.fwd} title={nav.fwd ? `Forward to ${nav.fwd} (${KEYS.fwdView})` : `Forward (${KEYS.fwdView})`} onclick={() => { onfocus?.(); nav.go(1) }}>›</button>

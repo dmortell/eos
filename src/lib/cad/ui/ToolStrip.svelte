@@ -10,6 +10,7 @@
 <script lang="ts">
 	import { Icon } from '$lib'
 	import { TOOL_FAMILIES, itemOf, itemLabel, itemIcon } from './toolGroups'
+	import { warmTips } from './warmTips'
 	import type { ToolId } from '../app/workspace.svelte'
 	import { TOOL_VIEWS, toolWorksIn } from '../app/workspace.svelte'
 	import type { ViewSpec } from '../views/space'
@@ -73,7 +74,7 @@
 
 <svelte:window onpointerdown={away} onkeydown={(e) => { if (e.key === 'Escape' && open) { open = null; e.stopPropagation() } }} />
 
-<div class="strip" class:vertical class:names={vertical && names} role="toolbar" aria-label="Tools" aria-orientation={vertical ? 'vertical' : 'horizontal'}>
+<div class="strip" use:warmTips class:vertical class:names={vertical && names} role="toolbar" aria-label="Tools" aria-orientation={vertical ? 'vertical' : 'horizontal'}>
 	<!-- the Drawings group (Viewport) only while a sheet is open (User 2026-10-15); it's last, so nothing moves -->
 	{#each TOOL_FAMILIES.filter((g) => g.name !== 'Drawings' || kind === 'sheet') as g, gi (g.name)}
 		{#if gi}<span class="sep" role="separator" title={g.name}></span>{/if}
@@ -100,7 +101,7 @@
 </div>
 
 {#if open}
-	<div class="fly" role="menu" style:left="{open.x}px" style:top="{open.y}px">
+	<div class="fly" use:warmTips role="menu"style:left="{open.x}px" style:top="{open.y}px">
 		{#each open.f as item (item)}
 			<button role="menuitem" class:on={inUse(item)} class:off={!ok(item)} title={title(item)} onclick={() => pick(open!.f, item)}><Icon name={itemIcon(item)} size={15} /><span>{itemLabel(item)}</span></button>
 		{/each}

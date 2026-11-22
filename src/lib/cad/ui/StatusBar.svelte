@@ -8,6 +8,7 @@
 	import { composing } from './keyGuards'
 	import { GRID_STEPS, gridStepOf } from '../editor/snap'
 	import type { Workspace, ViewInfo } from '../app/workspace.svelte'
+	import { warmTips } from './warmTips'
 
 	let { ws, info, hint, onfit, onanswer, selected, onzoomsel, working }: {
 		ws: Workspace; hint: string; onfit: () => void; onanswer: () => void
@@ -53,7 +54,7 @@
 	const v = $derived(info)
 </script>
 
-<footer class="status" class:asking={!!ws.prompt}>
+<footer class="status" use:warmTips class:asking={!!ws.prompt}>
 	<div class="left">
 		{#if ws.prompt}
 			<label class="prompt"><span class="q">{ws.prompt.label}</span> <input bind:this={input} class:wide={ws.prompt.text} type={ws.prompt.text ? 'text' : 'number'} value={ws.prompt.value} onkeydown={key} />
