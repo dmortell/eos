@@ -550,6 +550,8 @@ export class Workspace {
 	/** Use as default was pressed for `tool`: that tool takes the new default now, over what was typed for it this
 	 *  session. */
 	adoptDefaults(td: ToolDefaults, tool: keyof ToolDefaults): void {
+		// what the tool bar showed before this tool first took a saved default (an Undo that removes it puts this back)
+		if (!this.#before.has(tool)) this.#before.set(tool, { opts: this.#optsOwner?.tool === tool ? { ...this.opts } : undefined, boxOpts: { ...this.boxOpts }, dimMode: this.dimMode, outletNext: { ...this.outletNext } })
 		if (tool === 'trunk' || tool === 'conduit' || tool === 'wall') {
 			const v = td[tool]
 			if (!v) return
@@ -557,6 +559,30 @@ export class Workspace {
 			if (this.#optsOwner?.tool === tool) this.opts = { ...this.opts, w: v.w, ...('h' in v ? { h: v.h } : tool === 'conduit' ? { h: v.w } : {}) }
 		}
 		if (tool === 'box' || tool === 'dimension' || tool === 'outlet') this.#seed(td, tool)
+	}
+	#before = new Map<string, { opts?: DrawOpts; boxOpts: Workspace['boxOpts']; dimMode: DimMode; outletNext: Workspace['outletNext'] }>()
+	#lastDefaults: string | null = null
+	/** The project's tool defaults changed — Use as default, its Undo / Redo, or someone else's (backlog 13: an Undo
+	 *  left the tool bar as adopted until a reload). Each tool whose default changed takes the new one; one whose
+	 *  default went goes back to what its tool bar showed before. The first call only notes them (a load changes
+	 *  nothing: tools take their defaults when picked). */
+	syncDefaults(td: ToolDefaults | undefined): void {
+		const now = td ?? {}, was = this.#lastDefaults
+		this.#lastDefaults = JSON.stringify(now)
+		if (was === null || was === this.#lastDefaults) return
+		const old = JSON.parse(was) as ToolDefaults
+		for (const k of new Set([...Object.keys(old), ...Object.keys(now)]) as Set<keyof ToolDefaults>) {
+			if (JSON.stringify(old[k]) === JSON.stringify(now[k])) continue
+			if (now[k]) { this.adoptDefaults(now, k); continue }
+			const b = this.#before.get(k)
+			this.#before.delete(k)
+			this.#seeded.delete(k)
+			if (k === 'trunk' || k === 'conduit' || k === 'wall') { this.#sizes.delete(k); if (b?.opts && this.#optsOwner?.tool === k) this.opts = b.opts }
+			if (!b) continue
+			if (k === 'box') this.boxOpts = b.boxOpts
+			if (k === 'dimension') this.dimMode = b.dimMode
+			if (k === 'outlet') this.outletNext = b.outletNext
+		}
 	}
 	/** The drawing tool whose Z / W / H `opts` holds (saved when another tool is picked, however this one ended). */
 	#optsOwner: { tool: ToolId; level: string } | null = null

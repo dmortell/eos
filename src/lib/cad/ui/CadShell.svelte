@@ -116,6 +116,8 @@
 	}
 	const ws = new Workspace()
 	ws.toolDefaults = () => project.settings?.toolDefaults   // Properties › Use as default
+	// …and the tool bars follow them when they change (Use as default, its Undo / Redo — backlog 13)
+	$effect(() => { const td = project.settings?.toolDefaults; untrack(() => ws.syncDefaults(td)) })
 	ws.newCordStatus = () => project.settings?.newCordStatus ?? 'add'
 	// every export asks for its file name first (User 2026-10-15): filled from the project's pattern (Settings › Files),
 	// else the export's own name; the Save as dialog (User: a dialog, not the status bar) — Enter saves, Esc cancels

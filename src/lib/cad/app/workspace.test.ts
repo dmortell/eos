@@ -144,3 +144,20 @@ describe('an export being made (User 2026-10-24: feedback while its data is buil
 		off()
 	})
 })
+
+describe('the tool bar follows the project’s tool defaults (backlog 13)', () => {
+	it('Use as default, its Undo and Redo change the outlet tool bar; the first look changes nothing', () => {
+		const ws = new Workspace()
+		ws.outletNext = { usage: 'Desk', mount: 'floor' }
+		ws.syncDefaults(undefined)                      // the project loads with no defaults
+		expect(ws.outletNext).toEqual({ usage: 'Desk', mount: 'floor' })
+		const td = { outlet: { usage: 'AP', mount: 'ceiling' as const } }
+		ws.adoptDefaults(td, 'outlet')                   // Properties › Use as default
+		ws.syncDefaults(td)
+		expect(ws.outletNext).toMatchObject({ usage: 'AP', mount: 'ceiling' })
+		ws.syncDefaults(undefined)                      // Undo
+		expect(ws.outletNext).toEqual({ usage: 'Desk', mount: 'floor' })
+		ws.syncDefaults(td)                              // Redo
+		expect(ws.outletNext).toMatchObject({ usage: 'AP', mount: 'ceiling' })
+	})
+})
