@@ -459,7 +459,7 @@
 	/** The options row's chips (review R53). */
 	const toolName = $derived(toolNameOf(ws.toolId))
 	const layerList = $derived(layersOf(project.index.layers).filter((l) => !l.system || ['sys:drawing', 'sys:walls'].includes(l.id)).sort((a, b) => a.order - b.order))
-	const hint = $derived((ws.toolId === 'rack' && ws.rackTool.target ? HINT_PLACE : ws.toolId === 'cord' && ws.bulkFrom ? '' : HINT[ws.toolId] ?? ''))   // an armed Patch to… / Link to…: the tool options say what to click (two hints ran together)
+	const hint = $derived((ws.toolId === 'placearea' ? ws.placeHint : ws.toolId === 'rack' && ws.rackTool.target ? HINT_PLACE : ws.toolId === 'cord' && ws.bulkFrom ? '' : HINT[ws.toolId] ?? ''))   // an armed Patch to… / Link to…: the tool options say what to click (two hints ran together)
 
 
 	type BottomTab = 'outlets' | 'patch' | 'sheets' | 'links' | 'log'
@@ -740,7 +740,8 @@
 		if (panes[activePane].kind !== 'plan') setPane(activePane, PLAN)
 		ws.placeArea = area.id
 		setTool('placearea')
-		ws.say(PlaceAreaTool.step(0, area.name))
+		ws.placeHint = PlaceAreaTool.step(0, area.name)
+		ws.say(ws.placeHint)
 	}
 	ws.onPlaceDone = () => { calibrating = false }
 	// ── "Set up each floor" (W6): Origin then Crop for every floorplan in turn, lowest floor first, without going back

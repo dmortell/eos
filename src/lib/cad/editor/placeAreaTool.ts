@@ -24,7 +24,8 @@ export class PlaceAreaTool implements Tool {
 	#pts: Pt[] = []
 	#hover: Snap | null = null
 
-	constructor(private target: () => Id | null, private done: (placed: boolean) => void) {}
+	/** `step`: the instruction for the next click, kept on screen (the tool hint line) until the tool ends. */
+	constructor(private target: () => Id | null, private done: (placed: boolean) => void, private step: (text: string) => void = () => {}) {}
 
 	/** What to say before the first click (and after each). */
 	static step(i: number, area: string): string { return `Place ${area} (${i + 1} of 4): ${STEPS[i]} · Esc stops` }
@@ -35,12 +36,12 @@ export class PlaceAreaTool implements Tool {
 		const a = c.index.getOf('level', this.target() ?? undefined)
 		if (!a?.area) { c.say?.('Pick an area plan to place first (Project › Floors › Plans & floorplans)'); this.done(false); return }
 		this.#pts.push(p)
-		if (this.#pts.length < 4) { c.say?.(PlaceAreaTool.step(this.#pts.length, a.name)); return }
+		if (this.#pts.length < 4) { const t = PlaceAreaTool.step(this.#pts.length, a.name); this.step(t); c.say?.(t); return }
 		// the area clicks are on the area as shown now: back into its own coordinates
 		const now = a.place ?? { x: 0, y: 0, rot: 0 }, [p1, q1, p2, q2] = this.#pts
 		const s = solvePlace(fromMain(now, p1), fromMain(now, p2), q1, q2)
 		this.#pts = []
-		if (!s) { c.say?.(`The two points of a pair were the same — start again: ${STEPS[0]}`); return }
+		if (!s) { this.step(PlaceAreaTool.step(0, a.name)); c.say?.(`The two points of a pair were the same — start again: ${STEPS[0]}`); return }
 		c.store.transact(`Place ${a.name} on the whole floor`, (tx) => tx.put({ ...a, place: s.place }))
 		const off = Math.abs(s.scale - 1)
 		c.say?.(`${a.name} placed (turned ${Math.round(s.place.rot * 10) / 10}°) — runs drawn on the whole floor from its run ends now join it · Undo puts it back${off > 0.01 ? ` · NOTE: the second pair was ${Math.round(off * 1000) / 10}% ${s.scale > 1 ? 'further apart' : 'closer'} on the whole floor — check the two floorplans' Scale` : ''}`)

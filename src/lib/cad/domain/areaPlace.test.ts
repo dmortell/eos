@@ -9,6 +9,7 @@ import type { Level } from './types'
 import type { Shape } from './shapes'
 import { planDisplayList, AREA_GHOST } from '../views/plan'
 import { snapAt } from '../editor/snap'
+import { applyLayers } from '../views/layers'
 
 const H = { slabMm: 200, raisedFloorMm: 300, clearHeightMm: 2600, plenumMm: 700 }
 const lv = (id: string, o: Partial<Level> = {}): Level => ({ type: 'level', id, buildingId: 'B', number: 33, name: id, order: 33, elevationMm: 0, heights: H, ...o })
@@ -77,5 +78,6 @@ describe('area placement', () => {
 		expect(ghosts.every((p) => !p.src)).toBe(true)
 		expect(snapAt(ix, 'M', { x: 49480, y: 10030 }, 100)).toMatchObject({ kind: 'node', p: { x: 49500, y: 10000 } })
 		expect(planDisplayList(ix, 'A', { scale: 100 }).some((p) => p.color === AREA_GHOST)).toBe(false)
+// on its own layer: hiding that layer hides it on the whole floor too (User: 3303's desks with Furniture hidden)		const rs = ghosts.filter((p) => p.layer === 'sys:racks' || p.layer === 'sys:trunks')		expect(rs.length).toBeGreaterThan(0)		const hid = new Set(rs.map((p) => p.layer!))		expect(applyLayers(planDisplayList(ix, 'M', { scale: 100 }), ix, { hidden: hid }).draw.some((p) => p.layer && hid.has(p.layer))).toBe(false)
 	})
 })

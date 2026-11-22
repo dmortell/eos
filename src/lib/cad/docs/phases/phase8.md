@@ -4501,3 +4501,8 @@ User: "Yes, cords kept inside the set" (the ❓ entry of 2026-10-17).
   Test Project (an area placed and undone).
 - **Journey (User):** 33F 3303 made an area plan of a new whole-floor plan 33F, with 33F-Model.pdf as its floorplan.
   3303 and 3307 are NOT placed yet — the User places them (four clicks each; 3303 looks turned 180° vs the model).
+- **Follow-ups (User 2026-11-22, placing 3303 on Journey):** the Place tool's step ("Place 33F 3303 (2 of 4): Click the
+  same point on the whole-floor floorplan · Esc stops") now stays in the tool hint line until the tool ends
+  (`ws.placeHint`) — the status-line message was gone by the clicks. The greyed areas keep their own layers
+  (`layer` named on each prim, `primLayer`), so a hidden layer (3303's desks on Furniture) is hidden on the whole
+  floor too. Test in `areaPlace.test.ts`.

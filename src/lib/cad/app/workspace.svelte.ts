@@ -342,12 +342,14 @@ export class Workspace {
 	onCalibDone: ((ok: boolean) => void) | null = null
 	/** The area plan the Place tool puts on its whole floor (backlog 6), and who is told when it ends. */
 	placeArea = $state.raw<Id | null>(null)
+	/** The Place tool's step, shown in the tool hint line (User 2026-11-22: the status line's word was gone by the clicks). */
+	placeHint = $state('')
 	onPlaceDone: ((ok: boolean) => void) | null = null
 	readonly calibrateTool = new CalibrateTool(() => this.calibTarget, (u) => this.calibIO.calib(u), (u, f, v, w) => this.calibIO.write(u, f, v, w), (ok) => { this.calibTarget = null; this.toolId = 'select'; this.onCalibDone?.(ok) })
 	readonly tools: Record<ToolId, Tool> = {
 		select: new SelectTool(), move: new MoveTool('move'), copy: new MoveTool('copy'), array: new MoveTool('array'), room: new RoomTool(), measure: new MeasureTool(), rotate: new TransformTool('rotate'), mirror: new TransformTool('mirror'), insert: new InsertTool(() => this.insertBlock), shape: new ShapeTool(() => this.shapeOpts), box: new ShapeTool(() => this.boxOpts, 'box'), image: new ShapeTool(() => ({ kind: 'image', sides: 4, inscribed: true, ...(this.imagePick ? { image: this.imagePick } : {}) }), 'image'), legend: new LegendTool(), changelist: new ChangeListTool(), viewport: new ViewportTool(() => this.viewportView(), () => { this.toolId = 'select' }), dimension: new DimTool(() => this.dimMode), outlet: new OutletTool(() => this.outletNext), rack: this.rackTool, device: new DeviceTool(() => this.deviceTemplate, () => this.deviceMount), assign: this.assignTool, cord: this.cordTool,
 		text: new NoteTool('text'), leader: new NoteTool('leader'), cloud: new NoteTool('cloud'),
-		opening: new OpeningTool(() => this.openingSwing), section: new SectionTool(() => this.sectionMode), renumber: new RenumberTool(), match: this.matchTool, calibrate: this.calibrateTool, placearea: new PlaceAreaTool(() => this.placeArea, (ok) => { this.placeArea = null; this.toolId = 'select'; this.onPlaceDone?.(ok) }), guide: new GuideTool(),
+		opening: new OpeningTool(() => this.openingSwing), section: new SectionTool(() => this.sectionMode), renumber: new RenumberTool(), match: this.matchTool, calibrate: this.calibrateTool, placearea: new PlaceAreaTool(() => this.placeArea, (ok) => { this.placeArea = null; this.placeHint = ''; this.toolId = 'select'; this.onPlaceDone?.(ok) }, (t) => { this.placeHint = t }), guide: new GuideTool(),
 		line: new PathTool('line'), trunk: new PathTool('trunk'), conduit: new PathTool('conduit'), wall: new PathTool('wall'),
 	}
 

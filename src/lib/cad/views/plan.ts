@@ -7,7 +7,7 @@ import type { ProjectIndex } from '../domain/project'
 import { isVertical, ellipsePts, arcPts, byDrawOrder, outlineOf, REGION_KINDS } from '../domain/shapes'
 import { corners, trimmedEnds } from '../domain/bends'
 import { outlineLoops, roundCorners, endCorners, nestLoops, type OutlineEdge } from '../domain/runOutline'
-import { layersOf, layerOf } from '../domain/layers'
+import { layersOf, layerOf, primLayer } from '../domain/layers'
 import { pictureRef } from '../domain/issue'
 import { legendShapePrims } from './legend'
 import { planOpenings } from '../domain/openings'
@@ -56,10 +56,14 @@ function areaGhosts(ix: ProjectIndex, levelId: Id, o: PlanOpts): Prim[] {
 	const being = o.placing ? ix.getOf('level', o.placing) : undefined
 	const areas = placedAreas(ix, levelId)
 	if (being?.area && !being.place && mainLevelOf(ix, being)?.id === levelId) areas.push(being)
+	// each item stays on its own layer (User 2026-11-22: 3303's desks showed on 33F though Furniture was hidden): no
+	// source (not pickable here), so the layer is named on the prim (views/layers.ts reads it)
+	const known = new Set(layersOf(ix.layers).map((l) => l.id))
 	for (const a of areas) {
 		const pl = a.place ?? { x: 0, y: 0, rot: 0 }, T = (p: Pt) => toMain(pl, p), rot = pl.rot
-		for (const p of planDisplayList(ix, a.id, { ...o, compare: undefined, placing: undefined, underlay: o.placing === a.id ? o.underlay : undefined })) {
-			const { src: _s, clip, ...q } = p
+		for (const p0 of planDisplayList(ix, a.id, { ...o, compare: undefined, placing: undefined, underlay: o.placing === a.id ? o.underlay : undefined })) {
+			const lay = p0.layer ?? primLayer(p0.role, ix.get(p0.src), known)
+			const { src: _s, clip, ...q } = { ...p0, ...(lay ? { layer: lay } : {}) }
 			if (q.k === 'image') {
 				const c = T({ x: q.x + q.w / 2, y: q.y + q.h / 2 })
 				// a crop box can't turn with it: kept when the area isn't turned, else the whole page shows
