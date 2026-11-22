@@ -29,6 +29,8 @@
 	import ViewCanvas from './ViewCanvas.svelte'
 	import { PLAN, specKey, isPaperSpec, isPaperKind, type ViewSpec } from '../views/space'
 	import type { CalibMode } from '../editor/calibrateTool'
+	import { PlaceAreaTool } from '../editor/placeAreaTool'
+	import { mainLevelOf } from '../domain/areaPlace'
 	import type { Level, Pt, Underlay } from '../domain/types'
 	import ImportPanel from './ImportPanel.svelte'
 	import CatalogueDialog from './CatalogueDialog.svelte'
@@ -477,7 +479,7 @@
 	/** A section of it to show (Sheets › Title block…); another tab opened from a menu asks for none. */
 	let settingsScroll = $state<{ what: 'title-block'; n: number } | undefined>()
 	function openSettings(t: SettingsTab) { settingsTab = t; settingsOpen = true; settingsScroll = undefined }
-	$effect(() => { if (calibrating && ws.toolId !== 'calibrate') calibrating = false })
+	$effect(() => { if (calibrating && ws.toolId !== 'calibrate' && ws.toolId !== 'placearea') calibrating = false })
 	// an offer to put something back (ws.offerRevert, backlog W1) belongs to where it was made: it closes when the view,
 	// the level or the dialog changes (it once stayed over other views and a later Enter reverted a crop)
 	const askCtx = $derived(`${settingsOpen}|${calibrating}|${ws.levelId}|${activePane}|${specKey(panes[activePane])}`)
@@ -728,6 +730,19 @@
 		setTool('calibrate')
 		ws.say(lead + CALIB_SAY[mode])
 	}
+	/** Place an area plan on its whole floor (backlog 6): the whole-floor plan opens with the area greyed on it; four
+	 *  clicks (editor/placeAreaTool.ts). The Floors dialog hides meanwhile and comes back after. */
+	function onplacearea(area: Level) {
+		const main = mainLevelOf(project.index, area)
+		if (!main || main.id === area.id) { ws.say(`${area.name} has no whole-floor plan to go on — add one in Plans & floorplans`); return }
+		calibrating = true
+		if (main.id !== ws.levelId) openLevel(main.id)
+		if (panes[activePane].kind !== 'plan') setPane(activePane, PLAN)
+		ws.placeArea = area.id
+		setTool('placearea')
+		ws.say(PlaceAreaTool.step(0, area.name))
+	}
+	ws.onPlaceDone = () => { calibrating = false }
 	// ── "Set up each floor" (W6): Origin then Crop for every floorplan in turn, lowest floor first, without going back
 	// to the dialog; the floor below's floorplan in red underneath (Compare, screen only) to check they line up. Esc stops
 	// the pass; picking another tool too. ──
@@ -909,7 +924,7 @@
 	</main>
 
 	{#if catalogueOpen}<CatalogueDialog {project} onclose={() => (catalogueOpen = false)} ondraw={(p, name) => { catalogueOpen = false; if (panes[activePane].kind !== 'plan') setPane(activePane, PLAN); ws.drawProduct(p); ws.say(`Rack tool: each click on the plan draws a ${name} — Esc stops`) }} />{/if}
-	{#if settingsOpen}<SettingsDialog {project} {ws} bind:tab={settingsTab} scrollTo={settingsScroll} hidden={calibrating} onclose={() => { settingsOpen = false; calibrating = false }} {oncalibrate} onsetupfloors={setupFloors} {projectDetails} {detailsTabs} />{/if}
+	{#if settingsOpen}<SettingsDialog {project} {ws} bind:tab={settingsTab} scrollTo={settingsScroll} hidden={calibrating} onclose={() => { settingsOpen = false; calibrating = false }} {oncalibrate} {onplacearea} onsetupfloors={setupFloors} {projectDetails} {detailsTabs} />{/if}
 	{#if imagePickOpen}<ImagePickDialog {project} onclose={() => (imagePickOpen = false)} onpick={(p) => { imagePickOpen = false; ws.imagePick = p; void measurePick(p.fileId, p.page); setTool('image'); ws.say(`${p.name}: drag its box on the ${activeKind === 'sheet' ? 'sheet' : 'plan'}`) }} />{/if}
 	{#if uploadsOpen}<UploadsDialog {pid} projectName={project.name} onclose={() => (uploadsOpen = false)} />{/if}
 	{#if openProjectOpen}<OpenProjectDialog currentId={pid} onpick={(id) => { if (id !== pid) void goto(`/projects/${id}/cad`) }} onclose={() => (openProjectOpen = false)} />{/if}

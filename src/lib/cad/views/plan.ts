@@ -26,7 +26,7 @@ const upright = (g: Shape['geom']) => g.kind === 'path' && g.nodes.every((n) => 
 /** How high a placed 3D-block part reaches (its top), for drawing it from above. */
 const topOf = (s: Shape) => (s.geom.kind === 'path' ? Math.max(...s.geom.nodes.map((n) => n.z)) : (s.plane?.kind === 'plan' ? s.plane.z : 0) + (s.extent ?? 0))
 import { usageColour } from '../domain/usages'
-import { placedAreas, toMain } from '../domain/areaPlace'
+import { placedAreas, toMain, mainLevelOf } from '../domain/areaPlace'
 
 export interface PlanOpts {
 	/** 1:N — text and symbols are drawn at a constant paper size, so they scale with N. */
@@ -52,8 +52,12 @@ export const AREA_GHOST = '#94a3b8'
  *  and not pickable (nothing has a `src`) — their floorplans only while that area is being placed. */
 function areaGhosts(ix: ProjectIndex, levelId: Id, o: PlanOpts): Prim[] {
 	const out: Prim[] = []
-	for (const a of placedAreas(ix, levelId)) {
-		const pl = a.place!, T = (p: Pt) => toMain(pl, p), rot = pl.rot
+	// the one being placed shows too before it has a place: on this plan's 0, 0, unturned
+	const being = o.placing ? ix.getOf('level', o.placing) : undefined
+	const areas = placedAreas(ix, levelId)
+	if (being?.area && !being.place && mainLevelOf(ix, being)?.id === levelId) areas.push(being)
+	for (const a of areas) {
+		const pl = a.place ?? { x: 0, y: 0, rot: 0 }, T = (p: Pt) => toMain(pl, p), rot = pl.rot
 		for (const p of planDisplayList(ix, a.id, { ...o, compare: undefined, placing: undefined, underlay: o.placing === a.id ? o.underlay : undefined })) {
 			const { src: _s, clip, ...q } = p
 			if (q.k === 'image') {

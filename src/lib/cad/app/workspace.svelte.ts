@@ -39,6 +39,7 @@ import type { DeviceTemplate } from '../domain/devices'
 import { LayerPrefs } from './layerPrefs.svelte'
 import type { RepeatEdit } from '../domain/repeatEdit'
 import { CalibrateTool, type CalibTarget, type CalibMode } from '../editor/calibrateTool'
+import { PlaceAreaTool } from '../editor/placeAreaTool'
 import { GuideTool } from '../editor/guideTool'
 import { parseInputMode, INPUT_MODE_KEY, type InputMode } from '../editor/inputMode'
 import type { Underlay } from '../domain/types'
@@ -50,13 +51,13 @@ import type { SettingsTab } from '../ui/SettingsDialog.svelte'
 import type { TextPreview } from '../ui/TextDialog.svelte'
 import { onFileReady } from '../render/download'
 
-export type ToolId = 'select' | 'move' | 'copy' | 'array' | 'room' | 'measure' | 'rotate' | 'mirror' | 'insert' | 'shape' | 'box' | 'image' | 'legend' | 'changelist' | 'dimension' | 'outlet' | 'rack' | 'device' | 'assign' | 'cord' | 'opening' | 'section' | 'renumber' | 'viewport' | 'match' | 'calibrate' | 'guide' | NoteKind | PathKind
+export type ToolId = 'select' | 'move' | 'copy' | 'array' | 'room' | 'measure' | 'rotate' | 'mirror' | 'insert' | 'shape' | 'box' | 'image' | 'legend' | 'changelist' | 'dimension' | 'outlet' | 'rack' | 'device' | 'assign' | 'cord' | 'opening' | 'section' | 'renumber' | 'viewport' | 'match' | 'calibrate' | 'placearea' | 'guide' | NoteKind | PathKind
 
 /** Which views each tool works in (User: an Outlet click in a rack view added outlets by mistake). Select works
  *  everywhere; drawing tools in plan and elevations; the rack tool on the plan; devices / cords / assign in rack views. */
 export const TOOL_VIEWS: Record<ToolId, ViewSpec['kind'][]> = {
 	select: ['plan', 'elevation', 'row', 'sheet', 'riser', 'section', 'portmap', 'ports', 'schedule', 'fill'],
-	section: ['plan'], room: ['plan'], measure: ['plan', 'elevation', 'section'], viewport: ['sheet'], calibrate: ['plan'], guide: ['plan', 'elevation', 'section', 'sheet', 'row'],
+	section: ['plan'], room: ['plan'], measure: ['plan', 'elevation', 'section'], viewport: ['sheet'], calibrate: ['plan'], placearea: ['plan'], guide: ['plan', 'elevation', 'section', 'sheet', 'row'],
 	insert: ['plan', 'elevation', 'section', 'sheet'], shape: ['plan', 'elevation', 'section', 'sheet'], box: ['plan', 'elevation', 'section'], image: ['plan', 'elevation', 'section', 'sheet'], legend: ['plan', 'sheet'], changelist: ['sheet'], dimension: ['plan', 'elevation', 'section', 'sheet'], move: ['plan', 'elevation', 'section', 'sheet'], copy: ['plan', 'elevation', 'section', 'sheet'], array: ['plan', 'elevation', 'section', 'sheet'], rotate: ['plan', 'sheet'], mirror: ['plan', 'sheet'],
 	outlet: ['plan', 'elevation', 'section'], line: ['plan', 'elevation', 'section', 'sheet'], trunk: ['plan', 'elevation', 'section'], conduit: ['plan', 'elevation', 'section'], wall: ['plan', 'elevation'],
 	rack: ['plan'], opening: ['plan'], renumber: ['plan', 'elevation', 'row'], match: ['plan', 'elevation', 'section', 'sheet'],
@@ -339,11 +340,14 @@ export class Workspace {
 	calibIO: { calib: (u: Underlay) => PageCalibUsed | undefined; write: (u: Underlay, field: CalibMode, value: unknown, what: string) => void } = { calib: () => undefined, write: () => {} }
 	/** Told when the Calibrate tool ends (`ok` = it set something; false = Esc) — "Set up each floor" runs its next step (W6). */
 	onCalibDone: ((ok: boolean) => void) | null = null
+	/** The area plan the Place tool puts on its whole floor (backlog 6), and who is told when it ends. */
+	placeArea = $state.raw<Id | null>(null)
+	onPlaceDone: ((ok: boolean) => void) | null = null
 	readonly calibrateTool = new CalibrateTool(() => this.calibTarget, (u) => this.calibIO.calib(u), (u, f, v, w) => this.calibIO.write(u, f, v, w), (ok) => { this.calibTarget = null; this.toolId = 'select'; this.onCalibDone?.(ok) })
 	readonly tools: Record<ToolId, Tool> = {
 		select: new SelectTool(), move: new MoveTool('move'), copy: new MoveTool('copy'), array: new MoveTool('array'), room: new RoomTool(), measure: new MeasureTool(), rotate: new TransformTool('rotate'), mirror: new TransformTool('mirror'), insert: new InsertTool(() => this.insertBlock), shape: new ShapeTool(() => this.shapeOpts), box: new ShapeTool(() => this.boxOpts, 'box'), image: new ShapeTool(() => ({ kind: 'image', sides: 4, inscribed: true, ...(this.imagePick ? { image: this.imagePick } : {}) }), 'image'), legend: new LegendTool(), changelist: new ChangeListTool(), viewport: new ViewportTool(() => this.viewportView(), () => { this.toolId = 'select' }), dimension: new DimTool(() => this.dimMode), outlet: new OutletTool(() => this.outletNext), rack: this.rackTool, device: new DeviceTool(() => this.deviceTemplate, () => this.deviceMount), assign: this.assignTool, cord: this.cordTool,
 		text: new NoteTool('text'), leader: new NoteTool('leader'), cloud: new NoteTool('cloud'),
-		opening: new OpeningTool(() => this.openingSwing), section: new SectionTool(() => this.sectionMode), renumber: new RenumberTool(), match: this.matchTool, calibrate: this.calibrateTool, guide: new GuideTool(),
+		opening: new OpeningTool(() => this.openingSwing), section: new SectionTool(() => this.sectionMode), renumber: new RenumberTool(), match: this.matchTool, calibrate: this.calibrateTool, placearea: new PlaceAreaTool(() => this.placeArea, (ok) => { this.placeArea = null; this.toolId = 'select'; this.onPlaceDone?.(ok) }), guide: new GuideTool(),
 		line: new PathTool('line'), trunk: new PathTool('trunk'), conduit: new PathTool('conduit'), wall: new PathTool('wall'),
 	}
 

@@ -11,6 +11,7 @@
 	import type { Workspace } from '../app/workspace.svelte'
 	import type { Building, Level, Id, Underlay } from '../domain/types'
 	import type { Entity } from '../domain/drawing'
+	import { makeAreaOf } from '../domain/areaPlace'
 	import { floorName, floorNumbers, restack, planFloors, renameFloors, newAreaLevel, renumberFloor, parseFloorList, DEFAULT_HEIGHTS, DEFAULT_NAMES, type Heights } from '../domain/floors'
 	import NameInput from './NameInput.svelte'
 	import { levelContents, levelRisers } from '../editor/commands'
@@ -24,7 +25,7 @@
 	/** `part`: which tab shows (none = another tab of the dialog). `oncalibrate`: set a floorplan's origin / scale / crop
 	 *  on the plan (the Calibrate tool; backlog "Calibrate an image in place"). `onplans`: go to Plans & floorplans (the
 	 *  first-run path's next step, W9). */
-	let { project, ws, part, oncalibrate, onplans, onsetupfloors }: { project: CadProject; ws: Workspace; part: 'floors' | 'plans' | null; oncalibrate?: (u: Underlay, mode: CalibMode) => void; onplans?: () => void; onsetupfloors?: (us: Underlay[]) => void } = $props()
+	let { project, ws, part, oncalibrate, onplacearea, onplans, onsetupfloors }: { project: CadProject; ws: Workspace; part: 'floors' | 'plans' | null; oncalibrate?: (u: Underlay, mode: CalibMode) => void; onplacearea?: (area: Level) => void; onplans?: () => void; onsetupfloors?: (us: Underlay[]) => void } = $props()
 
 	// the store isn't reactive itself: read project.rev, or an Apply (or a remote edit) is never seen here (Review 2 Q4)
 	const building = $derived.by(() => { void project.rev; return project.store.ofType('building')[0] as Building | undefined })
@@ -310,6 +311,21 @@
 		project.store.transact(`${l.name}: area plan ${area}`, (tx) => tx.put(a))
 		ws.say(`${a.name} added — its own plan (Navigator); pick its floorplan here`)
 	}
+	/** Make a floor's plan an AREA plan of a new whole-floor plan (backlog 6, User: 33F 3303 becomes an area of 33F): it
+	 *  keeps its name and everything on it; the new whole-floor plan takes the floor — upload the whole-floor PDF there,
+	 *  then place each area on it. One undo step. */
+	let makingArea = $state<Id | null>(null)
+	function makeArea(l: Level, area: string) {
+		makingArea = null
+		const r = makeAreaOf(l, area, floorName(l.number, names), newId())
+		if (!r) { ws.say('Type the area’s name (e.g. 3303)'); return }
+		if (areasOf(l).some((a) => a.area === r.area.area)) { ws.say(`${l.name} already has an area plan ${r.area.area}`); return }
+		project.store.transact(`${l.name} → area plan of ${r.main.name}`, (tx) => { tx.put(r.area); tx.put(r.main) })
+		ws.say(`${l.name} is now an area plan of the new whole-floor plan ${r.main.name} — choose the whole-floor PDF there, then “Place on the whole floor…” for each area · Undo puts it back`)
+	}
+	/** The suffix of a plan's name after its floor's ("33F 3303" → "3303"): the area name offered. */
+	const suffixOf = (l: Level) => { const f = floorName(l.number, names); return l.name.startsWith(f) ? l.name.slice(f.length).trim() : '' }
+	const unplace = (a: Level) => { const { place: _p, ...rest } = a; project.store.transact(`Unplace ${a.name}`, (tx) => tx.put(rest as Level)); ws.say(`${a.name} is no longer placed on the whole floor (its runs don't join the whole floor's) · Undo puts it back`) }
 	/** An empty area plan goes at once (undoable); one with something on it is deleted from the Navigator (it asks first). */
 	function removeArea(a: Level) {
 		const n = contents(a.id)
@@ -436,12 +452,27 @@
 
 {#snippet plan(p: Level, floor: Level | null)}
 	<div class="plan">
+		<div class="pcol">
 		{#if floor}
 			<div class="pname"><span class="tag" title="Area plan {p.area} of {floor.name}">Area</span><input class="name" value={p.name} title="The area plan's name" onchange={(e) => rename(p, e.currentTarget.value)} />
 				<button class="x" title={contents(p.id) ? `Has ${contents(p.id)} item(s) — delete it in the Navigator (asks first)` : 'Delete this (empty) area plan (Undo brings it back)'} onclick={() => removeArea(p)}>✕</button></div>
+			<!-- backlog 6: where it sits on the whole-floor plan (its runs then join the whole floor's) -->
+			<div class="pname placed">
+				{#if p.place}<span class="hint" title="Placed on {floor.name}: moved {Math.round(p.place.x)}, {Math.round(p.place.y)} mm, turned {Math.round(p.place.rot * 10) / 10}° — its runs join runs drawn on the whole floor">Placed on {floor.name}</span>{:else}<span class="hint" title="Not placed: it isn't shown on {floor.name}, and runs drawn there don't join its runs">Not placed</span>{/if}
+				{#if onplacearea}<button class="btn sm" title="On {floor.name}'s plan: click a point on this area (greyed), then the same point on the whole-floor floorplan — twice" onclick={() => onplacearea(p)}>{p.place ? 'Place again…' : 'Place on the whole floor…'}</button>{/if}
+				{#if p.place}<button class="btn sm" title="Take it off the whole floor (Undo puts it back)" onclick={() => unplace(p)}>Unplace</button>{/if}
+			</div>
 		{:else}
 			<div class="pname hint">Whole floor</div>
+			{#if suffixOf(p)}
+				{#if makingArea === p.id}
+					<div class="pname"><NameInput create value={suffixOf(p)} placeholder="the area's name, e.g. 3303 — Enter" wide={false} onsave={(t) => makeArea(p, t)} oncancel={() => (makingArea = null)} /></div>
+				{:else}
+					<button class="btn sm" title="This plan is only part of the floor (a tenant area): make it an AREA plan, keeping its name and everything on it, under a new whole-floor plan {floorName(p.number, names)} for the whole-floor PDF" onclick={() => (makingArea = p.id)}>Make this an area plan…</button>
+				{/if}
+			{/if}
 		{/if}
+		</div>
 		<div>{@render floorplans(p)}</div>
 	</div>
 {/snippet}
@@ -508,6 +539,8 @@
 	.floor { border: 1px solid var(--cad-line, #e4e4e7); border-radius: 6px; padding: 4px 8px 6px; }
 	.fhead { display: flex; align-items: center; justify-content: space-between; margin-bottom: 2px; }
 	.plan { display: grid; grid-template-columns: 9rem minmax(0, 1fr); gap: 8px; align-items: start; padding: 3px 0; }
+	.pname.placed { flex-wrap: wrap; }
+	.pcol { display: flex; flex-direction: column; gap: 3px; align-items: flex-start; }
 	.plan + .plan { border-top: 1px dashed var(--cad-line, #e4e4e7); }
 	.pname { display: flex; align-items: center; gap: 4px; min-height: 20px; }
 	.tag { font-size: 10px; padding: 0 4px; border-radius: 3px; background: var(--cad-sel, #dbeafe); color: #1d4ed8; }

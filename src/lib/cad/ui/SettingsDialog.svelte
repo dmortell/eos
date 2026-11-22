@@ -26,11 +26,11 @@
 	import type { Underlay } from '../domain/types'
 	import type { CalibMode } from '../editor/calibrateTool'
 
-	let { project, ws, tab = $bindable('floors'), scrollTo, hidden = false, onclose, oncalibrate, onsetupfloors, projectDetails, detailsTabs }: {
+	let { project, ws, tab = $bindable('floors'), scrollTo, hidden = false, onclose, oncalibrate, onplacearea, onsetupfloors, projectDetails, detailsTabs }: {
 		project: CadProject; ws: Workspace; tab?: SettingsTab; hidden?: boolean; onclose: () => void
 		/** A section to show (SettingsPanel's `scrollTo`). */
 		scrollTo?: { what: 'title-block'; n: number }
-		oncalibrate?: (u: Underlay, mode: CalibMode) => void; onsetupfloors?: (us: Underlay[]) => void; projectDetails?: () => void
+		oncalibrate?: (u: Underlay, mode: CalibMode) => void; onplacearea?: (area: import('../domain/types').Level) => void; onsetupfloors?: (us: Underlay[]) => void; projectDetails?: () => void
 		detailsTabs?: DetailsTabs
 	} = $props()
 
@@ -90,7 +90,7 @@
 				<!-- always there, so a range typed in Floors & heights survives a look at another tab -->
 				<!-- the details form too (its drafts survive a look at another tab) -->
 				{#if detailsTabs}<div class="details-body" class:shut={!isDetail(tab)}>{@render detailsTabs.panel(isDetail(tab) ? tab : null)}</div>{/if}
-				<FloorsPanel bind:this={floors} {project} {ws} part={tab === 'floors' || tab === 'plans' ? tab : null} {oncalibrate} {onsetupfloors} onplans={() => (tab = 'plans')} />
+				<FloorsPanel bind:this={floors} {project} {ws} part={tab === 'floors' || tab === 'plans' ? tab : null} {oncalibrate} {onplacearea} {onsetupfloors} onplans={() => (tab = 'plans')} />
 				{#if tab !== 'floors' && tab !== 'plans' && !isDetail(tab)}<SettingsPanel {project} {ws} {tab} {scrollTo} />{/if}
 				{#if ws.confirm && !hidden}
 					{@const q = ws.confirm}

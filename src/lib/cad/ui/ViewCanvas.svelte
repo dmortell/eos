@@ -125,7 +125,7 @@
 	 *  no corner outside it could be picked). */
 	const planUnderlay = (u: Underlay) => { const p = project.pdf.placement(u), t = ws.calibTarget; return p && t?.mode === 'crop' && t.underlay.id === u.id ? { ...p, clip: undefined } : p }
 	const drawn = $derived(spec.kind === 'plan'
-		? planDisplayList(project.index, levelId, { scale: PLOT_SCALE, underlay: planUnderlay, blocks: project.blockOf, gray: ws.screen.gray, byUsage: ws.screen.byUsage, compare: ws.compareOn ? ws.compareFile : undefined })
+		? planDisplayList(project.index, levelId, { scale: PLOT_SCALE, underlay: planUnderlay, blocks: project.blockOf, gray: ws.screen.gray, byUsage: ws.screen.byUsage, compare: ws.compareOn ? ws.compareFile : undefined, placing: ws.toolId === 'placearea' ? ws.placeArea ?? undefined : undefined })
 		: spec.kind === 'row'
 			? rackRowDisplayList(project.index, spec, { cords: ws.screen.cordChannels ? 'channels' : 'straight' })
 			: spec.kind === 'sheet'
