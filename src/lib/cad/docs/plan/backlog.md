@@ -19,6 +19,84 @@ in `todo.md`, P = a phase-doc line.
 CadShell, ViewCanvas and selectTool were split 2026-10-07; split again only when a file gets hard to work in.
 
 **Remaining:** 3 ❓ entries — outside review, menus 1 / 3, tool strip (the hacky-code pass done 2026-10-18, `hacky-code.md`; PDF layers done 2026-10-18). Earlier: PDF layers (User 2026-10-16 todo; default usages and Project settings vs details built), the menus and tool-strip reviews (User 2026-10-16: several buildings built as project groups, its Tourney migration / external links not needed; Three bands and W8 not needed; Navigator clicks built; fonts, walls from a room, the room marker built; blocks in rack views, T / B / L / R, one room not two dropped; 2 P3 ❓ review todos, menus + tool strip — tips for new users and two-tab field-level saving built 2026-10-15; W33–W36 and Navigator rooms built 2026-10-15: (two-tab edits, menus, tool strip)); Three bands, the scripting hook, W8 and W29 to later.md; every P1 / P2 done — W12 to later.md, User 2026-10-15; no ⚡ quick wins left) — User's todos of 2026-10-14 (10; the revision check done 2026-10-15) and the workflow walkthrough W1–W32 (32, next sections); Review 2 (section at the end) is done. **Batch 5 (User 2026-10-10):** layer line type ✓, Match properties ✓, viewport nudge / snap / fit scale ✓, copy one segment ✓, Find/replace into Renumber ✓, blocks drag to place ✓ — Batch 5 done. Port map for VLANs built 2026-10-11 (`port-map-plan.md`). **Low priority waits (User 2026-10-07): the P3 items are not looked at until the P1 / P2 ones are done.**
+## Consolidated todo list (2026-11-22)
+
+Every open todo from the app's docs in one numbered list. Sources: this backlog, `later.md`, `decisions.md`,
+`outside-review.md`, `workflow-walkthrough.md`, `sheets-organising.md`, `design-log.md`, plus the docs outside cad (root
+`*.md`, `docs/`, `src/routes/**/*.md`). Tick by number; the numbers stay fixed (don't renumber when one is done). ⚡ =
+suggested quick win. A–E are to work on; F is accounted for only. The detailed entries further down still hold the
+full notes for 1–8.
+
+### A. Open backlog
+- [ ] **1. Redo the tool icon buttons** — pick mock-up A–E first (entry below). P2 · M
+- [ ] **2. Tool strip options 1 / 3** — review (entry below). P3
+- [ ] **3. Menus options 1 / 3** — review; plus a Plan / Elevation / Section / Riser switch in View, and where Rename / Delete level go. P3
+- [ ] ⚡ **4. Hover a device: its border only** — not every port (entry below). P2 · S
+- [ ] ⚡ **5. Tooltips: wait once, then instant** (entry below). P2 · S
+- [ ] **6. Containment between 33F 3303 and 33F 3307** — 24 backbone cables have "No route"; plan first (entry below). P2 · M?
+- [ ] **7. Data: patch the IDF2 TVs to IDF1** (Journey) — confirm floor / ports first.
+- [ ] **8. Outside review and markup** — PDF round trip recommended; waits on 20.
+- [ ] ⚡ **9. Tidy this backlog's "Suggested order"** — still lists built / moved work (cord workflow, Batch 4).
+
+### B. Smaller cad bugs and nits (walkthrough)
+- [ ] ⚡ **10. Riser view Floors range** — only floors with a model are listed, so you can't narrow to e.g. 1F–10F with Hide empty off (`workflow-walkthrough.md:792`).
+- [ ] ⚡ **11. New sheet from an empty floor's plan** gets a thin 283 × 105 mm viewport (`workflow-walkthrough.md:687`).
+- [ ] ⚡ **12. Release name doubled** — typing "03 …" gives "Release 03 03 …" in the file name (`workflow-walkthrough.md:703`).
+- [ ] ⚡ **13. Use as default, then Undo** — the tool bar's Usage / Mount stay adopted until a reload (`workflow-walkthrough.md:748`).
+- [ ] ⚡ **14. Hidden layers still snap on the plan** — no layer filter in `editor/snap.ts` (`layers.md:12`).
+- [ ] **15. Rack-row viewport frame too loose** — takes in slab / ceiling lines; a tighter frame fits two rows at one scale (`workflow-walkthrough.md:865`).
+- [ ] **16. UX nits** (`workflow-walkthrough.md:763-960`):
+  - [ ] ⚡ 16a. Fill rates greyed in elevation with no reason given
+  - [ ] 16b. Backups Delete buttons sit next to the question's Delete
+  - [ ] 16c. Section of a room with no walls shows FFL only
+  - [ ] ⚡ 16d. Tab titles truncated
+  - [ ] 16e. Room-elevation marker over the room name
+  - [ ] ⚡ 16f. Double hint in bulk patch
+  - [ ] 16g. Hover outline only in the active pane; + tip has no halo
+- [ ] **17. Data on live projects** — 30F IDF1 "48P Rack Tie" panels have no cables; 81 import notes on Journey to clear; 161 LR import notes to review; Tourney tidy-up (`later.md:75-76`, `phase8.md:4306, 4421`).
+- [ ] **18. Port loupe / magnifier** for tiny ports (deferred).
+- [ ] ⚡ **19. Stale status** — README status line (2026-10-03); tick "Change log" in `decisions.md:131` (edit history built 2026-10-17).
+
+### C. Decisions for the User
+- [ ] **20. Outside review** (`outside-review.md:73-78`) — who imports; comments → Log change or an inbox; verdict per sheet / release / both; does the overlay print; guest accounts ever needed?
+- [ ] **21. Racks vs cabinets** — one kind with Doors / Enclosed, or two kinds? (`decisions.md:59`)
+- [ ] **22. Rack BOM products** — custom vs the Panduit seed; maybe moot now (`decisions.md:62`)
+- [ ] **23. Zones on one floor** — one model or separate? (`decisions.md:54`)
+- [ ] **24. Import Pages models (7.4)?** (`decisions.md:55`)
+- [ ] **25. Plan Z-cuts** (Bottom / Top Z band) or rely on layers? (`decisions.md:159`)
+- [ ] **26. Power and AV** — new usages / cable types, or a separate power model? (`decisions.md:89`)
+- [ ] **27. DRAFT stamp** on non-release PDFs (`decisions.md:132`)
+- [ ] **28. Deleting / voiding a release** (`decisions.md:134`)
+- [ ] **29. A list of all views** (Ctrl+K viewports); rotate viewports (`decisions.md:122-123`)
+- [ ] **30. Revisions per package or per sheet**; must the change list fit on one sheet? (`design-log.md:95-97`)
+- [ ] **31. Depth band** — keep (per view, draggable edges) or drop for sections; dim the rest while selecting? (`ux-review.md:633, 1041`)
+- [ ] **32. Delete the legacy tools (7.6)** and the workspace / edit3d / parts routes; finish the soft retire (7.5) (`later.md:62, 80`)
+
+### D. Features not yet in cad (from other docs)
+- [ ] **33. DXF import** — an uploaded `.dxf` → shapes or an XREF (`pages/todo.md:46`, `kestrel-adoption.md`)
+- [ ] **34. Ctrl+K command palette and document tabs** — Kestrel adoption first picks (`kestrel-adoption.md`)
+- [ ] **35. Command line, OFFSET / ARRAY / SCALE / STRETCH, ORTHO / POLAR, rotate grip, group transform box** (`later.md:35-43, 99-100`)
+- [ ] **36. Trunk auto-routing** and route length over the graph (`outlets/trunk-implement.md:385`)
+- [ ] **37. Whole-project JSON export / import** — check against cad backups (`pages/todo.md:60`)
+- [ ] **38. Sheets workflow leftovers** — For review / Approved gate, revert to a release, typed / superseded packages, copy a sheet to another project, drag sheets in the Navigator, nested groups, send a package, all-releases register, sheet-number templates (`sheets-organising.md:244-252`)
+- [ ] **39. Port labels readable in print** — callouts or a port schedule in the rack viewport (`elevations-plan.md:744`)
+- [ ] **40. Fallback labels for unlabelled panel ports** (`R04-U33-P07`) (`elevations-plan.md:738`)
+
+### E. App-wide and other pages
+- [ ] ⚡ **41. Uploads subscribes to the whole global `files` collection** — per-project query commented out (`routes/projects/[pid]/uploads/+page.svelte:24`, `docs/firestore-structure.md:142`)
+- [ ] **42. `deleteFloor` misses patching docs and area outlets docs**; room letters hard-coded A–D (`docs/firestore-structure.md:115-117`)
+- [ ] **43. Firestore loose ends** — basement `F-1` ids fail `_F(\d+)`; stray floor `3307` and registry drawings on floors 1 / 200; two drawings stores and two 3D stores; `IssueDoc.status` untyped and unread (`docs/firestore-structure.md:118-145`)
+- [ ] **44. Raw `history.pushState`** in frames / outlets / patching / racks pages (or retire with 32)
+- [ ] **45. Touch / trackpad pan-zoom in the older tools** — Outlets / Uploads buggy; Frames / Patching / Risers none (`mac-support.md:108-140`)
+- [ ] **46. Kanban** (`/tasks`) — testing checklist never ticked; optional: shortcuts, in-column reorder, subtasks, activity log, bulk ops (`dashboard/parts/kanban-implementation-plan.md:482-548`)
+- [ ] **47. Survey** — auto compass heading, QR / email share, OCR of labels, photo sync, move under `/projects/[pid]` (`survey/implement.md`, `survey/README.md`)
+- [ ] **48. Versioning phase 5** — backfill, audit logging, large-snapshot warning; probably superseded by cad releases / backups (`versioning-implement.md:455`)
+
+### F. Parked or superseded (accounted for, not to work on)
+- [ ] **49. cad `later.md`** — RCP, 3D view, riser extras, free fill sections, label check / relabel, prices / quote, Pages / Sheets sheet import (7.2 / 7.3), DXF for every view, and its "not needed" list.
+- [ ] **50. Pages (bug-fix only)** — §4A fixes (demo models, per-user layer visibility, save dirty models only), P1 bugs (PEN penetrations, DXF image order, no move ghost on paper); the XP / XE / parity wish-lists (`docs/pages-analysis.md:322`, `pages/todo.md`, `pages/review.md`, `pages/parity-review.md`).
+- [ ] **51. Legacy tool docs** — Sheets `_todo`, outlets trunks, risers phase 4, patching, frames, edit3d, drawings page editor, `elevations-plan.md`: mostly rebuilt in cad; what's still missing is in D.
+
 ## User's todos (2026-10-15, review later)
 
 - [ ] ❓ **Outside review and markup — investigate** (User 2026-10-17 todo) — let other vendors and the client review
