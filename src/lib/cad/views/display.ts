@@ -20,7 +20,9 @@ export const fillsWithColor = (p: Prim): boolean => p.k === 'line' && !!p.fill
 /** A fill behind something (a note's background, a region's fill): it keeps its own color, lineweight and line type. */
 export const isBackFill = (p: Prim): boolean => p.k !== 'image' && (p.cls === 'note-bg' || p.cls === 'shape-fill')
 /** A line end's mark (an arrowhead, a tick): drawn solid whatever the line's type. */
-export const isEndMark = (p: Prim): boolean => p.k !== 'image' && /line-(head|tick)/.test(p.cls)
+/** A port cell or its label (rack views, panel sheets, the port map). */
+export const isPortPrim = (p: Prim): boolean => p.role === 'port' || p.role === 'port-label'
+export const isEndMark =(p: Prim): boolean => p.k !== 'image' && /line-(head|tick)/.test(p.cls)
 
 
 /** What a prim covers as drawn: inside its clip, when it has one (a section's long run is drawn only between the cut

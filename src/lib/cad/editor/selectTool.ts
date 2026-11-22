@@ -7,7 +7,7 @@ import { heightsOf } from '../domain/floors'
 import type { Shape } from '../domain/shapes'
 import { ownFrame, sameFrame, REGION_KINDS } from '../domain/shapes'
 import type { Sheet } from '../domain/drawing'
-import { primBounds, unionBounds, type Prim } from '../views/display'
+import { isPortPrim, primBounds, unionBounds, type Prim } from '../views/display'
 import { linkLabel } from '../domain/links'
 import type { ViewSpace } from '../views/space'
 import type { Snap } from './snap'
@@ -757,6 +757,8 @@ export class SelectTool implements Tool {
 			const hoverHasShape = c.prims().some((p) => p.src === hv.id && p.k !== 'text' && p.k !== 'image' && (!hv.sub || p.sub === hv.sub))
 			for (const p of c.prims()) {
 				if (p.src !== hv.id || p.k === 'image' || (hv.sub && p.sub !== hv.sub)) continue
+				// a hovered device lights its border only; a port lights on its own, while the pointer is on it (User 2026-10-28)
+				if (!hv.sub && isPortPrim(p)) continue
 				// a thing's own words stay as drawn (a blue copy over them read as two labels); a text alone is outlined in blue
 				if (p.k === 'text' && hoverHasShape) continue
 				out.push(p.k === 'text' ? { ...p, cls: 'hover' } : p.k === 'line' ? { ...p, cls: 'hover', fill: false, w: undefined } : { ...p, cls: 'hover', fill: false })
