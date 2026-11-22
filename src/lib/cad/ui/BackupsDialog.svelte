@@ -93,7 +93,7 @@
 
 		{#if confirm}
 			<section class="confirm">
-				<span>Delete {confirm.length} backup{confirm.length > 1 ? 's' : ''} ({size(confirm.reduce((n, h) => n + h.bytes, 0))})? This can't be undone.</span>
+				<span>Delete {confirm.length === 1 ? `“${confirm[0].name}”` : `${confirm.length} backups`} ({size(confirm.reduce((n, h) => n + h.bytes, 0))})? This can't be undone.</span>
 				<button class="btn danger" disabled={!!busy} onclick={doDelete}>{busy || 'Delete'}</button>
 				<button class="btn" disabled={!!busy} onclick={() => (confirm = null)}>Keep</button>
 			</section>
@@ -115,7 +115,7 @@
 					<thead><tr><th></th><th>Name</th><th>Holds</th><th>When</th><th>By</th><th class="num">Items</th><th class="num">Size</th><th></th></tr></thead>
 					<tbody>
 						{#each list as h (h.id)}
-							<tr>
+							<tr class:asked={!!confirm?.some((c) => c.id === h.id)}>
 								<td><input type="checkbox" disabled={!canDel(h)} title={canDel(h) ? '' : 'Only its maker or the project owner can delete it'} checked={ticked.includes(h.id)} onchange={(e) => toggle(h.id, e.currentTarget.checked)} /></td>
 								<td class="nm">
 									{#if editing === h.id}
@@ -135,7 +135,8 @@
 									<button class="lnk" disabled={!owner || !!busy} title={owner ? 'Put models back as they were in this backup' : 'Only the project owner can restore'} onclick={() => restore(h)}>Restore…</button>
 									<button class="lnk" disabled={!!busy} title="Save it as a .eoscad file" onclick={() => fetchFile(h)}>Download</button>
 									<button class="lnk" disabled={!!busy} onclick={() => startEdit(h)}>Rename</button>
-									<button class="lnk del" disabled={!canDel(h) || !!busy} title={canDel(h) ? '' : 'Only its maker or the project owner can delete it'} onclick={() => askDelete([h])}>Delete</button>
+									<!-- greyed while a delete question is open (backlog 16b: a miss on another row's Delete re-aimed it) -->
+									<button class="lnk del" disabled={!canDel(h) || !!busy || !!confirm} title={confirm ? 'Answer the question above first (Delete / Keep)' : canDel(h) ? '' : 'Only its maker or the project owner can delete it'} onclick={() => askDelete([h])}>Delete</button>
 								</td>
 							</tr>
 						{/each}
@@ -149,6 +150,7 @@
 <style>
 	section { padding: 8px 12px; border-bottom: 1px solid var(--cad-line, #e4e4e7); display: flex; flex-direction: column; gap: 6px; }
 	section:last-child { border-bottom: none; }
+	tr.asked td { background: #fef2f2; }   /* the backup the open question is about */
 	.confirm { flex-direction: row; align-items: center; gap: 10px; background: #fef2f2; color: #991b1b; }
 	.row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 	.row label { display: inline-flex; gap: 4px; align-items: center; cursor: pointer; }
