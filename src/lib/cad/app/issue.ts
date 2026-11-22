@@ -175,7 +175,7 @@ export async function issuePackage(project: CadProject, listed: Sheet[], f: Issu
 	for (const r of plan) { const why = r.changed ? await frozenConflict(project, r.sheet, r.rev) : null; if (why) throw new Error(why) }
 	const issueId = newId(), number = nextIssueNumber(project.store.ofType('issue'))
 	// the backup first: if it fails, nothing has been written yet
-	const backup = f.backup ? await storeBackup(project, `${issueTag(number)}: ${f.name}`, 'all', { issueId }) : null
+	const backup = f.backup ? await storeBackup(project, issueTitle(number, f.name),'all', { issueId }) : null
 	// what each bumped sheet gets: its new revision — put on the sheet as it is when the issue is recorded, seconds of
 	// saving / drawing / uploading later (a copy taken now would overwrite edits made meanwhile)
 	const bumped: { id: string; rev: Parameters<typeof issuedRevision>[1] }[] = [], pages: PdfPage[] = []
