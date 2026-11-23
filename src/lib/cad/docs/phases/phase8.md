@@ -4511,3 +4511,10 @@ User: "Yes, cords kept inside the set" (the ❓ entry of 2026-10-17).
   placed area now also join the whole floor's runs (`tapLevels`; 3307 had none before). Checked in the data: all 24
   P3A → 3307-R2 backbones route (3303 conduit → 33F conduit → the rack), 70.0 m → 71 m each; the 33F conduit carries
   28 cat6a, 15 % fill. The 3307 high trunk's end stops 24 cm from the 33F conduit's end (not joined; 5 cm join).
+- **Count — N identical runs side by side (User 2026-11-23: the 33F link is 4 × PF36, drawn as one 144 mm conduit):**
+  `ContainmentRole.count` / `runCount`. One route; fill against all of them (`areaMm2 × count`, so the cables are
+  shared evenly); `runLengths` metres × count (BOM, legend); the plan draws a band N × the outside Ø with a line
+  between each two and labels "4 × Ø45.5"; Properties › Count; Help. Test `domain/runCount.test.ts`. Journey's 33F
+  conduit set to Ø45.5 outside / 36 inside × 4 (via Properties): fill 55.7 % on its busiest segment (28 cat6a at the
+  9 mm the project's cable OD gives, d² rule) — over the 40 % limit. Not count-aware yet: the Fill picture in
+  Properties (one pipe drawn), riser symbols, the run seen in a section.
