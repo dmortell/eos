@@ -130,6 +130,9 @@ export interface ContainmentRole {
 	count?: number
 }
 export type HandCables = { type: string; n: number; d?: number; seg?: Id }
+/** A run's size as written in labels and the BOM: a round one (a conduit) by its INSIDE Ø when set — the size it's
+ *  bought and spoken of by, PF36 = 36 inside (User 2026-11-23) — else "100×50" outside. */
+export const sizeText = (s: Section | undefined): string => (!s ? '?' : s.round ? `Ø${s.inner?.w ?? s.w}` : `${s.w}×${s.h}`)
 /** A containment run's count of identical runs side by side (≥ 1). */
 export const runCount = (s: { role?: { kind: string; count?: number } }): number =>
 	s.role?.kind === 'containment' ? Math.max(1, Math.round(s.role.count ?? 1)) : 1

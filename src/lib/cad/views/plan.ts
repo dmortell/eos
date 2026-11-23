@@ -4,7 +4,7 @@ import type { Id, Pt, Outlet, Rack, Underlay, Space } from '../domain/types'
 import type { SectionCut } from '../domain/drawing'
 import type { Shape, PathNode } from '../domain/shapes'
 import type { ProjectIndex } from '../domain/project'
-import { isVertical, ellipsePts, arcPts, byDrawOrder, outlineOf, REGION_KINDS, runCount } from '../domain/shapes'
+import { isVertical, ellipsePts, arcPts, byDrawOrder, outlineOf, REGION_KINDS, runCount, sizeText } from '../domain/shapes'
 import { corners, trimmedEnds } from '../domain/bends'
 import { outlineLoops, roundCorners, endCorners, nestLoops, type OutlineEdge } from '../domain/runOutline'
 import { layersOf, layerOf, primLayer } from '../domain/layers'
@@ -397,12 +397,16 @@ function runPrims(s: Shape, levelId: Id, k: number, levelName: (id: Id) => strin
 		if (!a || !b) continue
 		if (isVertical(a, b)) {
 			const lo = Math.min(a.z, b.z), hi = Math.max(a.z, b.z)
-			out.push(s.section?.round
-				? { k: 'circle', c: a, r: w / 2, cls: 'riser', role: 'riser', src: s.id }
-				: { k: 'line', pts: square(a, w), closed: true, cls: 'riser', role: 'riser', src: s.id })
+			// N side by side (a Count): N symbols in a row
+			for (let i = 0; i < count; i++) {
+				const c = { x: a.x + (i - (count - 1) / 2) * w, y: a.y }
+				out.push(s.section?.round
+					? { k: 'circle', c, r: w / 2, cls: 'riser', role: 'riser', src: s.id }
+					: { k: 'line', pts: square(c, w), closed: true, cls: 'riser', role: 'riser', src: s.id })
+			}
 			const la = a.levelId ?? s.levelId ?? levelId, lb = b.levelId ?? s.levelId ?? levelId
 			const text = la !== lb ? `Riser ${levelName(la)} ↕ ${levelName(lb)}` : `↕ ${fmtZ(lo)} → ${fmtZ(hi)}`
-			out.push({ k: 'text', at: { x: a.x + w, y: a.y }, text, size: RISER_LABEL * k, cls: 'riser-label', role: 'riser', src: s.id })
+			out.push({ k: 'text', at: { x: a.x + w * (count + 1) / 2, y: a.y }, text, size: RISER_LABEL * k, cls: 'riser-label', role: 'riser', src: s.id })
 		} else if ((a.levelId ?? s.levelId) === levelId) {
 			// a segment's own size wins (a reducer); a run's own color (several runs edited at once) over the tier's
 			const sw = (sg.section ?? s.section)?.w ?? w, ends = trimmedEnds(bends, sg.id, a, b)
@@ -420,7 +424,7 @@ function runPrims(s: Shape, levelId: Id, k: number, levelName: (id: Id) => strin
 	// the run's label sits along it, by the middle of its longest segment on this level (UX review L3: at the first node
 	// it landed on the racks and risers there)
 	// N side by side: "4 × Ø45.5" in its label (with its own label first, if it has one)
-	const label = count > 1 ? `${s.label ? `${s.label} · ` : ''}${count} × ${s.section?.round ? `Ø${s.section.w}` : `${s.section?.w ?? w}×${s.section?.h ?? ''}`}` : s.label
+	const label = count > 1 ? `${s.label ? `${s.label} · ` : ''}${count} × ${sizeText(s.section)}` : s.label
 	if (label) {
 		let best: { a: PathNode; b: PathNode; len: number } | null = null
 		for (const sg of s.geom.segs) {

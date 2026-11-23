@@ -10,7 +10,7 @@ import { cableMedia, cableTypeLabel } from './cableTypes'
 import type { Shape, Section, PathNode } from './shapes'
 import { naturalCompare } from './labels'
 import { sameEnd } from './cords'
-import { isVertical, runCount } from './shapes'
+import { isVertical, runCount, sizeText } from './shapes'
 import { rackBom, makerModel } from './rackBom'
 import { estimateMetres, type Estimate } from './estimates'
 import { cablesOf, linkCores } from './multicore'
@@ -132,7 +132,7 @@ export function cordBom(cords: Cord[], typeLabel: (id: string) => string = (x) =
 export interface RunLength { id: Id; label: string; form: string; size: string; horizontalM: number; verticalM: number; count: number }
 
 /** "100×50" or "Ø25" — the BOM key of a section. */
-export const sectionKey = (s: Section | undefined) => (!s ? '?' : s.round ? `Ø${s.w}` : `${s.w}×${s.h}`)
+export const sectionKey = (s: Section | undefined) => sizeText(s)
 
 /** Metres of every containment run, segment by segment, at true 3D length; vertical segments counted separately. */
 export function runLengths(p: ProjectIndex): RunLength[] {

@@ -7,6 +7,8 @@ import { fillBySegment, shareCables } from './fill'
 import { fillSectionDisplayList } from '../views/fillSection'
 import { runLengths } from './reports'
 import { planDisplayList } from '../views/plan'
+import { elevationDisplayList } from '../views/elevation'
+import { spaceOf } from '../views/space'
 import type { Entity } from './drawing'
 
 const H = { slabMm: 200, raisedFloorMm: 300, clearHeightMm: 2600, plenumMm: 700 }
@@ -42,13 +44,27 @@ describe('runs side by side (count)', () => {
 		expect(ps.some((p) => p.k === 'text' && p.text.startsWith('4 × Ø36 inside'))).toBe(true)
 	})
 	it('the BOM counts each one: 10 m × 4', () => {
-		expect(runLengths(ix(4))[0]).toMatchObject({ horizontalM: 40, count: 4, size: 'Ø45.5' })
+		expect(runLengths(ix(4))[0]).toMatchObject({ horizontalM: 40, count: 4, size: 'Ø36' })
 	})
-	it('the plan draws them side by side at their outside Ø, a line between each two, and labels "4 × Ø45.5"', () => {
+	it('the plan draws them side by side at their outside Ø, a line between each two, and labels "4 × Ø36" (its inside Ø)', () => {
 		const ps = planDisplayList(ix(4), 'L', { scale: 100 })
 		expect(ps.find((p) => p.role === 'run-pick' && p.k === 'line')).toMatchObject({ w: 4 * 45.5 })
 		expect(ps.filter((p) => p.role === 'run' && p.k === 'line' && !p.closed)).toHaveLength(3)
-		expect(ps.find((p) => p.role === 'run-label')).toMatchObject({ text: '4 × Ø45.5' })
+		expect(ps.find((p) => p.role === 'run-label')).toMatchObject({ text: '4 × Ø36' })
 		expect(planDisplayList(ix(), 'L', { scale: 100 }).some((p) => p.role === 'run-label')).toBe(false)
+	})
+	it('seen end-on (an elevation along it, or a section across it): 4 circles at the outside Ø, in a row', () => {
+		const end = elevationDisplayList(ix(4), 'L', spaceOf({ kind: 'elevation', dir: 'right' }), { scale: 100 }).filter((p) => p.k === 'circle' && p.src === 'C')
+		expect(end).toHaveLength(4)
+		expect(end.every((p) => p.k === 'circle' && p.r === 45.5 / 2)).toBe(true)
+		const side = elevationDisplayList(ix(4), 'L', spaceOf({ kind: 'elevation', dir: 'front' }), { scale: 100 }).filter((p) => p.src === 'C')
+		expect(side.some((p) => p.k === 'circle')).toBe(false)   // side-on: the band, as before
+	})
+	it('a riser of 4 shows 4 symbols in a row on the plan', () => {
+		const riser = { ...conduit(4), geom: { kind: 'path', nodes: [{ id: 'a', x: 0, y: 0, z: 0 }, { id: 'b', x: 0, y: 0, z: 2950 }], segs: [{ id: 's', a: 'a', b: 'b' }] } } as Shape
+		const ps = planDisplayList(new ProjectIndex([...ix().byId.values()].filter((e) => e.id !== 'C').concat([riser])), 'L', { scale: 100 })
+		const cs = ps.filter((p) => p.k === 'circle' && p.role === 'riser')
+		expect(cs).toHaveLength(4)
+		expect(cs.map((p) => (p.k === 'circle' ? p.c.x : 0))).toEqual([-1.5 * 45.5, -0.5 * 45.5, 0.5 * 45.5, 1.5 * 45.5])
 	})
 })

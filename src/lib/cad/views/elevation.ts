@@ -7,7 +7,7 @@ import type { Id, Pt, Pt3, Level, Rack, Outlet, Space } from '../domain/types'
 import { RU_MM, rackHeight, rackUBase } from '../domain/units'
 import type { ProjectIndex } from '../domain/project'
 import type { Shape } from '../domain/shapes'
-import { isFlat, isVertical, outlineOf, ownFrame, sameFrame, sameWay, arcPoints, arcThrough } from '../domain/shapes'
+import { isFlat, isVertical, outlineOf, ownFrame, sameFrame, sameWay, arcPoints, arcThrough, runCount } from '../domain/shapes'
 import { passesThrough, shapePrims, dimLine, ownStyle, lineEnds } from './plan'
 import { openingCorners, wallSpan } from '../domain/openings'
 import { RACK_DEVICE_W, roomFloor } from '../domain/devices'
@@ -222,8 +222,19 @@ function shapeItems(s: Shape, sp: ViewSpace, rect: RectFn, uSpan: SpanFn, zOf: (
 			if (s.role?.kind === 'containment' && sec) {
 				// centred on its nodes, as its plan is and as a Location sets its Z (the plenum's middle, clear height − half
 				// − 50): it was drawn up by half its height, off its own grips and off where it was clicked (User 2026-10-21)
-				const high = s.role.tier === 'high', cls = high ? 'run run-high' : 'run'
-				return [{ depth, prims: [{ k: 'line', pts: [pa, pb], w: isVertical(a, b) ? sec.w : sec.h, cls, role: high ? 'run-high' : 'run', src: s.id }] }]
+				const high = s.role.tier === 'high', cls = high ? 'run run-high' : 'run', n = runCount(s)
+				// seen END-ON (cut by a section, or running straight at the viewer): its cross-section — each of the N side by
+				// side (a Count, User 2026-11-23: 4 × PF36), at their outside size, in a row across the view
+				if (!isVertical(a, b) && Math.hypot(pb.x - pa.x, pb.y - pa.y) < 1) {
+					const role = high ? 'run-high' as const : 'run' as const
+					return [{ depth, prims: Array.from({ length: n }, (_, i): Prim => {
+						const c = { x: pa.x + (i - (n - 1) / 2) * sec.w, y: pa.y }
+						return sec.round ? { k: 'circle', c, r: sec.w / 2, cls: 'riser', role, src: s.id }
+							: { k: 'line', pts: [{ x: c.x - sec.w / 2, y: c.y - sec.h / 2 }, { x: c.x + sec.w / 2, y: c.y - sec.h / 2 }, { x: c.x + sec.w / 2, y: c.y + sec.h / 2 }, { x: c.x - sec.w / 2, y: c.y + sec.h / 2 }], closed: true, cls: 'riser', role, src: s.id }
+					}) }]
+				}
+				// a riser seen side-on: as wide as the N side by side
+				return [{ depth, prims: [{ k: 'line', pts: [pa, pb], w: isVertical(a, b) ? sec.w * n : sec.h, cls, role: high ? 'run-high' : 'run', src: s.id }] }]
 			}
 			return [{ depth, prims: ownStyle(s, [{ k: 'line', pts: [pa, pb], cls: 'shape', src: s.id }]) }]
 		}).concat(!s.role && s.style?.ends ? endItems(s, g, nodes, sp, k) : [])
