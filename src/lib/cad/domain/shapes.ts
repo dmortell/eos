@@ -125,8 +125,14 @@ export interface ContainmentRole {
 	/** The run's corner radius (mm; backlog "Bend radius") — a conduit's bends; absent / 0 = sharp. A node's own
 	 *  `radius` wins (domain/bends.ts). */
 	bendRadius?: number
+	/** How many identical runs side by side (User 2026-11-23: "4 PF36 conduits"): one route, the cables shared evenly
+	 *  between them — fill against all of them, the BOM × count, drawn side by side. Absent = 1. */
+	count?: number
 }
 export type HandCables = { type: string; n: number; d?: number; seg?: Id }
+/** A containment run's count of identical runs side by side (≥ 1). */
+export const runCount = (s: { role?: { kind: string; count?: number } }): number =>
+	s.role?.kind === 'containment' ? Math.max(1, Math.round(s.role.count ?? 1)) : 1
 
 /** A thing in the room that is neither wall nor containment, e.g. furniture or equipment — for filtering and the BOM. */
 export interface ObjectRole {

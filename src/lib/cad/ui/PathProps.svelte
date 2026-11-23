@@ -216,6 +216,10 @@
 			<label class="row" title="Every corner's radius (mm), drawn as an arc on the plan; blank / 0 = sharp. Drag a corner's round grip to change that one.">Bend radius (mm)
 				<input class="inp" type="number" min="0" step="10" value={role.bendRadius ?? ''} placeholder="sharp"
 					onchange={(e) => { const r = Math.max(0, Number(e.currentTarget.value) || 0); save('Bend radius', { ...s, role: { ...role, bendRadius: r || undefined } }) }} /></label>
+			<!-- N identical runs side by side (User 2026-11-23: "4 PF36 conduits"): one route; fill against all of them, the BOM × N -->
+			<label class="row" title="How many identical {role.form}s run side by side here (e.g. 4 conduits): one route, the cables shared between them — fill is worked out against all of them, the BOM counts each, the plan draws them side by side. The size above is ONE of them.">Count
+				<input class="inp" type="number" min="1" max="50" step="1" value={role.count ?? 1}
+					onchange={(e) => { const n = Math.min(50, Math.max(1, Math.round(Number(e.currentTarget.value) || 1))); e.currentTarget.value = String(n); save('Count', { ...s, role: { ...role, count: n > 1 ? n : undefined } }) }} /></label>
 		{/if}
 	</PropGroup>
 {/if}

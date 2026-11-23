@@ -4,7 +4,7 @@ import type { Id, Pt, Outlet, Rack, Underlay, Space } from '../domain/types'
 import type { SectionCut } from '../domain/drawing'
 import type { Shape, PathNode } from '../domain/shapes'
 import type { ProjectIndex } from '../domain/project'
-import { isVertical, ellipsePts, arcPts, byDrawOrder, outlineOf, REGION_KINDS } from '../domain/shapes'
+import { isVertical, ellipsePts, arcPts, byDrawOrder, outlineOf, REGION_KINDS, runCount } from '../domain/shapes'
 import { corners, trimmedEnds } from '../domain/bends'
 import { outlineLoops, roundCorners, endCorners, nestLoops, type OutlineEdge } from '../domain/runOutline'
 import { layersOf, layerOf, primLayer } from '../domain/layers'
@@ -350,16 +350,17 @@ function runBodies(ix: ProjectIndex, shapes: Shape[], levelId: Id): { low: Prim[
 		const high = s.role.tier === 'high' || s.geom.nodes.every((n) => n.z > 0), layer = layerOf(s, known), color = s.style?.stroke, primary = !!s.role.primary
 		const k = `${high}|${layer}|${color ?? ''}|${primary}`
 		const b = buckets.get(k) ?? buckets.set(k, { high, layer, color, primary, edges: [] }).get(k)!
-		const nodes = new Map(s.geom.nodes.map((n) => [n.id, n])), bends = corners(s), w0 = s.section?.w ?? 50
+		// N runs side by side (4 × PF36): one body as wide as all of them
+		const n = runCount(s), nodes = new Map(s.geom.nodes.map((nd) => [nd.id, nd])), bends = corners(s), w0 = s.section?.w ?? 50
 		for (const sg of s.geom.segs) {
 			const a = nodes.get(sg.a), z = nodes.get(sg.b)
 			if (!a || !z || isVertical(a, z) || (a.levelId ?? s.levelId) !== levelId) continue
 			const [p, q] = trimmedEnds(bends, sg.id, a, z)
-			b.edges.push({ a: p, b: q, w: (sg.section ?? s.section)?.w ?? w0 })
+			b.edges.push({ a: p, b: q, w: ((sg.section ?? s.section)?.w ?? w0) * n })
 		}
 		for (const bd of bends.values()) {
 			if (bd.r <= 0 || (nodes.get(bd.node)?.levelId ?? s.levelId) !== levelId) continue
-			const w = Math.min(...s.geom.segs.filter((g) => bd.segs.includes(g.id)).map((g) => (g.section ?? s.section)?.w ?? w0))
+			const w = n * Math.min(...s.geom.segs.filter((g) => bd.segs.includes(g.id)).map((g) => (g.section ?? s.section)?.w ?? w0))
 			for (let i = 1; i < bd.arc.length; i++) b.edges.push({ a: bd.arc[i - 1], b: bd.arc[i], w })
 		}
 	}
@@ -381,7 +382,7 @@ function runPrims(s: Shape, levelId: Id, k: number, levelName: (id: Id) => strin
 	if (s.geom.kind !== 'path' || s.role?.kind !== 'containment') return []
 	const high = s.role.tier === 'high', cls = high ? 'run run-hit run-high' : 'run run-hit'
 	const nodes = new Map(s.geom.nodes.map((n) => [n.id, n]))
-	const w = s.section?.w ?? 50
+	const w = s.section?.w ?? 50, count = runCount(s)
 	const out: Prim[] = []
 	// corners with a radius (backlog "Bend radius"): the segments stop at the arc's tangent points, the arc joins them
 	const bends = corners(s), colour = s.style?.stroke ? { color: s.style.stroke } : {}
@@ -389,7 +390,7 @@ function runPrims(s: Shape, levelId: Id, k: number, levelName: (id: Id) => strin
 		const n = nodes.get(bd.node)
 		if (bd.r <= 0 || (n?.levelId ?? s.levelId) !== levelId) continue
 		const segW = s.geom.segs.filter((g) => bd.segs.includes(g.id)).map((g) => (g.section ?? s.section)?.w ?? w)
-		out.push({ k: 'line', pts: bd.arc, w: Math.min(...segW), cls, role: 'run-pick', src: s.id, ...colour })
+		out.push({ k: 'line', pts: bd.arc, w: Math.min(...segW) * count, cls, role: 'run-pick', src: s.id, ...colour })
 	}
 	for (const sg of s.geom.segs) {
 		const a = nodes.get(sg.a), b = nodes.get(sg.b)
@@ -404,12 +405,23 @@ function runPrims(s: Shape, levelId: Id, k: number, levelName: (id: Id) => strin
 			out.push({ k: 'text', at: { x: a.x + w, y: a.y }, text, size: RISER_LABEL * k, cls: 'riser-label', role: 'riser', src: s.id })
 		} else if ((a.levelId ?? s.levelId) === levelId) {
 			// a segment's own size wins (a reducer); a run's own color (several runs edited at once) over the tier's
-			out.push({ k: 'line', pts: trimmedEnds(bends, sg.id, a, b), w: (sg.section ?? s.section)?.w ?? w, cls, role: 'run-pick', src: s.id, ...colour })
+			const sw = (sg.section ?? s.section)?.w ?? w, ends = trimmedEnds(bends, sg.id, a, b)
+			out.push({ k: 'line', pts: ends, w: sw * count, cls, role: 'run-pick', src: s.id, ...colour })
+			// N side by side: a line between each two of them, along the segment
+			if (count > 1) {
+				const [p, q] = ends, L = Math.hypot(q.x - p.x, q.y - p.y) || 1, nx = -(q.y - p.y) / L, ny = (q.x - p.x) / L
+				for (let i = 1; i < count; i++) {
+					const o = (i - count / 2) * sw
+					out.push({ k: 'line', pts: [{ x: p.x + nx * o, y: p.y + ny * o }, { x: q.x + nx * o, y: q.y + ny * o }], cls: `run-body${high ? ' run-high' : ''}`, role: 'run', src: s.id, ...colour })
+				}
+			}
 		}
 	}
 	// the run's label sits along it, by the middle of its longest segment on this level (UX review L3: at the first node
 	// it landed on the racks and risers there)
-	if (s.label) {
+	// N side by side: "4 × Ø45.5" in its label (with its own label first, if it has one)
+	const label = count > 1 ? `${s.label ? `${s.label} · ` : ''}${count} × ${s.section?.round ? `Ø${s.section.w}` : `${s.section?.w ?? w}×${s.section?.h ?? ''}`}` : s.label
+	if (label) {
 		let best: { a: PathNode; b: PathNode; len: number } | null = null
 		for (const sg of s.geom.segs) {
 			const a = nodes.get(sg.a), b = nodes.get(sg.b)
@@ -417,8 +429,8 @@ function runPrims(s: Shape, levelId: Id, k: number, levelName: (id: Id) => strin
 			const len = Math.hypot(b.x - a.x, b.y - a.y)
 			if (!best || len > best.len) best = { a, b, len }
 		}
-		const at = best ? { x: (best.a.x + best.b.x) / 2, y: (best.a.y + best.b.y) / 2 - w } : s.geom.nodes[0]
-		if (at) out.push({ k: 'text', at, text: s.label, size: LABEL * k, anchor: best ? 'middle' : undefined, cls: 'label run-label', role: 'run-label', src: s.id })
+		const at = best ? { x: (best.a.x + best.b.x) / 2, y: (best.a.y + best.b.y) / 2 - w * count } : s.geom.nodes[0]
+		if (at) out.push({ k: 'text', at, text: label, size: LABEL * k, anchor: best ? 'middle' : undefined, cls: 'label run-label', role: 'run-label', src: s.id })
 	}
 	return out
 }

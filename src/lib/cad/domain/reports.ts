@@ -10,7 +10,7 @@ import { cableMedia, cableTypeLabel } from './cableTypes'
 import type { Shape, Section, PathNode } from './shapes'
 import { naturalCompare } from './labels'
 import { sameEnd } from './cords'
-import { isVertical } from './shapes'
+import { isVertical, runCount } from './shapes'
 import { rackBom, makerModel } from './rackBom'
 import { estimateMetres, type Estimate } from './estimates'
 import { cablesOf, linkCores } from './multicore'
@@ -128,7 +128,8 @@ export function cordBom(cords: Cord[], typeLabel: (id: string) => string = (x) =
 
 // ── Containment lengths ───────────────────────────────────────────────────────────────────────────────────────────
 
-export interface RunLength { id: Id; label: string; form: string; size: string; horizontalM: number; verticalM: number }
+/** Metres are of every run of it: a run of 4 identical conduits side by side counts each (`count` 4). */
+export interface RunLength { id: Id; label: string; form: string; size: string; horizontalM: number; verticalM: number; count: number }
 
 /** "100×50" or "Ø25" — the BOM key of a section. */
 export const sectionKey = (s: Section | undefined) => (!s ? '?' : s.round ? `Ø${s.w}` : `${s.w}×${s.h}`)
@@ -148,7 +149,8 @@ export function runLengths(p: ProjectIndex): RunLength[] {
 			if (isVertical(a, b)) v += len
 			else h += len
 		}
-		out.push({ id: s.id, label: s.label ?? '', form: s.role.form, size: sectionKey(s.section), horizontalM: h, verticalM: v })
+		const n = runCount(s)
+		out.push({ id: s.id, label: s.label ?? '', form: s.role.form, size: sectionKey(s.section), horizontalM: h * n, verticalM: v * n, count: n })
 	}
 	return out
 }

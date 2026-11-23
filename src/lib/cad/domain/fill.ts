@@ -8,6 +8,7 @@
 import type { Id, Level, ProjectSettings } from './types'
 import { cableTypeOf, cableMedia } from './cableTypes'
 import type { Section, Shape } from './shapes'
+import { runCount } from './shapes'
 import type { ProjectIndex } from './project'
 import type { Route } from './routing'
 import type { Estimate } from './estimates'
@@ -81,7 +82,8 @@ export function fillBySegment(ix: ProjectIndex, routes: Map<Id, Route>, limitPct
 		let f = out.get(k)
 		if (!f) {
 			const sec = s?.type === 'shape' && s.geom.kind === 'path' ? (s.geom.segs.find((x) => x.id === seg)?.section ?? s.section) : undefined
-			f = { shape, seg, cables: {}, cableMm2: 0, areaMm2: sectionArea(sec), pct: 0, over: false }
+			// N runs side by side (4 × PF36): the cables shared evenly — fill against all of them
+			f = { shape, seg, cables: {}, cableMm2: 0, areaMm2: sectionArea(sec) * (s?.type === 'shape' ? runCount(s) : 1), pct: 0, over: false }
 			out.set(k, f)
 		}
 		return f
