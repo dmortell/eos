@@ -28,20 +28,26 @@ suggested quick win. A–E are to work on; F is accounted for only. The detailed
 full notes for 1–8.
 
 ### A. Open backlog
-- [ ] **1. Redo the tool icon buttons** — pick mock-up A–E first (entry below). P2 · M
-- [ ] **2. Tool strip options 1 / 3** — review (entry below). P3
-- [ ] **3. Menus options 1 / 3** — review; plus a Plan / Elevation / Section / Riser switch in View, and where Rename / Delete level go. P3
+- [x] **1. Redo the tool icon buttons** — closed 2026-11-23 (User: keep the tool buttons as they are).
+- [x] **2. Tool strip options 1 / 3** — closed 2026-11-23 (User: close the tool-button reviews).
+- [ ] **3. Menus options 1 / 3** — review still open (User 2026-11-23: keep the menu review open); plus a Plan / Elevation / Section / Riser switch in View, and where Rename / Delete level go. P3
 - [x] **4. Hover a device: its border only** — done 2026-11-22 (`phase8.md`).
 - [x] **5. Tooltips: wait once, then instant** — done 2026-11-22 (`phase8.md`).
 - [ ] **6. Containment between 33F 3303 and 33F 3307** — BUILT 2026-11-22: the whole-floor plan (33F with 33F-Model.pdf; `phase8.md`); left: place 3303 and 3307 on it (User), then draw the link run  — 24 backbone cables have "No route"; plan first (entry below). P2 · M? **Proposal 2026-11-22 (User: a whole-floor PDF, mark where 3303 and 3307 are, draw the runs between): see the reply that day — place each area plan on a whole-floor plan by two point pairs, show the areas ghosted there, draw the link run on the whole floor, routing joins the three through the placements.**
 - [x] **7. (closed 2026-11-22, User: not needed) Data: patch the 33IDF2 TVs to 33IDF1** (Journey, 33F 3303 — User 2026-11-22: it means 33F’s IDF2; the 30F IDF2 room was deleted that day) — confirm the ports first.
-- [ ] **8. Outside review and markup** — PDF round trip recommended; waits on 20.
+- [ ] **8. Outside review and markup** — ready to build (20 answered 2026-11-23): Release › Import review… reads a
+  reviewer's marked-up release PDF (anyone on the team may import) → an overlay per reviewer on each sheet, printable
+  (a toggle); its comments wait in an inbox, each accepted (→ a Log change) or dismissed; a verdict OK / Revise per
+  sheet; no guest accounts — reviews always come back as PDFs by email. P? · L
 - [x] **9. (done 2026-11-22) Tidy this backlog's "Suggested order"** — still lists built / moved work (cord workflow, Batch 4).
 
 - [x] **52. A selected box hides its own border color** — done 2026-11-22: a halo under the item (`phase8.md`) (User 2026-11-22 todo) — with a rectangle (or other shape)
   selected, the blue selection outline covers its border, so a Color / line type change in Properties can't be seen
   until it's deselected. E.g. draw the selection offset outside the shape, or as a thin dashed halo, leaving the
   border's own color showing. P2 · S
+- [ ] **52b. Selection halo on other kinds** (User 2026-11-23: "check if we need to fix other shapes / lines / 3D items
+  too") — check circles, arcs, polygons, plain lines, runs, walls, boxes / 3D items, text and blocks in plan,
+  elevation and sheet: wherever the selection still hides the item's own color / line type, use the same halo.
 - [ ] **53. Data: a fibre tie between 33IDF1 and 33IDF2** (Journey, 33F 3303; User 2026-11-22 todo) — a fibre
   enclosure / panel in each room, linked (Link to…, a tie within the floor); which racks, U, core count and connector
   to confirm with the User first.
@@ -61,24 +67,41 @@ full notes for 1–8.
   - [ ] 16e. Room-elevation marker over the room name
   - [x] 16f. (already fixed: the tool hint gives way to the bulk one) Double hint in bulk patch
   - [x] 16g. (done: the other pane outlines since Round 10; the tip’s halo 2026-11-22) Hover outline only in the active pane; + tip has no halo
-- [ ] **17. Data on live projects** — 30F IDF1 "48P Rack Tie" panels have no cables; 81 import notes on Journey to clear; 161 LR import notes to review; Tourney tidy-up (`later.md:75-76`, `phase8.md:4306, 4421`).
+- [ ] **17. Data on live projects** — 30F IDF1 "48P Rack Tie" panels have no cables; 81 import notes on Journey to clear; 161 LR import notes to review; Tourney tidy-up (`later.md:75-76`, `phase8.md:4306, 4421`). **User 2026-11-23:** review LR's 161 import notes and report (no changes); leave the rest for now.
 - [ ] **18. Port loupe / magnifier** for tiny ports (deferred).
 - [x] **19. (done 2026-11-22) Stale status** — README status line (2026-10-03); tick "Change log" in `decisions.md:131` (edit history built 2026-10-17).
 
 ### C. Decisions for the User
-- [ ] **20. Outside review** (`outside-review.md:73-78`) — who imports; comments → Log change or an inbox; verdict per sheet / release / both; does the overlay print; guest accounts ever needed?
-- [ ] **21. Racks vs cabinets** — one kind with Doors / Enclosed, or two kinds? (`decisions.md:59`)
-- [ ] **22. Rack BOM products** — custom vs the Panduit seed; maybe moot now (`decisions.md:62`)
-- [ ] **23. Zones on one floor** — one model or separate? (`decisions.md:54`)
-- [ ] **24. Import Pages models (7.4)?** (`decisions.md:55`)
-- [ ] **25. Plan Z-cuts** (Bottom / Top Z band) or rely on layers? (`decisions.md:159`)
-- [ ] **26. Power and AV** — new usages / cable types, or a separate power model? (`decisions.md:89`)
-- [ ] **27. DRAFT stamp** on non-release PDFs (`decisions.md:132`)
-- [ ] **28. Deleting / voiding a release** (`decisions.md:134`)
-- [ ] **29. A list of all views** (Ctrl+K viewports); rotate viewports (`decisions.md:122-123`)
-- [ ] **30. Revisions per package or per sheet**; must the change list fit on one sheet? (`design-log.md:95-97`)
-- [ ] **31. Depth band** — keep (per view, draggable edges) or drop for sections; dim the rest while selecting? (`ux-review.md:633, 1041`)
-- [ ] **32. Delete the legacy tools (7.6)** and the workspace / edit3d / parts routes; finish the soft retire (7.5) (`later.md:62, 80`)
+Answered 2026-11-23 (User). A decided item that needs building has a "→ build" line; the build is its own todo.
+- [x] **20. Outside review** — anyone on the team imports; comments go to an inbox, accepted one by one (→ Log
+  change); verdict per sheet; the overlay can print; no guest accounts (PDFs by email). → build: 8.
+- [x] **21. Racks vs cabinets** — one kind with options: frame kinds only (2-post / 4-post / VCM / desk / shelf) with
+  "Doors" (front / rear) and "Enclosed" (side panels + roof); existing cabinets migrate to 4-post + enclosed + doors.
+  → build: 54.
+- [x] **22. Rack BOM products** — count custom products too (templates with a product), not only the Panduit seed. → build: 55.
+- [x] **23. Zones on one floor** — skipped here: being built in another session (see 6, the whole-floor plan).
+- [ ] **24. Import Pages models (7.4)?** — User: show the counts first (what each project's Pages models hold), then decide. → 56.
+- [x] **25. Plan Z-cuts** — no band; use the low / high layers.
+- [x] **26. Power, AV, security, EMS** — no separate models: the same outlets, runs, routes, fill and rendering code as
+  structured cabling, but each kept as its own CATEGORY (separate contractors) with its own socket types and cable
+  types, and separable in drawings (layers / filters) and BOMs. Needed only now and then. → build: 57.
+- [x] **27. DRAFT stamp** — none.
+- [x] **28. Deleting / voiding a release** — the newest release can be deleted (its revisions come off the sheets, its
+  frozen copies go, the PDF stays in Uploads); older ones can only be marked void. → build: 58.
+- [x] **29. A list of all views** — Ctrl+K also finds viewports (with their sheet); no viewport rotation. → build: 59.
+- [x] **30. Revisions per sheet** — as today (each sheet steps its own revision).
+- [x] **31. Depth band** — drop it (rely on sections). → build: 60.
+- [x] **32. Legacy tools** — not yet: no deleting until cad is feature complete.
+
+### C2. Built from the decisions (2026-11-23)
+- [ ] **54. Racks and cabinets as one kind** (21) — Doors / Enclosed options, migration of cabinet racks, BOM names. P3 · M
+- [ ] **55. Rack BOM counts custom products** (22). P3 · S
+- [ ] **56. Count what Pages models hold per project** (24) — conduits, walls, notes, sections; report to the User. P3 · S
+- [ ] **57. Cabling categories: power, AV, security, EMS** (26) — a category on usages / cable types / socket types;
+  draw, filter (layers) and BOM by category; same routing and fill code. P2 · M
+- [ ] **58. Delete the newest release, void older ones** (28). P3 · S–M
+- [ ] **59. Ctrl+K finds viewports** (29). P3 · S
+- [ ] **60. Drop the depth band** (31) — remove its UI and per-view setting; elevations / sections take depth from sections. P3 · S–M
 
 ### D. Features not yet in cad (from other docs)
 - [ ] **33. DXF import** — an uploaded `.dxf` → shapes or an XREF (`pages/todo.md:46`, `kestrel-adoption.md`)
@@ -134,7 +157,7 @@ full notes for 1–8.
      follows the walkthrough stages, friendlier to non-CAD users, but splits drawing tools by trade.
   Still open whichever stays: a Plan / Elevation / Section / Riser switch in View; where Rename / Delete this level
   belong (Navigator only?). **P3 · S–M**.
-- [ ] ❓ **Tool strip: options** (User 2026-10-15: "do a similar review of the toolbar"; then "try 2 inside the floating palette … I might change later" — **2 inside 4 BUILT 2026-10-15**, `phase8.md`; the others stay here for review). Today: 29 icons in 6 groups
+- [x] **Tool strip: options** (CLOSED 2026-11-23, User: keep the tool buttons as they are) (User 2026-10-15: "do a similar review of the toolbar"; then "try 2 inside the floating palette … I might change later" — **2 inside 4 BUILT 2026-10-15**, `phase8.md`; the others stay here for review). Today: 29 icons in 6 groups
   (Select / modify 6 · Draw 6 · Annotate 5 · Building 4 · Cabling 7 · Sheet 1), ~900 px before the undo / layout
   buttons; greyed where they don't work (a group with none folds to "⋯", so nothing moves — User's earlier ask).
   Found: it no longer matches the new menus (Dimension is under Draw here, Annotate there; Renumber under Cabling here,
@@ -160,7 +183,7 @@ full notes for 1–8.
   ceiling route?), whether it's one run drawn across two plans (multi-building: `multi-building-plan.md`) or two runs
   joined at a hand-off point, and what a cable's length is meanwhile (Route through / By hand). Plan first, ask
   before building. **P2 · M?**
-- [ ] **Redo the tool icon buttons** (User 2026-10-26: "I can never find the ones I'm looking for without checking all
+- [x] **Redo the tool icon buttons** (CLOSED 2026-11-23, User: keep them as they are) (User 2026-10-26: "I can never find the ones I'm looking for without checking all
   the popouts") — the flyouts hide most tools behind the last-used one, so finding a tool means opening each popout.
   Options to weigh with the strip review above: every tool its own button again (grouped, the groups as the menus), a
   label under / beside each icon, a searchable tool picker (type "cord"), or the palette (4) with labels. Ask before
