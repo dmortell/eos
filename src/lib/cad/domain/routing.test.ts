@@ -186,3 +186,29 @@ describe('cable schedule (User: on screen, then Excel)', () => {
 		expect(rows.map((r) => r.linkId)).toEqual(['K2', 'K10'])
 	})
 })
+
+describe('keep a cable off a run; drop lines (User 2026-11-23)', () => {
+	// T1 along y = 500; a short cut S1 at y = 900 from x 2000 to 8000 joined to T1 by two stubs; the outlet at 8000, 1500
+	const cut = () => [
+		run('S1', 'L1', [[2000, 900, 0], [8000, 900, 0]]), run('U1', 'L1', [[2000, 500, 0], [2000, 900, 0]]), run('U2', 'L1', [[8000, 500, 0], [8000, 900, 0]]),
+		outlet('O1', 'L1', 8000, 1500), link('K1', 'O1'),
+	]
+	it('Keep off: the next best way without that run; none left says why', () => {
+		const ix = project(cut())
+		const r = routeLinks(ix).get('K1')!
+		expect(r.segs.map((s) => s.shape)).toContain('S1')   // nearest to the outlet: S1
+		const kept = project([...cut().slice(0, 4), { ...link('K1', 'O1'), avoid: ['S1'] }])
+		const k = routeLinks(kept).get('K1')!
+		expect(k.problem).toBeUndefined()
+		expect(k.segs.map((s) => s.shape)).not.toContain('S1')
+		const stuck = project([...cut().slice(0, 4), { ...link('K1', 'O1'), avoid: ['S1', 'T1', 'U1', 'U2'] }])
+		expect(routeLinks(stuck).get('K1')!.problem).toMatch(/kept off/)
+	})
+	it('a route knows where each end joins its run: rack and outlet, on their level', () => {
+		const r = routeLinks(project([outlet('O1', 'L1', 8000, 1500), link('K1', 'O1')])).get('K1')!
+		expect(r.drops).toEqual([
+			{ levelId: 'L1', from: { x: 0, y: 0 }, to: { x: 0, y: 500 } },
+			{ levelId: 'L1', from: { x: 8000, y: 1500 }, to: { x: 8000, y: 500 } },
+		])
+	})
+})

@@ -131,7 +131,12 @@ export function routesOf(ix: ProjectIndex, routes: Map<Id, Route>, levelId: Id, 
 			out.push(Math.hypot(b.x - a.x, b.y - a.y) < 0.5 ? { k: 'circle', c: a, r: 150, cls } : { k: 'line', pts: [a, b], cls })
 		}
 	}
-	for (const id of links) draw(routes.get(id)?.segs ?? [], 'trace-route')
+	for (const id of links) {
+		const r = routes.get(id)
+		draw(r?.segs ?? [], 'trace-route')
+		// and where its ends join the runs (drop lines)
+		for (const d of r?.drops ?? []) if (d.levelId === levelId) out.push({ k: 'line', pts: [d.from, d.to], cls: 'trace-route trace-route-est' })
+	}
 	// a selected outlet's ESTIMATED cables (ports with no link), only where its room is set — a guessed room isn't shown as if it were known
 	const outlets = new Set(selection.filter((id) => ix.get(id)?.type === 'outlet'))
 	for (const e of estimates) if (e.roomSet && outlets.has(e.outletId)) draw(e.segs, 'trace-route trace-route-est')
@@ -182,6 +187,17 @@ export function allRoutesOf(ix: ProjectIndex, routes: Map<Id, Route>, levelId: I
 			const off = (i - (list.length - 1) / 2) * 60   // side by side, 60 mm apart
 			prims.push({ k: 'line', pts: [{ x: a.x + nx * off, y: a.y + ny * off }, { x: b.x + nx * off, y: b.y + ny * off }], cls: rooms.get(r.id) ? 'all-route' : 'all-route all-route-est', color: color.get(r.id) })
 		})
+	}
+	// DROP LINES (the legacy Outlets tool's "secondary routes", User 2026-11-23): each cable's end — outlet or rack — to
+	// where it joins its run, in its room's color; one line per end (an outlet's ports share it)
+	const seen = new Set<string>()
+	for (const [linkId, r] of routes) for (const d of r.drops ?? []) {
+		if (d.levelId !== levelId) continue
+		const k = `${Math.round(d.from.x)},${Math.round(d.from.y)}>${Math.round(d.to.x)},${Math.round(d.to.y)}`
+		if (seen.has(k) || Math.hypot(d.to.x - d.from.x, d.to.y - d.from.y) < 1) continue
+		seen.add(k)
+		const room = roomOf(linkId)
+		prims.push({ k: 'line', pts: [d.from, d.to], cls: 'route-drop', ...(room && color.get(room) ? { color: color.get(room) } : {}) })
 	}
 	return { prims, rooms: all.map((r) => ({ ...r, color: color.get(r.id)! })) }
 }

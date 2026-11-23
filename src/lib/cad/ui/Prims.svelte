@@ -262,6 +262,8 @@
 	.all-route { stroke-width: 3; opacity: 0.75; fill: none; stroke-linecap: round; }
 	/* estimated cables (outlet ports not linked yet): dashed and lighter */
 	.all-route-est { opacity: 0.4; stroke-dasharray: 8 6; stroke-linecap: butt; }
+	/* drop lines (Routes): an outlet / rack to where it joins its run (the legacy Outlets tool's secondary routes) */
+	.route-drop { stroke-width: 1.5; opacity: 0.85; fill: none; stroke-dasharray: 4 3; }
 	.trace-route.trace-route-est { stroke-dasharray: 3 6; opacity: 0.6; }
 	.trace-route { stroke: #10b981; stroke-width: 4; stroke-dasharray: 8 5; opacity: 0.85; fill: none; stroke-linecap: round; }
 	.trace-port { fill: #f59e0b; fill-opacity: 0.35; stroke: #d97706; stroke-width: 2; }

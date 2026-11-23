@@ -16,7 +16,7 @@ import type { Shape, PathNode } from './shapes'
 import type { ProjectIndex } from './project'
 import { cablesOf } from './multicore'
 import { roomFloor } from './devices'
-import { placeOf, toMain, mainLevelOf } from './areaPlace'
+import { placeOf, toMain, fromMain, mainLevelOf } from './areaPlace'
 
 export const JOIN_MM = 50
 /** The furthest an outlet reaches (plan + height) to join a run (User: 10 m); beyond it the port has no route. */
@@ -205,7 +205,7 @@ function tapIndex(g: Graph): TapIndex {
 
 /** Where an outlet port joins: the nearest run of its tier (wall runs take any) on its level serving its room — the
  *  lowest segment on a tie. Searched ring by ring over a grid, so it looks at the runs near the outlet only. */
-export function outletTap(g: Graph, ix: ProjectIndex, o: Outlet, roomId: Id | undefined): Tap | null {
+export function outletTap(g: Graph, ix: ProjectIndex, o: Outlet, roomId: Id | undefined, skip?: readonly Id[]): Tap | null {
 	if (!o.at) return null
 	const level = ix.getOf('level', o.levelId)
 	const x = { ...toMain(placeOf(ix, o.levelId), o.at), z: levelElevation(ix, o.levelId) + outletZ(o, level) }
@@ -216,7 +216,7 @@ export function outletTap(g: Graph, ix: ProjectIndex, o: Outlet, roomId: Id | un
 		if (seen.has(i)) return
 		seen.add(i)
 		const s = g.segs[i], role = s.shape.role
-		if (role?.kind !== 'containment' || (role.tier !== o.tier && role.tier !== 'wall') || !serves(s.shape, roomId)) return
+		if (role?.kind !== 'containment' || (role.tier !== o.tier && role.tier !== 'wall') || !serves(s.shape, roomId) || skip?.includes(s.shape.id)) return
 		const t = tapOn(g, i, x)
 		if (t.dropMm <= MAX_OUTLET_DROP_MM && (!best || t.dropMm < best.dropMm || (t.dropMm === best.dropMm && i < best.seg))) best = t
 	}
@@ -249,13 +249,13 @@ export const RACK_REACH_MM = 3000
 
 /** Where a rack's cables can join: each run serving its room on its level within RACK_REACH_MM (plan), at that run's
  *  nearest point — else just the nearest run. */
-export function rackTaps(g: Graph, ix: ProjectIndex, rack: Rack, device: Device | undefined): Tap[] {
+export function rackTaps(g: Graph, ix: ProjectIndex, rack: Rack, device: Device | undefined, skip?: readonly Id[]): Tap[] {
 	if (!rack.at) return []
 	const x = { ...toMain(placeOf(ix, rack.levelId), rack.at), z: levelElevation(ix, rack.levelId) + roomFloor(ix, rack.spaceId) + panelZ(device) }   // on its room's floor
 	const best = new Map<Id, Tap & { plan: number }>()
 	for (const i of tapLevels(ix, rack.levelId).flatMap((lv) => tapIndex(g).byLevel.get(lv) ?? [])) {   // not onto a riser, nor a stub (see tapIndex)
 		const s = g.segs[i]
-		if (!serves(s.shape, rack.spaceId)) continue
+		if (!serves(s.shape, rack.spaceId) || skip?.includes(s.shape.id)) continue
 		const plan = project3({ ...s.p, z: 0 }, { ...s.q, z: 0 }, { ...x, z: 0 }).d
 		const t = { ...tapOn(g, i, x), plan }, cur = best.get(s.shape.id)
 		if (!cur || t.dropMm < cur.dropMm) best.set(s.shape.id, t)
@@ -318,6 +318,9 @@ export interface Route {
 	/** Over the 90 m permanent-link limit. */
 	over90?: boolean
 	handSet?: boolean
+	/** Where each end joins its run (User 2026-11-23, the legacy Outlets tool's "secondary routes"): from the outlet /
+	 *  rack (its plan point) to the point on the run, in that end's level's coordinates. Shortest-way routes only. */
+	drops?: { levelId: Id; from: { x: number; y: number }; to: { x: number; y: number } }[]
 }
 
 export interface CableSettings { slackM: number; wastePct: number }
@@ -368,10 +371,11 @@ export function routeLinksOn(g: Graph, ix: ProjectIndex, cable: CableSettings = 
 	// one Dijkstra per (rack, panel height): cheap at these sizes, and shared by the panel's links
 	const runs = new Map<string, ReturnType<typeof fromTaps> & { taps: Tap[] }>()
 	const tapCache = new Map<string, Tap | null>()
-	const fromRack = (rack: Rack, dev: Device | undefined) => {
-		const k = `${rack.id}|${dev?.u ?? 0}|${dev?.heightU ?? 0}`
+	// a cable kept off some runs (Link.avoid) gets its own walk without them
+	const fromRack = (rack: Rack, dev: Device | undefined, skip?: readonly Id[]) => {
+		const k = `${rack.id}|${dev?.u ?? 0}|${dev?.heightU ?? 0}|${skip?.join(',') ?? ''}`
 		let r = runs.get(k)
-		if (!r) { const taps = rackTaps(g, ix, rack, dev); r = { ...fromTaps(g, taps), taps }; runs.set(k, r) }
+		if (!r) { const taps = rackTaps(g, ix, rack, dev, skip); r = { ...fromTaps(g, taps, skip?.length ? { skip: [...skip] } : undefined), taps }; runs.set(k, r) }
 		return r
 	}
 	for (const l of ix.links) {
@@ -383,22 +387,23 @@ export function routeLinksOn(g: Graph, ix: ProjectIndex, cable: CableSettings = 
 			out.set(l.id, { ...r, linkId: l.id, lengthM, handSet, over90: lengthM != null && lengthM > MAX_PERMANENT_LINK_M })
 		}
 		if (!rack?.at) { finish({ segs: [], problem: rack ? 'the rack is not placed on a plan' : 'the panel is not in a rack' }); continue }
-		const from = fromRack(rack, dev)
-		if (!from.taps.length) { finish({ segs: [], problem: `no run serving ${ix.nameOf(rack.spaceId) || 'its room'} on the rack's level` }); continue }
+		const avoid = l.avoid?.length && !viaList(l).length ? l.avoid : undefined
+		const from = fromRack(rack, dev, avoid)
+		if (!from.taps.length) { finish({ segs: [], problem: `no run serving ${ix.nameOf(rack.spaceId) || 'its room'} on the rack's level${avoid ? ' (others are kept off it — Properties › Cables here › Allow back)' : ''}` }); continue }
 		// the other end: an outlet port, or another rack's panel
 		let ends: Tap[]
 		if (outlet?.type === 'outlet') {
 			if (!outlet.at) { finish({ segs: [], problem: 'the outlet is not placed' }); continue }
 			const port = outlet.ports.find((p) => p.port === l.b.port)
-			const room = port?.serverRoomId ?? rack.spaceId, tk = `${outlet.id}|${room ?? ''}`   // an outlet's ports share their tap
+			const room = port?.serverRoomId ?? rack.spaceId, tk = `${outlet.id}|${room ?? ''}|${avoid?.join(',') ?? ''}`   // an outlet's ports share their tap
 			let t = tapCache.get(tk)
-			if (t === undefined) tapCache.set(tk, (t = outletTap(g, ix, outlet, room)))
-			if (!t) { finish({ segs: [], problem: noRunProblem(outlet.tier) }); continue }
+			if (t === undefined) tapCache.set(tk, (t = outletTap(g, ix, outlet, room, avoid)))
+			if (!t) { finish({ segs: [], problem: noRunProblem(outlet.tier) + (avoid ? ' (some runs are kept off it — Properties › Cables here › Allow back)' : '') }); continue }
 			ends = [t]
 		} else {
 			const d2 = deviceOf(l.b.on), r2 = rackOfDevice(d2)
 			if (!r2?.at) { finish({ segs: [], problem: 'the far panel is not in a placed rack' }); continue }
-			ends = rackTaps(g, ix, r2, d2)
+			ends = rackTaps(g, ix, r2, d2, avoid)
 		}
 		// through chosen runs, in order (a riser for diversity; a route set by hand): rack → run 1 → … → run n → far
 		// end, each leg the shortest way; a run is entered at whichever of its pieces makes the whole cheapest
@@ -415,9 +420,16 @@ export function routeLinksOn(g: Graph, ix: ProjectIndex, cable: CableSettings = 
 		}
 		// cost at each end tap: reach its segment's piece ends from the rack, or (same segment as a rack tap) go along it
 		const best = bestEnd(g, from, ends)
-		if (!best) { finish({ segs: [], problem: 'the runs at the two ends are not connected' }); continue }
-		// the segments walked, from the far end back to the rack
-		finish({ segs: bestSegs(g, from, best), routeMm: best.cost })
+		if (!best) { finish({ segs: [], problem: avoid ? `no way round without ${avoid.map((id) => ix.nameOf(id) || 'the run kept off').join(', ')} (Properties › Keep off)` : 'the runs at the two ends are not connected' }); continue }
+		// the segments walked, from the far end back to the rack; and where each end joins its run (drop lines)
+		const tapAt = (tp: Tap | undefined) => { if (!tp) return null; const s = g.segs[tp.seg]; return { x: s.p.x + (s.q.x - s.p.x) * tp.t, y: s.p.y + (s.q.y - s.p.y) * tp.t } }
+		const drop = (levelId: Id | undefined, at: { x: number; y: number } | undefined, tp: Tap | undefined) => {
+			const to = tapAt(tp)
+			return levelId && at && to ? [{ levelId, from: { x: at.x, y: at.y }, to: fromMain(placeOf(ix, levelId), to) }] : []
+		}
+		const rackTap = best.node >= 0 ? from.taps[from.startTap[best.node]] : from.taps.find((t) => t.seg === best.tap.seg)
+		const far = outlet?.type === 'outlet' ? outlet : rackOfDevice(deviceOf(l.b.on))
+		finish({ segs: bestSegs(g, from, best), routeMm: best.cost, drops: [...drop(rack.levelId, rack.at, rackTap), ...drop(far?.levelId, far?.at, best.tap)] })
 	}
 	return out
 }

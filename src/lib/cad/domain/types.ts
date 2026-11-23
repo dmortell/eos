@@ -302,6 +302,9 @@ export interface Link {
 	 *  risers for diversity), or a whole route set by hand. One run is a plain id (as before), several an array
 	 *  (`viaList` in domain/routing.ts reads both). Routing finds the shortest way between them (Phase 5). */
 	via?: Id | Id[]
+	/** Runs this cable is kept OFF (User 2026-11-23: "re-assign them" — a tie between two racks of one room took the
+	 *  33F link conduit because it was shortest): routing finds the best way without them. `via` wins over it. */
+	avoid?: Id[]
 	/** Re-allocation never moves a pinned link. */
 	pinned?: boolean
 	/** A core of this MULTI-CORE cable (domain/multicore.ts): every core of one cable has the same id here, and the

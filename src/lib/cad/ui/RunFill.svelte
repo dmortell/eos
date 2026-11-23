@@ -12,6 +12,8 @@
 	import { activeSheets } from '../app/shellActions'
 	import { viewToSheet } from '../app/sheetActions'
 	import { riserLevels } from '../domain/fill'
+	import { cableKey } from '../domain/multicore'
+	import type { Link } from '../domain/types'
 
 	let { project, ws, s }: { project: CadProject; ws: Workspace; s: Shape } = $props()
 
@@ -34,6 +36,34 @@
 		return { sec, p, runs, gap, W: runs.length * p.w + (runs.length - 1) * gap, dropped: runs.reduce((a, q) => a + q.dropped, 0), capped: runs.reduce((a, q) => a + q.capped, 0), drawn: runs.reduce((a, q) => a + q.cables.length, 0) }
 	})
 	const pct = (v: number) => (Number.isFinite(v) ? `${v.toFixed(1)}%` : 'no section size')
+	// ── Cables here: the routed cables on the shown segment, grouped "kind panel-rack → far rack / outlets" ──
+	const rackName = (on: string) => { const d = project.index.getOf('device', on); return (d && project.index.nameOf(d.rackId)) || project.index.nameOf(on) || '?' }
+	const farName = (l: Link) => { const e = project.index.get(l.b.on); return e?.type === 'outlet' ? `outlets${e.levelId ? ` on ${project.index.nameOf(e.levelId)}` : ''}` : rackName(l.b.on) }
+	const here = $derived.by(() => {
+		void project.rev
+		if (!shown) return []
+		const by = new Map<string, { key: string; what: string; links: Link[] }>()
+		for (const l of project.index.links) {
+			if (!project.routes.get(l.id)?.segs.some((x) => x.shape === s.id && x.seg === shown.g.id)) continue
+			const what = `${l.kind} ${rackName(l.a.on)} → ${farName(l)}`
+			const g = by.get(what) ?? by.set(what, { key: what, what, links: [] }).get(what)!
+			g.links.push(l)
+		}
+		return [...by.values()].sort((a, b) => b.links.length - a.links.length || a.what.localeCompare(b.what))
+	})
+	const kept = $derived.by(() => { void project.rev; return project.index.links.filter((l) => l.avoid?.includes(s.id)) })
+	/** Keep cables off this run (or let them back): one undo step; a multi-core cable's cores all go together. */
+	function keepOff(ls: Link[], off: boolean) {
+		const keys = new Set(ls.map(cableKey)), all = project.index.links.filter((l) => keys.has(cableKey(l))), name = s.label || project.index.nameOf(s.id) || 'this run'
+		project.store.transact(off ? `Keep ${all.length} cable(s) off ${name}` : `Let ${all.length} cable(s) use ${name} again`, (tx) => {
+			for (const l of all) {
+				const rest = (l.avoid ?? []).filter((id) => id !== s.id), avoid = off ? [...rest, s.id] : rest
+				const { avoid: _a, ...plain } = l
+				tx.put(avoid.length ? { ...plain, avoid } : plain)
+			}
+		})
+		ws.say(off ? `${all.length} cable(s) now route without ${name} — check their lengths (Links table); Undo puts them back` : `${all.length} cable(s) may use ${name} again`)
+	}
 	const types = $derived([...new Set(segs.flatMap((x) => Object.keys(x.f!.cables)))])
 	const colourOf = (t: string) => cableColor(project.settings, types, t)
 	/** "20 × cat6a (2 by hand)", "4 × power (by hand)", "12 × cat6a (4 estimated)". */
@@ -114,6 +144,29 @@
 	{/if}
 {/if}
 </PropGroup>
+<!-- CABLES HERE (User 2026-11-23: "view which cables are going to which conduits, and be able to re-assign them"):
+     the routed cables on the shown segment, grouped by kind and ends — Select shows them (and their routes), Keep off
+     reroutes them the next best way without this run (Link.avoid); the ones kept off are listed to let back. -->
+<PropGroup kind="run" title="Cables here">
+	{#if shown}
+		{@const n = here.reduce((k, g) => k + g.links.length, 0)}
+		<p class="text-zinc-500">Seg {shown.i}: {n} routed cable{n === 1 ? '' : 's'}{shown.f?.hand || shown.f?.est ? ' (plus the ones by hand / estimated, not listed)' : ''}</p>
+		{#each here as g (g.key)}
+			<div class="grp">
+				<span class="gn" title={g.what}>{g.links.length} × {g.what}</span>
+				<button class="btn" title="Select these cables — their routes show on the plan" onclick={() => ws.select(g.links.map((l) => l.id))}>Select</button>
+				<button class="btn" title="Route these cables the next best way without {s.label || 'this run'} (Undo puts them back) — they then show under Kept off below" onclick={() => keepOff(g.links, true)}>Keep off</button>
+			</div>
+		{/each}
+		{#if kept.length}
+			<div class="grp kept">
+				<span class="gn" title="Cables routed without this run (Keep off)">{kept.length} kept off this run</span>
+				<button class="btn" title="Select them" onclick={() => ws.select(kept.map((l) => l.id))}>Select</button>
+				<button class="btn" title="Let them use this run again (they take the shortest way)" onclick={() => keepOff(kept, false)}>Allow back</button>
+			</div>
+		{/if}
+	{/if}
+</PropGroup>
 <PropGroup kind="run" title="Cables by hand">
 <datalist id="cad-hand-types">{#each project.settings?.cableTypes ?? [] as c (c.id)}<option value={c.id}>{c.label}</option>{/each}</datalist>
 {#each extra as h, i (i)}
@@ -133,6 +186,9 @@
 </PropGroup>
 
 <style>
+	.grp { display: flex; align-items: center; gap: 4px; margin-bottom: 2px; font-size: 11px; }
+	.grp .gn { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+	.grp.kept .gn { color: var(--cad-muted); font-style: italic; }
 	.hand { display: grid; grid-template-columns: 3rem auto 1fr 3.6rem 4.6rem auto; align-items: center; gap: 3px; margin-bottom: 2px; }
 	.inp { width: 100%; min-width: 0; border: 1px solid var(--cad-line); border-radius: 4px; padding: 0 3px; background: var(--cad-input); color: var(--cad-text); font-size: 11px; }
 	.tone-ok { color: #15803d; }

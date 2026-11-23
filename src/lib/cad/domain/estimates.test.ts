@@ -120,7 +120,9 @@ describe('estimated cables (ports not linked yet)', () => {
 		const cls = (ps: Prim[]) => ps.map((p) => (p.k === 'image' ? '' : p.cls))
 		expect(cls(allRoutesOf(project(), new Map(), 'L1', est).prims)).toEqual(['all-route all-route-est'])
 		const ix = project([outlet('O1', 8000, 1500, { ports: 2 }), link('K1', 'O1', 1)]), r = routeAll(ix)
-		expect(cls(allRoutesOf(ix, r.routes, 'L1', r.estimates).prims)).toEqual(['all-route'])   // a linked cable there: solid
+		const all = cls(allRoutesOf(ix, r.routes, 'L1', r.estimates).prims)
+		expect(all.filter((c) => c !== 'route-drop')).toEqual(['all-route'])   // a linked cable there: solid
+		expect(all.filter((c) => c === 'route-drop').length).toBeGreaterThan(0)   // and its ends' drop lines
 	})
 	it('stays fast on a big floor: 400 outlets × 2 ports over a grid of runs, in the one routing pass', () => {
 		// a spine up x = 0 with 20 runs teeing off it, each in 10 segments
