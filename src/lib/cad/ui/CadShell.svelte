@@ -868,7 +868,7 @@
 			<button class="chip" title="Finish this run or line (a double-tap does too)" onclick={() => canvas?.finishPath()}>Finish</button>
 			<button class="chip" title="Drop it — nothing is drawn" onclick={() => canvas?.cancelPath()}>Cancel</button>
 		{/if}
-		{#if hint}<span class="hint" title={hint}>{hint}</span>{/if}
+		{#if hint}<span class="hint" class:step={ws.toolId === 'placearea'} title={hint}>{hint}</span>{/if}
 	</div>
 
 	{#snippet winBody(id: WinId)}
@@ -993,6 +993,8 @@
 	.opts .chip.vp { background: #fef3c7; border-color: #f59e0b; }
 	.opts .chip.hidden-on { background: #fef3c7; border-color: #f59e0b; cursor: pointer; }
 	.opts .hint { color: var(--cad-muted, #71717a); font-size: 11px; overflow: hidden; text-overflow: ellipsis; }
+	/* a step-by-step tool (Place on the whole floor): its next step must not be missed (User 2026-11-23: "faint, easy to miss") */
+	.opts .hint.step { color: #1e3a8a; background: #fef3c7; border: 1px solid #f59e0b; border-radius: 4px; padding: 1px 8px; font-size: 13px; font-weight: 600; }
 	.dock { position: relative; min-height: 0; display: flex; flex-direction: column; background: var(--cad-panel); overflow: hidden; }
 	.dock-left { grid-area: dleft; border-right: 1px solid var(--cad-line); }
 	.dock-right { grid-area: dright; border-left: 1px solid var(--cad-line); }

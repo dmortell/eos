@@ -209,7 +209,7 @@ export function outletTap(g: Graph, ix: ProjectIndex, o: Outlet, roomId: Id | un
 	if (!o.at) return null
 	const level = ix.getOf('level', o.levelId)
 	const x = { ...toMain(placeOf(ix, o.levelId), o.at), z: levelElevation(ix, o.levelId) + outletZ(o, level) }
-	const { grid } = tapIndex(g)
+	const { grid } = tapIndex(g), levels = tapLevels(ix, o.levelId)
 	let best: Tap | null = null
 	const seen = new Set<number>()
 	const look = (i: number) => {
@@ -226,10 +226,19 @@ export function outletTap(g: Graph, ix: ProjectIndex, o: Outlet, roomId: Id | un
 		if (best && (best as Tap).dropMm < (r - 1) * TAP_CELL) break
 		for (let a = cx - r; a <= cx + r; a++) for (let b = cy - r; b <= cy + r; b++) {
 			if (Math.max(Math.abs(a - cx), Math.abs(b - cy)) !== r) continue
-			for (const i of grid.get(`${o.levelId}|${a},${b}`) ?? []) look(i)
+			for (const lv of levels) for (const i of grid.get(`${lv}|${a},${b}`) ?? []) look(i)
 		}
 	}
 	return best
+}
+
+/** The plans whose runs an outlet / rack on `levelId` can join: its own — and, for an area plan placed on its whole
+ *  floor, the whole floor's too (backlog 6: 3307 had no runs of its own; the link run drawn on 33F reaches its rack). */
+function tapLevels(ix: ProjectIndex, levelId: Id | undefined): Id[] {
+	const own = levelId ?? ''
+	if (!placeOf(ix, levelId)) return [own]
+	const m = mainLevelOf(ix, ix.getOf('level', levelId))
+	return m && m.id !== own ? [own, m.id] : [own]
 }
 
 /** The panel's height (its middle) above the rack's floor. */
@@ -244,7 +253,7 @@ export function rackTaps(g: Graph, ix: ProjectIndex, rack: Rack, device: Device 
 	if (!rack.at) return []
 	const x = { ...toMain(placeOf(ix, rack.levelId), rack.at), z: levelElevation(ix, rack.levelId) + roomFloor(ix, rack.spaceId) + panelZ(device) }   // on its room's floor
 	const best = new Map<Id, Tap & { plan: number }>()
-	for (const i of tapIndex(g).byLevel.get(rack.levelId) ?? []) {   // not onto a riser, nor a stub (see tapIndex)
+	for (const i of tapLevels(ix, rack.levelId).flatMap((lv) => tapIndex(g).byLevel.get(lv) ?? [])) {   // not onto a riser, nor a stub (see tapIndex)
 		const s = g.segs[i]
 		if (!serves(s.shape, rack.spaceId)) continue
 		const plan = project3({ ...s.p, z: 0 }, { ...s.q, z: 0 }, { ...x, z: 0 }).d

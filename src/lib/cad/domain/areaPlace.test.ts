@@ -71,6 +71,15 @@ describe('area placement', () => {
 		expect(r.segs.map((s) => s.shape)).toEqual(['T2', 'X', 'X', 'X', 'T1'])   // listed from the b end
 		expect(routeLinks(floor(false), { slackM: 0, wastePct: 0 }).get('K')!.routeMm).toBeUndefined()
 	})
+	it('an area with no runs of its own: its rack joins the run drawn on the whole floor (Journey: 3307 has none)', () => {
+		const R2 = toMain({ x: 50000, y: 0, rot: 90 }, { x: 0, y: 0 })   // (50000, 0)
+		const ix = new ProjectIndex([...floor(true, false).byId.values()].filter((e) => e.id !== 'T2').concat([
+			run('X', 'M', [[10000, 500], [10000, 20000], [R2.x - 500, 20000], [R2.x - 500, R2.y]]),
+		] as Entity[]))
+		const r = routeLinks(ix, { slackM: 0, wastePct: 0 }).get('K')!
+		expect(r.problem).toBeUndefined()
+		expect(r.routeMm).toBeCloseTo(DROP + 10000 + 19500 + 39500 + 20000 + DROP)
+	})
 	it('the whole floor shows its placed areas greyed and not pickable, and snaps to their run ends', () => {
 		const ix = floor(true, false)
 		const ghosts = planDisplayList(ix, 'M', { scale: 100 }).filter((p) => p.color === AREA_GHOST)
@@ -78,6 +87,10 @@ describe('area placement', () => {
 		expect(ghosts.every((p) => !p.src)).toBe(true)
 		expect(snapAt(ix, 'M', { x: 49480, y: 10030 }, 100)).toMatchObject({ kind: 'node', p: { x: 49500, y: 10000 } })
 		expect(planDisplayList(ix, 'A', { scale: 100 }).some((p) => p.color === AREA_GHOST)).toBe(false)
-// on its own layer: hiding that layer hides it on the whole floor too (User: 3303's desks with Furniture hidden)		const rs = ghosts.filter((p) => p.layer === 'sys:racks' || p.layer === 'sys:trunks')		expect(rs.length).toBeGreaterThan(0)		const hid = new Set(rs.map((p) => p.layer!))		expect(applyLayers(planDisplayList(ix, 'M', { scale: 100 }), ix, { hidden: hid }).draw.some((p) => p.layer && hid.has(p.layer))).toBe(false)
+		// on its own layer: hiding that layer hides it on the whole floor too (User: 3303's desks with Furniture hidden)
+		const rs = ghosts.filter((p) => p.layer === 'sys:racks' || p.layer === 'sys:cont-low')
+		expect(rs.length).toBeGreaterThan(0)
+		const hid = new Set(rs.map((p) => p.layer!))
+		expect(applyLayers(planDisplayList(ix, 'M', { scale: 100 }), ix, { hidden: hid }).draw.some((p) => p.layer && hid.has(p.layer))).toBe(false)
 	})
 })
