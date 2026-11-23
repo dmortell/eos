@@ -3,7 +3,8 @@
 import { describe, it, expect } from 'vitest'
 import { ProjectIndex } from './project'
 import { runCount, type Shape } from './shapes'
-import { fillBySegment } from './fill'
+import { fillBySegment, shareCables } from './fill'
+import { fillSectionDisplayList } from '../views/fillSection'
 import { runLengths } from './reports'
 import { planDisplayList } from '../views/plan'
 import type { Entity } from './drawing'
@@ -28,6 +29,17 @@ describe('runs side by side (count)', () => {
 		expect(four.areaMm2).toBeCloseTo(4 * Math.PI * 18 ** 2)
 		expect(four.pct).toBeCloseTo(one.pct / 4)
 		expect(four.pct).toBeCloseTo((28 * 7.5 ** 2) / (4 * Math.PI * 18 ** 2) * 100)
+	})
+	it('the fill pictures: the cables shared out evenly, each conduit drawn with its share', () => {
+		const od = (t: string) => (t === 'fibre' ? 12 : 7.5)
+		expect(shareCables({ cat6a: 28 }, 4, od)).toEqual([{ cat6a: 7 }, { cat6a: 7 }, { cat6a: 7 }, { cat6a: 7 }])
+		const mixed = shareCables({ cat6a: 6, fibre: 2 }, 4, od)
+		expect(mixed.map((r) => r.fibre ?? 0)).toEqual([1, 1, 0, 0])   // largest first, dealt round
+		const fills = fillBySegment(ix(4), new Map())
+		const ps = fillSectionDisplayList(ix(4), 'C', 's', fills)
+		expect(ps.filter((p) => p.k === 'circle' && p.cls === 'legend')).toHaveLength(4)
+		expect(ps.filter((p) => p.cls === 'fill-cable' && p.k === 'circle').length).toBeGreaterThanOrEqual(28)
+		expect(ps.some((p) => p.k === 'text' && p.text.startsWith('4 × Ø36 inside'))).toBe(true)
 	})
 	it('the BOM counts each one: 10 m × 4', () => {
 		expect(runLengths(ix(4))[0]).toMatchObject({ horizontalM: 40, count: 4, size: 'Ø45.5' })

@@ -4,10 +4,10 @@
 // size and its cables by type. Paper mm at 1:1 from (0, 0), y down. Pure; tested in fillSection.test.ts.
 import type { ProjectIndex } from '../domain/project'
 import type { Id, ProjectSettings } from '../domain/types'
-import type { Shape } from '../domain/shapes'
+import { runCount, type Shape } from '../domain/shapes'
 import type { Prim } from './display'
 import { cableTypeLabel } from '../domain/cableTypes'
-import { cableColor, cableCountText, cableOd, fillTone, insideOf, packCables, segKey, riserLevels, FILL_LIMIT_PCT, type SegFill } from '../domain/fill'
+import { cableColor, cableCountText, cableOd, fillTone, insideOf, packRuns, segKey, riserLevels, FILL_LIMIT_PCT, type SegFill } from '../domain/fill'
 
 /** The section's scales (1:N): the closest at which it fits a 80 × 60 mm box. */
 const SCALES = [1, 2, 5, 10, 20], BOX_W = 80, BOX_H = 60
@@ -42,18 +42,24 @@ export function fillSectionDisplayList(ix: ProjectIndex, shapeId: Id, segId: Id,
 	const sec = seg.section ?? s.section
 	let y = 8
 	if (sec) {
-		const p = packCables(sec, f.cables, od), n = SCALES.find((k) => p.w / k <= BOX_W && p.h / k <= BOX_H) ?? SCALES.at(-1)!
-		const cx = p.w / n / 2, cy = y + p.h / n / 2
-		out.push(p.round ? { k: 'circle', c: { x: cx, y: cy }, r: p.w / n / 2, fill: true, cls: 'legend' }
-			: { k: 'line', pts: [{ x: 0, y }, { x: p.w / n, y }, { x: p.w / n, y: y + p.h / n }, { x: 0, y: y + p.h / n }], closed: true, fill: true, cls: 'legend' })
-		for (const c of p.cables) out.push({ k: 'circle', c: { x: cx + c.x / n, y: cy + c.y / n }, r: c.r / n, fill: true, cls: 'fill-cable', color: cableColor(settings, runTypes, c.type) })
+		// a run of N side by side (its Count — 4 × PF36): each one with its share of the cables, in a row
+		const runs = packRuns(sec, f.cables, od, runCount(s)), p = runs[0], gap = p.w * 0.15
+		const totalW = runs.length * p.w + (runs.length - 1) * gap
+		const n = SCALES.find((k) => totalW / k <= BOX_W && p.h / k <= BOX_H) ?? SCALES.at(-1)!
+		runs.forEach((q, i) => {
+			const x0 = (i * (p.w + gap)) / n, cx = x0 + p.w / n / 2, cy = y + p.h / n / 2
+			out.push(q.round ? { k: 'circle', c: { x: cx, y: cy }, r: p.w / n / 2, fill: true, cls: 'legend' }
+				: { k: 'line', pts: [{ x: x0, y }, { x: x0 + p.w / n, y }, { x: x0 + p.w / n, y: y + p.h / n }, { x: x0, y: y + p.h / n }], closed: true, fill: true, cls: 'legend' })
+			for (const c of q.cables) out.push({ k: 'circle', c: { x: cx + c.x / n, y: cy + c.y / n }, r: c.r / n, fill: true, cls: 'fill-cable', color: cableColor(settings, runTypes, c.type) })
+		})
 		y += p.h / n + 5
 		out.push({ k: 'text', at: { x: 0, y }, text: `${pctText(f.pct)} full (limit ${FILL_LIMIT_PCT}%)`, size: 3, cls: 'legend-title', color: TONE[fillTone(f.pct)] })
 		const inside = insideOf(sec)
-		out.push(note(y += 4.5, `${sec.round ? `Ø${inside.w}` : `${inside.w}×${inside.h}`} inside · section 1:${n}`))
+		out.push(note(y += 4.5, `${runs.length > 1 ? `${runs.length} × ` : ''}${sec.round ? `Ø${inside.w}` : `${inside.w}×${inside.h}`} inside · section 1:${n}`))
 		out.push(note(y += 4, cableCountText(f)))
-		if (p.dropped) out.push(note(y += 4, `${p.dropped} cable${p.dropped === 1 ? '' : 's'} don’t fit`, TONE.over))
-		if (p.capped) out.push(note(y += 4, `first ${p.cables.length + p.dropped} drawn (${p.capped} more not shown)`))
+		const dropped = runs.reduce((a, q) => a + q.dropped, 0), capped = runs.reduce((a, q) => a + q.capped, 0), drawn = runs.reduce((a, q) => a + q.cables.length, 0)
+		if (dropped) out.push(note(y += 4, `${dropped} cable${dropped === 1 ? '' : 's'} don’t fit`, TONE.over))
+		if (capped) out.push(note(y += 4, `first ${drawn + dropped} drawn (${capped} more not shown)`))
 	} else out.push(note(y += 1, `${pctText(f.pct)} — the run has no section size`, TONE.over))
 	// the cables by type, each with its color
 	const label = (t: string) => cableTypeLabel(settings, t)

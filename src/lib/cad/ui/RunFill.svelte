@@ -5,10 +5,10 @@
      cables added to the run BY HAND (backlog T080) — count × type, own Ø, the whole run or one segment. -->
 <script lang="ts">
 	import type { CadProject } from '../app/project.svelte'
-	import type { Shape, HandCables } from '../domain/shapes'
+	import { runCount, type Shape, type HandCables } from '../domain/shapes'
 	import type { Workspace } from '../app/workspace.svelte'
 	import PropGroup from './PropGroup.svelte'
-	import { fillTone, packCables, cableOd, cableColor, cableCountText, FILL_LIMIT_PCT, segKey } from '../domain/fill'
+	import { fillTone, packRuns, cableOd, cableColor, cableCountText, FILL_LIMIT_PCT, segKey } from '../domain/fill'
 	import { activeSheets } from '../app/shellActions'
 	import { viewToSheet } from '../app/sheetActions'
 	import { riserLevels } from '../domain/fill'
@@ -28,7 +28,10 @@
 	const od = (t: string) => shown?.f?.od?.[t] ?? cableOd(project.settings, t)
 	const packed = $derived.by(() => {
 		const sec = shown ? (shown.g.section ?? s.section) : undefined
-		return sec && shown ? { sec, p: packCables(sec, shown.f!.cables, od) } : null
+		if (!sec || !shown) return null
+		// a run of N side by side (its Count — 4 × PF36): each one with its share of the cables, drawn in a row
+		const runs = packRuns(sec, shown.f!.cables, od, runCount(s)), p = runs[0], gap = p.w * 0.15
+		return { sec, p, runs, gap, W: runs.length * p.w + (runs.length - 1) * gap, dropped: runs.reduce((a, q) => a + q.dropped, 0), capped: runs.reduce((a, q) => a + q.capped, 0), drawn: runs.reduce((a, q) => a + q.cables.length, 0) }
 	})
 	const pct = (v: number) => (Number.isFinite(v) ? `${v.toFixed(1)}%` : 'no section size')
 	const types = $derived([...new Set(segs.flatMap((x) => Object.keys(x.f!.cables)))])
@@ -92,13 +95,17 @@
 		</tbody>
 	</table>
 	{#if packed}
-		{@const { sec, p } = packed}
+		{@const { sec, p, runs, gap, W } = packed}
 		{@const pad = 4}
-		<svg class="section" viewBox="{-p.w / 2 - pad} {-p.h / 2 - pad} {p.w + 2 * pad} {p.h + 2 * pad}" role="img" aria-label="The segment's section with its cables">
-			{#if p.round}<circle r={p.w / 2} class="wall" />{:else}<rect x={-p.w / 2} y={-p.h / 2} width={p.w} height={p.h} class="wall" />{/if}
-			{#each p.cables as c, i (i)}<circle cx={c.x} cy={c.y} r={c.r} fill={colourOf(c.type)} class="cable" />{/each}
+		<svg class="section" viewBox="{-p.w / 2 - pad} {-p.h / 2 - pad} {W + 2 * pad} {p.h + 2 * pad}" role="img" aria-label="The segment's section with its cables">
+			{#each runs as q, k (k)}
+				<g transform="translate({k * (p.w + gap)} 0)">
+					{#if q.round}<circle r={p.w / 2} class="wall" />{:else}<rect x={-p.w / 2} y={-p.h / 2} width={p.w} height={p.h} class="wall" />{/if}
+					{#each q.cables as c, i (i)}<circle cx={c.x} cy={c.y} r={c.r} fill={colourOf(c.type)} class="cable" />{/each}
+				</g>
+			{/each}
 		</svg>
-		<p class="text-zinc-500">Seg {shown?.i}{shown === worst ? ' (fullest)' : ''}{shown === riser ? ` (riser ${riserLevels(project.index, s, riser.g)})` : ''}: {sec.round ? `Ø${sec.w}` : `${sec.inner?.w ?? sec.w}×${sec.inner?.h ?? sec.h}`} inside · {cableCountText(shown!.f!)}{p.dropped ? ` · ${p.dropped} cable(s) don't fit` : ''}{p.capped ? ` · first ${p.cables.length + p.dropped} drawn` : ''}</p>
+		<p class="text-zinc-500">Seg {shown?.i}{shown === worst ? ' (fullest)' : ''}{shown === riser ? ` (riser ${riserLevels(project.index, s, riser.g)})` : ''}: {runs.length > 1 ? `${runs.length} × ` : ''}{sec.round ? `Ø${sec.inner?.w ?? sec.w}` : `${sec.inner?.w ?? sec.w}×${sec.inner?.h ?? sec.h}`} inside · {cableCountText(shown!.f!)}{packed.dropped ? ` · ${packed.dropped} cable(s) don't fit` : ''}{packed.capped ? ` · first ${packed.drawn + packed.dropped} drawn` : ''}</p>
 		<select class="inp tosheet" value="" title="This segment’s section, its fill % and its cables as a viewport on a sheet (at 1:1, the section at a true scale)" onchange={(e) => { toSheet(e.currentTarget.value); e.currentTarget.value = '' }}>
 			<option value="">Put on sheet…</option>
 			<option value="new">New sheet</option>

@@ -157,6 +157,18 @@ export const fillTone = (pct: number, limit = FILL_LIMIT_PCT): 'ok' | 'warn' | '
 
 export interface Packed { round: boolean; w: number; h: number; cables: { x: number; y: number; r: number; type: string }[]; dropped: number; /** cables past `max`, never tried (the picture draws the first `max`) */ capped: number }
 
+/** A segment's cables shared out between `n` identical runs side by side (a run's Count — 4 × PF36): dealt one by one,
+ *  largest first, so each gets an even share of every size (28 over 4 → 7 each). One record of counts per run. */
+export function shareCables(cables: Record<string, number>, n: number, od: (type: string) => number): Record<string, number>[] {
+	const out: Record<string, number>[] = Array.from({ length: Math.max(1, n) }, () => ({}))
+	const all = Object.entries(cables).flatMap(([type, k]) => Array.from({ length: k }, () => type)).sort((a, b) => od(b) - od(a))
+	all.forEach((t, i) => { const r = out[i % out.length]; r[t] = (r[t] ?? 0) + 1 })
+	return out
+}
+/** Each of `n` runs side by side with its share of the cables packed in (the fill pictures). */
+export const packRuns = (s: Section, cables: Record<string, number>, od: (type: string) => number, n: number): Packed[] =>
+	shareCables(cables, n, od).map((c) => packCables(s, c, od, Math.ceil(400 / Math.max(1, n))))
+
 /** Cables laid in the section, largest first, each settling as low as it fits (+y = down), centred on the origin. */
 export function packCables(s: Section, cables: Record<string, number>, od: (type: string) => number, max = 400): Packed {
 	const round = !!s.round, inside = insideOf(s), w = inside.w, h = round ? w : inside.h, R = w / 2

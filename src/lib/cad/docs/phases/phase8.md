@@ -4518,3 +4518,8 @@ User: "Yes, cords kept inside the set" (the ❓ entry of 2026-10-17).
   conduit set to Ø45.5 outside / 36 inside × 4 (via Properties): fill 55.7 % on its busiest segment (28 cat6a at the
   9 mm the project's cable OD gives, d² rule) — over the 40 % limit. Not count-aware yet: the Fill picture in
   Properties (one pipe drawn), riser symbols, the run seen in a section.
+- **Fill pictures use the Count (User 2026-11-23):** `shareCables` deals a segment's cables out between the N runs
+  (largest first, round the runs: 28 → 7 each), `packRuns` packs each; Properties › Fill and the Fill viewport on a
+  sheet draw the N sections in a row ("4 × Ø36 inside"), the don't-fit / not-drawn notes summed. Test in
+  `runCount.test.ts`. Checked on Journey's 33F conduit: 4 pipes drawn; its segments 6–7 (extended into 3303 by the
+  User) carry 50 cat6a, 99.5 %, 18 don't fit.
