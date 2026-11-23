@@ -14,6 +14,7 @@ import { primBounds, unionBounds } from './display'
 import { spaceOf } from './space'
 import { traceCircuit } from '../domain/cords'
 import { fillTone, estCount } from '../domain/fill'
+import { placeOf, toMain, mainLevelOf } from '../domain/areaPlace'
 
 /** The selected ports (rack rows), a tint over their cells — then their labels and the panel's name (drawn over its
  *  ports) again on top, so neither is lost under the highlight (User 2026-10-07). */
@@ -112,6 +113,14 @@ export function fillBandsElev(ix: ProjectIndex, fills: Iterable<BandFill> | Map<
 	return out
 }
 
+/** A route's drop line as this plan shows it: on its own level as it is; on a whole-floor plan, one from an area placed
+ *  on it, moved into its coordinates (backlog 6); else none. */
+function dropOn(ix: ProjectIndex, d: NonNullable<Route['drops']>[number], levelId: Id): { from: Pt; to: Pt } | null {
+	if (d.levelId === levelId) return d
+	const pl = placeOf(ix, d.levelId)
+	return pl && mainLevelOf(ix, ix.getOf('level', d.levelId))?.id === levelId ? { from: toMain(pl, d.from), to: toMain(pl, d.to) } : null
+}
+
 /** The cable routes (Phase 5) of the selected outlets / links / panel ports, drawn over the runs they use (plan). */
 export function routesOf(ix: ProjectIndex, routes: Map<Id, Route>, levelId: Id, selection: Id[], ps: PortSel | null, estimates: readonly Estimate[] = []): Prim[] {
 	const links = new Set<string>()
@@ -135,7 +144,7 @@ export function routesOf(ix: ProjectIndex, routes: Map<Id, Route>, levelId: Id, 
 		const r = routes.get(id)
 		draw(r?.segs ?? [], 'trace-route')
 		// and where its ends join the runs (drop lines)
-		for (const d of r?.drops ?? []) if (d.levelId === levelId) out.push({ k: 'line', pts: [d.from, d.to], cls: 'trace-route trace-route-est' })
+		for (const d0 of r?.drops ?? []) { const d = dropOn(ix, d0, levelId); if (d) out.push({ k: 'line', pts: [d.from, d.to], cls: 'trace-route trace-route-est' }) }
 	}
 	// a selected outlet's ESTIMATED cables (ports with no link), only where its room is set — a guessed room isn't shown as if it were known
 	const outlets = new Set(selection.filter((id) => ix.get(id)?.type === 'outlet'))
@@ -191,8 +200,9 @@ export function allRoutesOf(ix: ProjectIndex, routes: Map<Id, Route>, levelId: I
 	// DROP LINES (the legacy Outlets tool's "secondary routes", User 2026-11-23): each cable's end — outlet or rack — to
 	// where it joins its run, in its room's color; one line per end (an outlet's ports share it)
 	const seen = new Set<string>()
-	for (const [linkId, r] of routes) for (const d of r.drops ?? []) {
-		if (d.levelId !== levelId) continue
+	for (const [linkId, r] of routes) for (const d0 of r.drops ?? []) {
+		const d = dropOn(ix, d0, levelId)
+		if (!d) continue
 		const k = `${Math.round(d.from.x)},${Math.round(d.from.y)}>${Math.round(d.to.x)},${Math.round(d.to.y)}`
 		if (seen.has(k) || Math.hypot(d.to.x - d.from.x, d.to.y - d.from.y) < 1) continue
 		seen.add(k)

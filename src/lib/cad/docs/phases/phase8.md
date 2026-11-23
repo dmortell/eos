@@ -4523,3 +4523,15 @@ User: "Yes, cords kept inside the set" (the ❓ entry of 2026-10-17).
   sheet draw the N sections in a row ("4 × Ø36 inside"), the don't-fit / not-drawn notes summed. Test in
   `runCount.test.ts`. Checked on Journey's 33F conduit: 4 pipes drawn; its segments 6–7 (extended into 3303 by the
   User) carry 50 cat6a, 99.5 %, 18 don't fit.
+- **Conduit sizes and Count elsewhere (User 2026-11-23):** a round run's label / BOM size is its INSIDE Ø (`sizeText`;
+  PF36 = Ø36), drawn at its outside Ø; Count in the plan's riser symbol (N in a row) and seen end-on in an elevation /
+  section (N cross-sections — end-on runs drew nothing before). Sheet 006 "Fill section" on Journey: the 33F conduit's
+  seg 4 (24 backbones, 47.7 %).
+- **Cables here / Keep off / drop lines (User: "view which cables are going to which conduits, and re-assign them",
+  like the legacy Outlets tool's Secondary Routes):** Properties › Cables here lists a segment's routed cables grouped
+  (kind · panel rack → far rack / outlets on a level); Select shows them (routes + drop lines); Keep off sets
+  `Link.avoid` (routing: taps and the walk skip those runs; a multi-core cable's cores together; one undo step);
+  "N kept off this run" › Allow back. `Route.drops`: each end to where it joins its run, drawn under Display › Routes
+  (`route-drop`, the room's color) and for selected cables; on a whole-floor plan, its placed areas' drops too.
+  Tests in `routing.test.ts`, `estimates.test.ts`. Checked live on Journey (read only): seg 1 lists 24 backbones and
+  4 horizontals 3307-R1 → 3307 outlets; Select shows their routes and 8 drop lines on 33F.
