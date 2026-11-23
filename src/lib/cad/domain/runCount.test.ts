@@ -38,7 +38,7 @@ describe('runs side by side (count)', () => {
 		const fills = fillBySegment(ix(4), new Map())
 		const ps = fillSectionDisplayList(ix(4), 'C', 's', fills)
 		expect(ps.filter((p) => p.k === 'circle' && p.cls === 'legend')).toHaveLength(4)
-		expect(ps.filter((p) => p.cls === 'fill-cable' && p.k === 'circle').length).toBeGreaterThanOrEqual(28)
+		expect(ps.filter((p) => p.k === 'circle' && p.cls === 'fill-cable').length).toBeGreaterThanOrEqual(28)
 		expect(ps.some((p) => p.k === 'text' && p.text.startsWith('4 × Ø36 inside'))).toBe(true)
 	})
 	it('the BOM counts each one: 10 m × 4', () => {
