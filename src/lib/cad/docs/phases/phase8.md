@@ -4506,3 +4506,8 @@ User: "Yes, cords kept inside the set" (the ❓ entry of 2026-10-17).
   (`ws.placeHint`) — the status-line message was gone by the clicks. The greyed areas keep their own layers
   (`layer` named on each prim, `primLayer`), so a hidden layer (3303's desks on Furniture) is hidden on the whole
   floor too. Test in `areaPlace.test.ts`.
+- **Done on Journey (2026-11-23):** the User placed 3303 and 3307 and drew a high-level conduit (144 mm) on 33F from a
+  3303 33IDF1 conduit end (38137, −52213, Z 2950) to IDF3307 beside 3307-R2, plus runs in 3307. Racks / outlets of a
+  placed area now also join the whole floor's runs (`tapLevels`; 3307 had none before). Checked in the data: all 24
+  P3A → 3307-R2 backbones route (3303 conduit → 33F conduit → the rack), 70.0 m → 71 m each; the 33F conduit carries
+  28 cat6a, 15 % fill. The 3307 high trunk's end stops 24 cm from the 33F conduit's end (not joined; 5 cm join).
