@@ -4,7 +4,7 @@
 	import type { CadProject } from '../app/project.svelte'
 	import type { Id } from '../domain/types'
 	import type { Entity } from '../domain/drawing'
-	import { layersOf, layerOf, defaultLayer, holdsItems } from '../domain/layers'
+	import { layersOf, layerOf, holdsItems } from '../domain/layers'
 	import { MIXED } from './propsKit'
 
 	let { project, ids }: { project: CadProject; ids: Id[] } = $props()
@@ -13,7 +13,7 @@
 	const items = $derived(ids.map((id) => project.index.get(id)).filter((e): e is Entity => e?.type === 'shape' || e?.type === 'outlet' || e?.type === 'rack'))
 	const on = $derived.by(() => {
 		const known = new Set(layers.map((l) => l.id))
-		const now = new Set(items.map((e) => layerOf(e, known)))
+		const now = new Set(items.map((e) => layerOf(e, known, project.index.categoryOf)))
 		return now.size === 1 ? [...now][0] ?? '' : ''
 	})
 
@@ -22,7 +22,7 @@
 		project.store.transact(`Move ${items.length === 1 ? '1 item' : `${items.length} items`} to ${name}`, (tx) => {
 			for (const e of items) {
 				const { layerId: _, ...rest } = e as Entity & { layerId?: Id }
-				tx.put((id === defaultLayer(e) ? rest : { ...rest, layerId: id }) as Entity)
+				tx.put((id === layerOf(rest as Entity, new Set(layers.map((l) => l.id)), project.index.categoryOf) ? rest : { ...rest, layerId: id }) as Entity)
 			}
 		})
 	}

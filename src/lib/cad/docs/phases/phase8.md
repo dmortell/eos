@@ -4540,3 +4540,14 @@ User: "Yes, cords kept inside the set" (the ❓ entry of 2026-10-17).
   (`$lib/catalog/service.ts` `loadCatalog`; the seed alone if the custom list can't be read). A rack drawn from a
   custom product now gets its own SKU / description line, and its accessories when the product names them. Test in
   `catalog/service.test.ts`.
+- **Cabling categories (backlog 57, User 2026-11-23 decision 26):** a Category (Data / Power / AV / Security / EMS,
+  `domain/categories.ts`) on each usage and cable type — Project settings › Usages / Cable types, a column. An outlet
+  takes its usage's category, else its ports' cable type's (`ix.categoryOf`); a link / cord its cable type's.
+  - Drawings: a category's outlets go on its own system layer ("Power outlets" … `sys:cat-power`, just above Outlets
+    high), listed only once the project has its record — put with the first usage / cable type given that category
+    (`categoryLayerRecords`), so Data-only projects see no new layers. An outlet's own `layerId` still wins.
+  - BOM: its outlets, jacks, boxes and cable under "Power · Outlets", "Power · Cable" …, after Data's lines (as before).
+  - Same runs, routing and fill. Not split yet: cables' routes / drop lines (overlays, no layer) and testing / labels.
+  - Help: "Keep power, AV, security or EMS cabling apart". Tests in `categories.test.ts`.
+- **Ctrl+K finds viewports (backlog 59):** already there — the Navigator's search matches a sheet's viewport rows (their
+  view name and scale) and shows them under their sheet; a click opens the view. Checked on Test Project ("racks").

@@ -16,6 +16,7 @@ import { estimateMetres, type Estimate } from './estimates'
 import { cablesOf, linkCores } from './multicore'
 import { routeLinks, cableMetres, cableSettings, boxNote, levelElevation, type Route } from './routing'
 import type { CatalogProduct } from '$lib/catalog/types'
+import { categoryHeading, headingRank } from './categories'
 
 // ── Outlet schedule ───────────────────────────────────────────────────────────────────────────────────────────────
 
@@ -197,12 +198,14 @@ export function bom(p: ProjectIndex, catalog: CatalogProduct[] = [], routes?: Ma
 	let deskOutlets = 0
 	for (const o of p.outlets) {
 		if (!outletIn(o)) continue
-		add('Outlets', `${o.ports.length}-port outlet (${o.mount})`, 'ea', 1)
-		for (const pt of o.ports) add('Outlets', `Jack / module ${label(pt.cableType)}`, 'ea', 1)
+		// a power / AV / security / EMS outlet under its own category (backlog 57); Data's as before
+		const oh = categoryHeading(p.categoryOf(o), 'Outlets')
+		add(oh, `${o.ports.length}-port outlet (${o.mount})`, 'ea', 1)
+		for (const pt of o.ports) add(oh, `Jack / module ${label(pt.cableType)}`, 'ea', 1)
 		// W26 (User 2026-10-15): what each outlet sits in — a back box in a wall, a surface box on a ceiling, a floor box;
 		// a desk outlet goes in the desk's own module, its cables up in tubing
 		const box = o.mount === 'wall' ? 'Back box (wall)' : o.mount === 'ceiling' ? 'Surface box (ceiling)' : o.mount === 'floor' || o.mount === 'box' ? 'Floor box' : null
-		if (box) add('Outlets', box, 'ea', 1)
+		if (box) add(oh, box, 'ea', 1)
 		if (o.mount === 'desk') deskOutlets++
 	}
 	if (deskOutlets) {
@@ -240,23 +243,26 @@ export function bom(p: ProjectIndex, catalog: CatalogProduct[] = [], routes?: Ma
 	const cable = cableSettings(p)
 	const media = (type: string) => cableMedia(st, type) ?? 'copper'
 	// a cable with no route, priced at the routed average of its type (W25): metres already include the waste
+	// each cable type's lines under its category (backlog 57): "Cable" for Data, "Power · Cable" …
+	const cableHead = (type: string) => categoryHeading(st?.cableTypes.find((t) => t.id === type)?.category, 'Cable')
 	const unknown = (type: string, n: number, est: string, avg: number | null) => {
-		if (avg == null) { add('Cable', `${label(type)}${est} — no route, length unknown`, 'ea', n); return }
+		const h = cableHead(type)
+		if (avg == null) { add(h, `${label(type)}${est} — no route, length unknown`, 'ea', n); return }
 		const item = `${label(type)}${est} — no route, estimated at ${avg} m each (the routed average, incl. waste)`
-		add('Cable', item, 'm', n * avg)
-		notes.set(`Cable|${item}|m`, `${n} cable${n === 1 ? '' : 's'} × ${avg} m`)
+		add(h, item, 'm', n * avg)
+		notes.set(`${h}|${item}|m`, `${n} cable${n === 1 ? '' : 's'} × ${avg} m`)
 	}
 	// only what is to be bought: cables already installed and cords already in place (or only moved / taken out) aren't
 	const routed = cableMetres(p, routes ?? routeLinks(p, cable), cable, buyLinks)
 	const avgOf = (type: string) => { const m = routed.find((x) => x.type === type), n = m ? m.links - m.unrouted : 0; return m && n > 0 ? Math.ceil(m.metres / n) : null }
 	for (const m of routed) {
-		const item = `${label(m.type)} (incl. ${cable.wastePct}% waste)`
-		if (m.metres) { add('Cable', item, 'm', m.metres); if (media(m.type) === 'copper') notes.set(`Cable|${item}|m`, boxNote(m.metres)) }   // boxes are a copper thing
+		const item = `${label(m.type)} (incl. ${cable.wastePct}% waste)`, h = cableHead(m.type)
+		if (m.metres) { add(h, item, 'm', m.metres); if (media(m.type) === 'copper') notes.set(`${h}|${item}|m`, boxNote(m.metres)) }   // boxes are a copper thing
 		if (m.unrouted) unknown(m.type, m.unrouted, '', avgOf(m.type))
 	}
 	for (const m of estimateMetres(rooms ? estimates.filter((e) => e.roomId && rooms.has(e.roomId)) : estimates, cable)) {
-		const item = `${label(m.type)} — estimated, not allocated yet (incl. ${cable.wastePct}% waste)`
-		if (m.metres) { add('Cable', item, 'm', m.metres); if (media(m.type) === 'copper') notes.set(`Cable|${item}|m`, boxNote(m.metres)) }
+		const item = `${label(m.type)} — estimated, not allocated yet (incl. ${cable.wastePct}% waste)`, h = cableHead(m.type)
+		if (m.metres) { add(h, item, 'm', m.metres); if (media(m.type) === 'copper') notes.set(`${h}|${item}|m`, boxNote(m.metres)) }
 		const n = m.ports - m.unrouted
 		if (m.unrouted) unknown(m.type, m.unrouted, ' — estimated', n > 0 ? Math.ceil(m.metres / n) : avgOf(m.type))
 	}
@@ -271,7 +277,7 @@ export function bom(p: ProjectIndex, catalog: CatalogProduct[] = [], routes?: Ma
 
 	return [...lines.entries()]
 		.map(([k, l]) => ({ ...(l.unit === 'm' ? { ...l, qty: Math.ceil(l.qty) } : l), ...(notes.has(k) ? { note: notes.get(k) } : {}) }))
-		.sort((a, b) => naturalCompare(a.category, b.category) || naturalCompare(a.item, b.item))
+		.sort((a, b) => headingRank(a.category) - headingRank(b.category) || naturalCompare(a.category, b.category) || naturalCompare(a.item, b.item))
 }
 
 /** Shapes that are runs, for callers that need the geometry (routing, fill — Phase 5). */

@@ -5,6 +5,7 @@ import type { Id, Outlet, Device, Rack, Link, Cord, Level, Space, PortRef } from
 import type { Shape } from './shapes'
 import { naturalCompare } from './labels'
 import { groupPortLabel } from './portGroups'
+import { categoryResolver, type CategoryOf } from './categories'
 
 export const portKey = (r: PortRef) => `${r.on}:${r.port}:${r.face ?? ''}`
 const portKeyAnyFace = (r: PortRef) => `${r.on}:${r.port}:`
@@ -52,6 +53,12 @@ export class ProjectIndex {
 	}
 
 	get(id: Id | undefined): Entity | undefined { return id ? this.byId.get(id) : undefined }
+	#cat?: CategoryOf
+	/** The cabling category of an outlet / link / cord (backlog 57; undefined = Data) — from the project's settings. */
+	get categoryOf(): CategoryOf {
+		const s = this.byId.get('settings')
+		return (this.#cat ??= categoryResolver(s?.type === 'settings' ? s : undefined))
+	}
 	/** The entity of this type with this id — undefined when there's none, or it's another type (hacky-code review #3: a
 	 *  generic `get<Rack>()` returned whatever had the id, labelled a Rack). */
 	getOf<K extends Entity['type']>(type: K, id: Id | undefined): Extract<Entity, { type: K }> | undefined {

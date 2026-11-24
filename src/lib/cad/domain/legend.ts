@@ -38,7 +38,7 @@ export function legendCandidates(ix: ProjectIndex, levelIds: ReadonlySet<Id>, bl
 	for (const e of ix.byId.values()) {
 		if ((e.type !== 'outlet' && e.type !== 'rack' && e.type !== 'shape') || !onLevels(e)) continue
 		if (e.type === 'shape' && e.geom.kind === 'legend') continue
-		const l = layerOf(e, known)
+		const l = layerOf(e, known, ix.categoryOf)
 		if (!l) continue
 		const t = at(perLayer, l)
 		t.n++

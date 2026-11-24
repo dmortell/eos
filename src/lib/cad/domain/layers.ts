@@ -5,6 +5,7 @@
 import type { Id } from './types'
 import type { Entity, Layer, Sheet } from './drawing'
 import type { PrimRole } from './prim'
+import { CATEGORIES, categoryLayerId, isCategoryLayer, type CablingCategory, type CategoryOf } from './categories'
 
 /** `color` = the layer's color, applied to its items; `look` = a system layer's default: the color its items
  *  already draw in (shown on the swatch, NOT applied — forcing it would flatten colors that mean something: an
@@ -44,19 +45,36 @@ export function nextLayerColour(records: Layer[]): string {
 export const DERIVED_LAYERS: ReadonlySet<Id> = new Set(['sys:cord-stubs', 'sys:port-labels', 'sys:room-lines', 'sys:other-face'])
 export const holdsItems = (id: Id): boolean => !DERIVED_LAYERS.has(id)
 
+/** A CATEGORY's outlets layer (backlog 57: Power, AV, Security, EMS outlets — just above Outlets high). Listed only once
+ *  the project has its record (put when a usage / cable type first gets that category, `categoryLayerRecords`), so a
+ *  project with only Data cabling sees no new layers. */
+export const CATEGORY_LAYERS: LayerInfo[] = CATEGORIES.filter((c) => c.id !== 'data')
+	.map((c, i): LayerInfo => ({ id: categoryLayerId(c.id), name: `${c.label} outlets`, look: c.color, order: 121 + i, system: true }))
+
+/** The category layers a settings change needs that the project doesn't have yet. */
+export function categoryLayerRecords(records: Layer[], used: Iterable<CablingCategory | undefined>): Layer[] {
+	const have = new Set(records.map((r) => r.id)), out: Layer[] = []
+	for (const c of new Set(used)) {
+		const l = c && c !== 'data' ? CATEGORY_LAYERS.find((x) => x.id === categoryLayerId(c)) : undefined
+		if (l && !have.has(l.id)) { out.push({ type: 'layer', id: l.id, name: l.name, order: l.order }); have.add(l.id) }
+	}
+	return out
+}
+
 /** The project's layers: the system ones (restyled by a record with their id) and its own, by order. */
 export function layersOf(records: Layer[]): LayerInfo[] {
 	const own = new Map(records.map((r) => [r.id, r]))
 	const look = (r: Layer) => ({ ...(r.color ? { color: r.color } : {}), ...(r.weightMm ? { weightMm: r.weightMm } : {}), ...(r.dash ? { dash: r.dash } : {}), ...(r.group ? { group: r.group } : {}) })
-	const sys = SYSTEM_LAYERS.map((s) => { const r = own.get(s.id); return r ? { ...s, order: r.order, ...look(r) } : s })
+	const sys = [...SYSTEM_LAYERS, ...CATEGORY_LAYERS.filter((c) => own.has(c.id))].map((s) => { const r = own.get(s.id); return r ? { ...s, order: r.order, ...look(r) } : s })
 	const custom = records.filter((r) => !r.id.startsWith('sys:')).map((r): LayerInfo => ({ id: r.id, name: r.name, order: r.order, ...look(r), system: false }))
 	return [...sys, ...custom].sort((a, b) => a.order - b.order)
 }
 
-/** The layer an item is on when it names none. Undefined = on no layer (always shown: paper, title block …). */
-export function defaultLayer(e: Entity): Id | undefined {
+/** The layer an item is on when it names none. Undefined = on no layer (always shown: paper, title block …). `cat` =
+ *  the project's categories (an outlet of one goes on its layer; categoryResolver). */
+export function defaultLayer(e: Entity, cat?: CategoryOf): Id | undefined {
 	switch (e.type) {
-		case 'outlet': return e.tier === 'high' ? 'sys:outlets-high' : 'sys:outlets-low'
+		case 'outlet': { const c = cat?.(e); return c && c !== 'data' ? categoryLayerId(c) : e.tier === 'high' ? 'sys:outlets-high' : 'sys:outlets-low' }
 		case 'rack': case 'device': return 'sys:racks'
 		case 'cord': return 'sys:cords'
 		case 'link': return e.kind === 'horizontal' ? undefined : 'sys:backbone'
@@ -75,20 +93,23 @@ export function defaultLayer(e: Entity): Id | undefined {
 }
 
 /** The layer an item is on: its own if that layer exists, else its kind's default. */
-export function layerOf(e: Entity, known: Set<Id>): Id | undefined {
+export function layerOf(e: Entity, known: Set<Id>, cat?: CategoryOf): Id | undefined {
 	const own = (e as { layerId?: Id }).layerId
-	return own && known.has(own) ? own : defaultLayer(e)
+	if (own && known.has(own)) return own
+	// a category's layer only once the project has it (else the outlet stays on Outlets / Outlets high)
+	const d = defaultLayer(e, cat)
+	return d && isCategoryLayer(d) && !known.has(d) ? defaultLayer(e) : d
 }
 
 /** The layer a drawn prim is on: its source's — except that a containment run's RISER parts sit on Risers. */
-export function primLayer(role: PrimRole | undefined, e: Entity | undefined, known: Set<Id>): Id | undefined {
+export function primLayer(role: PrimRole | undefined, e: Entity | undefined, known: Set<Id>, cat?: CategoryOf): Id | undefined {
 	// a rack view's context: not pickable (no source), on their own layers so they can be hidden / frozen
 	if (!e) return role === 'room-line' ? 'sys:room-lines' : role === 'other-face' ? 'sys:other-face' : undefined
 	if (e.type === 'shape' && e.role?.kind === 'containment' && !e.layerId && role === 'riser') return 'sys:risers'
 	// a device's port labels have their own layer (User 2026-10-07): hidden / frozen apart from the racks
 	if (e.type === 'device' && role === 'port-label') return 'sys:port-labels'
 	if (e.type === 'cord' && role === 'cord-stub') return 'sys:cord-stubs'
-	return layerOf(e, known)
+	return layerOf(e, known, cat)
 }
 
 /** Why a new item can't go on a layer (hidden / locked for this user), or null. */

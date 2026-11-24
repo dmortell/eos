@@ -398,9 +398,11 @@ export interface ProjectSettings {
 	fileStorage?: 'uploadthing' | 'firebase'
 	/** Patch cords bought, as batches of pre-printed labels (domain/cordBatches.ts). */
 	cordBatches?: CordBatch[]
-	usages: { id: string; label: string; color: string }[]
-	/** `cores` = a multi-core cable (a 24-core fibre): Link to… puts that many cores in each cable (absent = 1). */
-	cableTypes: { id: string; label: string; media: 'copper' | 'fibre' | 'other'; color: string; diameterMm?: number; cores?: number }[]
+	/** `category` = power / AV / security / EMS (domain/categories.ts; absent = Data). */
+	usages: { id: string; label: string; color: string; category?: import('./categories').CablingCategory }[]
+	/** `cores` = a multi-core cable (a 24-core fibre): Link to… puts that many cores in each cable (absent = 1).
+	 *  `category` = power / AV / security / EMS (absent = Data). */
+	cableTypes: { id: string; label: string; media: 'copper' | 'fibre' | 'other'; color: string; diameterMm?: number; cores?: number; category?: import('./categories').CablingCategory }[]
 	/** `wallOutletMm` = a new wall outlet's height above FFL (W11; absent = 300, as `outletZ`). */
 	defaults: { outletCableType: string; cordCableType: string; cordColour: string; panelPorts: number; wallOutletMm?: number }
 }

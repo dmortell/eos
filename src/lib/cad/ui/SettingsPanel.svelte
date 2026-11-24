@@ -21,6 +21,9 @@
 	import type { TitleBlockTemplate } from '../domain/titleBlock'
 	import { cableTypeUses, cantDelete, newCableTypeId, sortedCableTypes, type CableType } from '../domain/cableTypes'
 	import { usageUses, sortedUsages, type Usage } from '../domain/usages'
+	import { CATEGORIES, categoryLabel, type CablingCategory } from '../domain/categories'
+	import { categoryLayerRecords } from '../domain/layers'
+	const CATEGORY_TIP = 'Power, AV, Security or EMS cabling is kept apart from Data: its outlets go on their own layer (hide or freeze it in a drawing) and the BOM lists its outlets and cable under it. An outlet takes its usage’s category, else its cable type’s.'
 	import ColorPick from './ColorPick.svelte'
 	import type { Workspace } from '../app/workspace.svelte'
 	import type { Outlet } from '../domain/types'
@@ -80,6 +83,20 @@
 
 	const setUsage = (id: string, label: string, patch: Partial<Usage>) =>
 		save(label, (s) => ({ ...s, usages: s.usages.map((u) => (u.id === id ? { ...u, ...patch } : u)) }))
+	/** A usage's / cable type's CATEGORY (backlog 57): Data clears it; another adds its outlets layer the first time. */
+	function setCategory(what: 'usage' | 'type', id: string, name: string, c: CablingCategory) {
+		if (!st) return
+		const v = c === 'data' ? undefined : c
+		// Data = no key at all (Firestore takes no undefined)
+		const withCat = <T extends { category?: CablingCategory }>(x: T): T => { const { category: _was, ...rest } = x; return (v ? { ...rest, category: v } : rest) as T }
+		const next = what === 'usage'
+			? { ...st, usages: st.usages.map((u) => (u.id === id ? withCat(u) : u)) }
+			: { ...st, cableTypes: st.cableTypes.map((t) => (t.id === id ? withCat(t) : t)) }
+		project.store.transact(`${name}: ${categoryLabel(c)}`, (tx) => {
+			tx.put(next)
+			for (const l of categoryLayerRecords(project.index.layers, [v])) tx.put(l)
+		})
+	}
 	let newCode = $state('')
 	function addUsage() {
 		const id = newCode.trim()
@@ -115,6 +132,12 @@
 	}
 </script>
 
+{#snippet catPick(c: CablingCategory | undefined, set: (c: CablingCategory) => void)}
+	<select value={c ?? 'data'} onchange={(e) => set(e.currentTarget.value as CablingCategory)}>
+		{#each CATEGORIES as k (k.id)}<option value={k.id}>{k.label}</option>{/each}
+	</select>
+{/snippet}
+
 {#snippet none()}
 	<p class="hint">This project has no settings yet.</p>
 	<button class="btn" onclick={startDefaults} title="Usages AP, TV and CCTV; cable types CAT6A, CAT6, OS2 and OM4 — all editable here afterwards">Start with the default settings</button>
@@ -143,7 +166,7 @@
 	<div class="p-3">{@render none()}</div>
 {:else if tab === 'usages'}
 	<table>
-		<thead><tr><th title="What outlets and panels store (from the old tools: desk, AP, PR …)">Code</th><th>Label</th><th>Color</th><th>Used by</th><th></th></tr></thead>
+		<thead><tr><th title="What outlets and panels store (from the old tools: desk, AP, PR …)">Code</th><th>Label</th><th>Color</th><th title={CATEGORY_TIP}>Category</th><th>Used by</th><th></th></tr></thead>
 		<tbody>
 			{#each usages as u (u.id)}
 				{@const n = usageUse.get(u.id)}
@@ -152,6 +175,7 @@
 					<td class="font-mono">{u.id}</td>
 					<td><input class="lbl" value={u.label} onchange={(e) => e.currentTarget.value.trim() && setUsage(u.id, 'Rename usage', { label: e.currentTarget.value.trim() })} /></td>
 					<td><ColorPick value={u.color} onchange={(v) => v && setUsage(u.id, 'Usage color', { color: v })} /></td>
+					<td>{@render catPick(u.category, (c) => setCategory('usage', u.id, `Usage ${u.id}`, c))}</td>
 					<td class="text-zinc-500">{usedText(n) || '—'}</td>
 					<td><button class="del" disabled={used} title={used ? `Can't delete: used by ${usedText(n)}` : 'Delete this usage (Undo brings it back)'} onclick={() => removeUsage(u.id)}>✕</button></td>
 				</tr>
@@ -213,7 +237,7 @@
 	</div>
 {:else}
 	<table>
-		<thead><tr><th>Label</th><th>Media</th><th>Color</th><th title="A multi-core cable (a 24-core fibre): Link to… puts this many cores in each cable, and fill, the BOM and the cable schedule count the cable once. Blank = one">Cores</th><th title="Outer diameter — run fill uses it">Ø (mm)</th><th>Used by</th><th></th></tr></thead>
+		<thead><tr><th>Label</th><th>Media</th><th>Color</th><th title={CATEGORY_TIP}>Category</th><th title="A multi-core cable (a 24-core fibre): Link to… puts this many cores in each cable, and fill, the BOM and the cable schedule count the cable once. Blank = one">Cores</th><th title="Outer diameter — run fill uses it">Ø (mm)</th><th>Used by</th><th></th></tr></thead>
 		<tbody>
 			{#each types as t (t.id)}
 				{@const u = uses.get(t.id)}
@@ -222,6 +246,7 @@
 					<td><input class="lbl" value={t.label} onchange={(e) => e.currentTarget.value.trim() && setType(t.id, 'Rename cable type', { label: e.currentTarget.value.trim() })} /></td>
 					<td><select value={t.media} onchange={(e) => setType(t.id, 'Cable media', { media: e.currentTarget.value as CableType['media'] })}>{#each MEDIA as m (m)}<option value={m}>{m}</option>{/each}</select></td>
 					<td><ColorPick value={t.color} onchange={(v) => v && setType(t.id, 'Cable color', { color: v })} /></td>
+					<td>{@render catPick(t.category, (c) => setCategory('type', t.id, `Cable type ${t.label}`, c))}</td>
 					<td><input class="num" type="number" min="1" step="1" value={t.cores ?? ''} placeholder="1" onchange={(e) => { const v = Math.floor(Number(e.currentTarget.value)); setType(t.id, 'Cable cores', { cores: v > 1 ? v : undefined }) }} /></td>
 					<td><input class="num" type="number" min="1" step="0.1" value={t.diameterMm ?? ''} placeholder="—" onchange={(e) => { const v = Number(e.currentTarget.value); setType(t.id, 'Cable diameter', { diameterMm: v > 0 ? v : undefined }) }} /></td>
 					<td class="text-zinc-500">{u ? [u.ports && `${u.ports} ports`, u.links && `${u.links} links`, u.cords && `${u.cords} cords`].filter(Boolean).join(' · ') || '—' : ''}</td>

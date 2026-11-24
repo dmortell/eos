@@ -62,7 +62,7 @@ function areaGhosts(ix: ProjectIndex, levelId: Id, o: PlanOpts): Prim[] {
 	for (const a of areas) {
 		const pl = a.place ?? { x: 0, y: 0, rot: 0 }, T = (p: Pt) => toMain(pl, p), rot = pl.rot
 		for (const p0 of planDisplayList(ix, a.id, { ...o, compare: undefined, placing: undefined, underlay: o.placing === a.id ? o.underlay : undefined })) {
-			const lay = p0.layer ?? primLayer(p0.role, ix.get(p0.src), known)
+			const lay = p0.layer ?? primLayer(p0.role, ix.get(p0.src), known, ix.categoryOf)
 			const { src: _s, clip, ...q } = { ...p0, ...(lay ? { layer: lay } : {}) }
 			if (q.k === 'image') {
 				const c = T({ x: q.x + q.w / 2, y: q.y + q.h / 2 })
