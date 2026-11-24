@@ -8,7 +8,7 @@ describe('fallback labels for unlabelled panel ports (backlog 40)', () => {
 	it('rack-U-port for an unlabelled panel port; nothing for a labelled one or a switch', () => {
 		const ents = demoProject()
 		const rack = ents.find((e): e is Rack => e.type === 'rack')!
-		const panel: Device = { type: 'device', id: 'pX', name: 'PX', kind: 'panel', rackId: rack.id, u: 33, heightU: 1, portCount: 24, portLabels: { '1': 'A01' } } as Device
+		const panel: Device = { type: 'device', id: 'pX', name: 'PX', kind: 'panel', rackId: rack.id, u: 33, heightU: 1, portCount: 24, portLabels: { '1': 'A01' } } as unknown as Device
 		const sw: Device = { ...panel, id: 'sX', kind: 'switch', u: 30, portLabels: {} }
 		const ix = new ProjectIndex([...ents, panel, sw])
 		expect(ix.portFallback({ on: 'pX', port: 7 })).toBe(`${rack.name}-U33-P07`)
