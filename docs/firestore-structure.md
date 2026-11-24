@@ -113,8 +113,8 @@ files named in the table.
 - An older real-data tree exists in `workspace/parts/TreeNavigator.svelte` (Floor → Patch frames → sr:{X} → rows → racks).
 
 **Inconsistencies:** outlets reads `floors` raw (others use `migrateFloors`); frames/racks/patching/elevations
-append a missing floor to `projects.floors` on save; `deleteFloor` misses patching docs and area outlets docs;
-room letters hard-coded A–D in many places; three meanings of "room" and two of "zone"; the workspace knows only
+append a missing floor to `projects.floors` on save; (`deleteFloor` now deletes patching docs and area outlets docs too — backlog 42, 2026-11-24);
+room letters hard-coded A–D in many places (right: the Floor manager offers 1–4 rooms; `ROOM_LETTERS` in `utils/floor.ts`); three meanings of "room" and two of "zone"; the workspace knows only
 `risers/{pid}`; stray data exists (building1 has a floor numbered `3307` — an old stand-in for the 33F area 3307 —
 and registry drawings pointing at floors 1 and 200 that aren't in `floors`).
 

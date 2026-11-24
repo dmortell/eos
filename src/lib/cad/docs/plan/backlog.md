@@ -112,7 +112,7 @@ Answered 2026-11-23 (User). A decided item that needs building has a "→ build"
 
 ### E. App-wide and other pages
 - [x] **41. Uploads subscribes to the whole global `files` collection** — by design: the list offers other projects’ files to share in (2bbb8405) — per-project query commented out (`routes/projects/[pid]/uploads/+page.svelte:24`, `docs/firestore-structure.md:142`)
-- [ ] **42. `deleteFloor` misses patching docs and area outlets docs**; room letters hard-coded A–D (`docs/firestore-structure.md:115-117`)
+- [x] **42. `deleteFloor` misses patching docs and area outlets docs** — done 2026-11-24 (`phase8.md`); room letters hard-coded A–D (right: 1–4 rooms; `ROOM_LETTERS`) (`docs/firestore-structure.md:115-117`)
 - [ ] **43. Firestore loose ends** — basement `F-1` ids fail `_F(\d+)`; stray floor `3307` and registry drawings on floors 1 / 200; two drawings stores and two 3D stores; `IssueDoc.status` untyped and unread (`docs/firestore-structure.md:118-145`)
 - [ ] **44. Raw `history.pushState`** in frames / outlets / patching / racks pages (or retire with 32)
 - [ ] **45. Touch / trackpad pan-zoom in the older tools** — Outlets / Uploads buggy; Frames / Patching / Risers none (`mac-support.md:108-140`)

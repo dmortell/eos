@@ -4595,3 +4595,8 @@ User: "Yes, cords kept inside the set" (the ❓ entry of 2026-10-17).
   Label columns and a cord's Properties (italics), and Port properties (the label box's greyed placeholder). Not
   stored, not in exports or printed labels. Patching to an unlabelled panel port is still refused (the port-level gate
   stays). Help updated; tests in `portFallback.test.ts`, `portTip.test.ts`.
+- **`deleteFloor` deletes everything a floor owns (backlog 42, legacy tools — `utils/floor.ts`):** `floorToolDocs` lists
+  frames, outlets (the plain key and each tenant area's `_F{NN}__{area}`), and racks AND patching for every room
+  letter A–D (a room count lowered later left docs behind); `deleteFloor` deletes them all. The A–D letters are right
+  (the Floor manager offers 1–4 rooms): one `ROOM_LETTERS` constant there; the other legacy tools keep their own lists
+  (to retire with them). Tests in `utils/floorDelete.test.ts`.

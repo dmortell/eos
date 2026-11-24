@@ -138,9 +138,28 @@ export function updateSkippedFloors(
   db.save('projects', { id: projectId, skippedFloors: [...skippedFloors].sort((a, b) => a - b) })
 }
 
+/** Every server-room letter a floor can have — the Floor manager offers 1–4 rooms, lettered A–D. */
+export const ROOM_LETTERS = ['A', 'B', 'C', 'D'] as const
+
 /**
- * Delete a floor and all its tool documents (frames, racks rooms, outlets).
- * Returns the new active floor.
+ * Every tool document a floor owns: frames, outlets (the plain key and each tenant area's), and per server room the
+ * racks and patching docs. All four room letters, not just `serverRoomCount`'s — a room count lowered later leaves
+ * its old docs behind.
+ */
+export function floorToolDocs(projectId: string, fl: number, floors: FloorConfig[]): { path: string; id: string }[] {
+  const fid = floorDocId(projectId, fl)
+  const areas = floors.find((f) => f.number === fl)?.areas ?? []
+  const outlets = new Set([fid, ...areas.map((a) => floorAreaDocId(projectId, fl, areas, a.id)), ...areas.map((a) => floorDocId(projectId, fl, a.id))])
+  return [
+    { path: 'frames', id: fid },
+    ...[...outlets].map((id) => ({ path: 'outlets', id })),
+    ...ROOM_LETTERS.flatMap((rm) => [{ path: 'racks', id: roomDocId(projectId, fl, rm) }, { path: 'patching', id: roomDocId(projectId, fl, rm) }]),
+  ]
+}
+
+/**
+ * Delete a floor and all its tool documents (`floorToolDocs`: frames, outlets with its areas, racks and patching per
+ * room). Returns the new active floor.
  */
 export async function deleteFloor(
   db: FloorDb,
@@ -149,13 +168,9 @@ export async function deleteFloor(
   floors: FloorConfig[],
   activeFloor: number,
 ): Promise<{ floors: FloorConfig[]; activeFloor: number }> {
-  const fid = floorDocId(projectId, fl)
-
   // Delete all tool documents for this floor
-  try { await db.delete('frames', fid) } catch {}
-  try { await db.delete('outlets', fid) } catch {}
-  for (const rm of ['A', 'B', 'C', 'D']) {
-    try { await db.delete('racks', `${fid}_R${rm}`) } catch {}
+  for (const d of floorToolDocs(projectId, fl, floors)) {
+    try { await db.delete(d.path, d.id) } catch {}
   }
 
   // Update floors list
