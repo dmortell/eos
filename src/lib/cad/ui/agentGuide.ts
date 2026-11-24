@@ -60,7 +60,7 @@ Views: \`plan\` · \`front\` \`rear\` \`left\` \`right\` (elevations) · \`riser
 \`row.<roomId>.front|rear[.<rowId>]\` (a rack view) · \`sheet.<sheetId>\` · \`ports.<rackId>\` ·
 \`schedule.patch.<roomId|all>\` · \`portmap.<deviceId>~<deviceId>\`. Two comma-separated views = a split screen.
 The address bar follows what is open, so read it to know where you are, and load a URL to go straight back. Ids are
-opaque: get them from the URL after opening something via the Navigator (Ctrl+K searches it), not by guessing.
+opaque: get them from the URL after opening something via the Navigator or the command palette (Ctrl+K), not by guessing.
 
 ## Coordinates and typing (prefer typing to clicking)
 
@@ -99,7 +99,7 @@ typed input is the same in both. Home fits the view; Z then E / W / P zooms exte
 
 Each is a sequence of the how-tos below; read the matching how-to first.
 
-1. **Open a level**: Ctrl+K, type the level name (e.g. 3F), ↓ to its row, Enter; or load the URL with its \`level\` and \`v=plan\`.
+1. **Open a level**: Ctrl+K (the command palette), type the level name (e.g. 3F), ↓ to its row, Enter; or load the URL with its \`level\` and \`v=plan\`.
 2. **A room's walls**: pick Wall; type \`0,0\` Enter, \`@6000,0\` Enter, \`@0,4000\` Enter, \`@-6000,0\` Enter, then C
    to close. Openings: the Opening tool, then click a wall. Check: select a wall, read Properties.
 3. **Outlets along a wall**: pick Outlet; type the first point, then \`@1200,0\` Enter for each next one. Set usage,

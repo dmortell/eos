@@ -4572,3 +4572,12 @@ User: "Yes, cords kept inside the set" (the ❓ entry of 2026-10-17).
   "Depth band" box (at / front / back) gone from the view strip, with `ws.band`, the generator's `band` option (left out
   nearer, faded further), its edges on a Split plan, and the `far` / `band-edge` styles. It was for the session only
   (nothing stored). An elevation's work plane on the plan stays; sections keep their own range.
+- **Command palette (backlog 34, Kestrel B2; User 2026-11-24):** Ctrl+K (and View › Find or run a command…) opens a box
+  over the drawing (`ui/CommandPalette.svelte`, `domain/palette.ts`): part of a name GOES to a place — what the
+  Navigator's search finds (levels, views, sheets and their viewports, rooms, racks, devices, outlets), only rows that
+  match themselves, each with where it sits ("Test Project › 1F", "Sheets (8) › 1F") — and part of a command RUNS it:
+  every enabled menu item by its menu path, with its key (best match first). ↑ / ↓, Enter (Ctrl+Enter: a kept tab), Esc.
+  The Navigator's own search box stays (Ctrl+K no longer jumps to it). "Bill of materials (BOM)…" so "bom" finds it.
+  Document tabs (Kestrel B1) were already there: the drawing tab strip (preview / kept tabs, drag to reorder, Split,
+  kept per project in this browser). Help + agent guide updated. Tests in `palette.test.ts`; checked on Test Project
+  ("idf2" → the IDF2 sections, room, sheet; "bom" → BOM, cord BOM; Enter opened Section IDF2 B).

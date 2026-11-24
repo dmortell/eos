@@ -34,6 +34,7 @@
 	import type { Level, Pt, Underlay } from '../domain/types'
 	import ImportPanel from './ImportPanel.svelte'
 	import CatalogueDialog from './CatalogueDialog.svelte'
+	import CommandPalette from './CommandPalette.svelte'
 	import SettingsDialog, { type SettingsTab, type DetailsTabs } from './SettingsDialog.svelte'
 	import ResizeHandle from './ResizeHandle.svelte'
 	import { Panels } from '../app/panels.svelte'
@@ -45,7 +46,7 @@
 	import TablesPanel from './TablesPanel.svelte'
 	import TabStrip from './TabStrip.svelte'
 	import { Tabs, levelBound, viewKey as viewKeyOf, type TabView } from '../app/tabs.svelte'
-	import type { NavNode } from '../domain/navTree'
+	import type { NavNode, FindItem } from '../domain/navTree'
 	import CadWindow from './CadWindow.svelte'
 	import MenuBar from './MenuBar.svelte'
 	import HelpDialog from './HelpDialog.svelte'
@@ -584,7 +585,7 @@
 		remove: deleteSelected, turn90, hasSelection: ws.selection.length > 0 || !!ws.portSel || !!ws.openingSel,
 		selectAll: () => canvas?.selectAll(), selectSimilar: () => canvas?.selectSimilar(),
 		group: () => groupKey('group'), ungroup: () => groupKey('ungroup'), order: orderKey,
-		find: () => { layout.open('navigator'); ws.navSearch++ }, fit: () => canvas?.zoomExtents(), zoomSel, split: panes.length === 2, toggleSplit,
+		find: () => { ws.palette = true }, fit: () => canvas?.zoomExtents(), zoomSel, split: panes.length === 2, toggleSplit,
 		tables: tablesShown, toggleTables: () => panels.toggle('bottom'), hideAll: layout.allHidden, toggleHideAll: () => (layout.allHidden = !layout.allHidden),
 		back: () => navPane(activePane, -1), forward: () => navPane(activePane, 1), canBack: (tabs.of(activePane)?.back.length ?? 0) > 0, canFwd: (tabs.of(activePane)?.fwd.length ?? 0) > 0,
 		fill: ws.showFill, toggleFill: () => (ws.showFill = !ws.showFill), isPlan: activeKind === 'plan', fillHere: activeKind === 'plan' || activeKind === 'elevation' || activeKind === 'section',
@@ -924,6 +925,9 @@
 		{#if ws.toast}<div class="toast" class:toast-ok={ws.toastTone === 'ok'} class:toast-error={ws.toastTone === 'error'} role={ws.toastTone === 'error' ? 'alert' : 'status'}>{ws.toast}</div>{/if}
 	</main>
 
+	<!-- the command palette (Ctrl+K, View › Find or run a command…; backlog 34): a place opens as a Navigator row does
+	     (a device / outlet zoomed to), a command runs as its menu item -->
+	{#if ws.palette}<CommandPalette {project} {menus} onclose={() => (ws.palette = false)} onopen={(n, keep) => { navOpen(n, keep); const f = (n as FindItem).focus; if (n.key.startsWith('find:') && f) ws.focusOn(f, n.open?.spec, n.open?.levelId) }} />{/if}
 	{#if catalogueOpen}<CatalogueDialog {project} onclose={() => (catalogueOpen = false)} ondraw={(p, name) => { catalogueOpen = false; if (panes[activePane].kind !== 'plan') setPane(activePane, PLAN); ws.drawProduct(p); ws.say(`Rack tool: each click on the plan draws a ${name} — Esc stops`) }} />{/if}
 	{#if settingsOpen}<SettingsDialog {project} {ws} bind:tab={settingsTab} scrollTo={settingsScroll} hidden={calibrating} onclose={() => { settingsOpen = false; calibrating = false }} {oncalibrate} {onplacearea} onsetupfloors={setupFloors} {projectDetails} {detailsTabs} />{/if}
 	{#if imagePickOpen}<ImagePickDialog {project} onclose={() => (imagePickOpen = false)} onpick={(p) => { imagePickOpen = false; ws.imagePick = p; void measurePick(p.fileId, p.page); setTool('image'); ws.say(`${p.name}: drag its box on the ${activeKind === 'sheet' ? 'sheet' : 'plan'}`) }} />{/if}

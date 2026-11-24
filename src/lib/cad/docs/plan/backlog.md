@@ -113,7 +113,7 @@ Answered 2026-11-23 (User). A decided item that needs building has a "→ build"
 
 ### D. Features not yet in cad (from other docs)
 - [ ] **33. DXF import** — an uploaded `.dxf` → shapes or an XREF (`pages/todo.md:46`, `kestrel-adoption.md`)
-- [ ] **34. Ctrl+K command palette and document tabs** — Kestrel adoption first picks (`kestrel-adoption.md`)
+- [x] **34. Ctrl+K command palette and document tabs** — done 2026-11-24: the palette (`phase8.md`); the tabs were already there — Kestrel adoption first picks (`kestrel-adoption.md`)
 - [ ] **35. Command line, OFFSET / ARRAY / SCALE / STRETCH, ORTHO / POLAR, rotate grip, group transform box** (`later.md:35-43, 99-100`)
 - [ ] **36. Trunk auto-routing** and route length over the graph (`outlets/trunk-implement.md:385`)
 - [ ] **37. Whole-project JSON export / import** — check against cad backups (`pages/todo.md:60`)

@@ -117,7 +117,7 @@ export function buildMenus(c: MenuCtx): Menu[] {
 				{ label: 'Panel labels (Excel)', title: 'Every port label of the server rooms, for the label printer', children: [{ label: 'This level', run: () => c.panelLabels(false) }, { label: 'All levels', run: () => c.panelLabels(true) }] },
 				{ label: 'This plan (DXF)', disabled: !c.isPlan, run: c.dxf },
 				'-',
-				{ label: 'Bill of materials…', run: c.bom },
+				{ label: 'Bill of materials (BOM)…', run: c.bom },
 				{ label: 'Cable schedule…', run: c.cableSchedule },
 				{ label: 'Patch schedule · cord BOM…', run: c.cordBom },
 				{ label: 'Port map of the selected devices (Excel, VLAN)', title: 'Every port of the selected panels / switches with the outlet and port it reaches, and an empty VLAN column — Excel for the network engineers', run: c.portMap },
@@ -150,7 +150,7 @@ export function buildMenus(c: MenuCtx): Menu[] {
 			] },
 		] },
 		{ label: 'View', items: [
-			{ label: 'Find a view, sheet, room, rack…', key: KEYS.find, run: c.find },
+			{ label: 'Find or run a command…', key: KEYS.find, title: 'Go to a level, view, sheet, room, rack, device or outlet — or run any menu command by name', run: c.find },
 			{ label: 'Fit', key: KEYS.fit, run: c.fit },
 			{ label: 'Zoom to selection', key: KEYS.zoomSel, disabled: !c.hasSelection, run: c.zoomSel },
 			{ label: 'Back', key: KEYS.backView, disabled: !c.canBack, run: c.back },

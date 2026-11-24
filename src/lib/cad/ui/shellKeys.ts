@@ -106,7 +106,7 @@ export const KEY_COMMANDS: KeyCommand[] = [
 	{ label: 'Rack view: the other face (front ↔ rear)', keys: KEYS.flip, group: 'Racks', when: (e, c, k, mod) => !mod && !e.altKey && !e.shiftKey && k === 'f' && c.flipFace(), run: (e) => pd(e) },
 	{ label: 'Turn the selection 90° right (clockwise) / left', keys: `${KEYS.turnRight} / ${KEYS.turnLeft}`, group: 'Edit', when: (e, c, k, mod) => !mod && !e.altKey && k === 'r' && c.ws.toolId === 'select' && c.ws.selection.length > 0, run: (e, c) => { pd(e); c.turn90(e.shiftKey ? -1 : 1) } },
 	{ label: 'Help', keys: KEYS.help, group: 'Function keys', when: (e) => e.key === 'F1', run: (e, c) => { pd(e); c.help(false) } },
-	{ label: 'Find a level, view, sheet, room, rack, device, outlet', keys: KEYS.find, group: 'View', when: (_e, _c, k, mod) => mod && k === 'k', run: (e, c) => { pd(e); c.layout.open('navigator'); c.ws.navSearch++ } },
+	{ label: 'Command palette: go to a level, view, sheet, room, rack, device, outlet — or run a command', keys: KEYS.find, group: 'View', when: (_e, _c, k, mod) => mod && k === 'k', run: (e, c) => { pd(e); c.ws.palette = true } },
 	{ label: 'Open another project', keys: KEYS.openProject, group: 'View', when: (_e, _c, k, mod) => mod && k === 'o', run: (e, c) => { pd(e); c.openProject() } },
 	{ label: 'Print: the open sheet (else all sheets) as a PDF in a new browser tab', keys: KEYS.print, group: 'View', when: (_e, _c, k, mod) => mod && k === 'p', run: (e, c) => { pd(e); c.print() } },
 	{ label: 'Keys and mouse (this list)', keys: KEYS.keys, group: 'Help', when: (e, _c, _k, mod) => e.key === '?' && !mod, run: (e, c) => { pd(e); c.help(true) } },

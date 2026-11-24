@@ -482,6 +482,8 @@ export class Workspace {
 	vpContentNav = $state(false)
 	/** Bumped to focus the Navigator's search (Ctrl+K). */
 	navSearch = $state(0)
+	/** The command palette is open (Ctrl+K, View › Find…; backlog 34). */
+	palette = $state(false)
 	/** A Navigator row being renamed in place (a level, room, section, a sheet's title or number) — Rename… / F2 /
 	 *  Project › Rename this level…; the Navigator unfolds to it and swaps its label for an input. */
 	navRename = $state<{ id: string; field?: 'title' | 'number' } | null>(null)
