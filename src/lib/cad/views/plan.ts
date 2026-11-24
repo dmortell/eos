@@ -11,7 +11,7 @@ import { layersOf, layerOf, primLayer } from '../domain/layers'
 import { pictureRef } from '../domain/issue'
 import { legendShapePrims } from './legend'
 import { planOpenings } from '../domain/openings'
-import { sectionMarks, sectionsOn, roomElevMarker } from './sectionMarks'
+import { sectionMarks, sectionsOn, roomElevMarker, elevSheet } from './sectionMarks'
 import { rotate } from '../domain/conventions'
 import { tileLinesLocal } from '../domain/tiles'
 import type { Bounds, Prim, Dash } from './display'
@@ -142,7 +142,7 @@ export function planDisplayList(ix: ProjectIndex, levelId: Id, o: PlanOpts): Pri
 		if (room?.type === 'space' && room.boundary?.length) byRoom.set(room.id, [...(byRoom.get(room.id) ?? []), sec])
 		else out.push(...sectionMarks(sec, k))
 	}
-	for (const [id, secs] of byRoom) out.push(...roomElevMarker(ix.get(id) as Space, secs, k))
+	for (const [id, secs] of byRoom) out.push(...roomElevMarker(ix.get(id) as Space, secs, k, elevSheet(ix, secs)))
 	return declutter(out)
 }
 

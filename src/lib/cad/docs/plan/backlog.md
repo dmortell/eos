@@ -64,7 +64,7 @@ full notes for 1–8.
   - [x] 16b. (done 2026-11-22) Backups Delete buttons sit next to the question's Delete
   - [x] 16c. (already built 2026-10-15: CSL / ceiling / FFL / FSL in every elevation and section — checked on Workflow test, Section IDF 1 A) Section of a room with no walls shows FFL only
   - [x] 16d. (already built 2026-10-17: cut in the middle, the end shown) Tab titles truncated
-  - [ ] 16e. Room-elevation marker over the room name
+  - [x] 16e. (done 2026-11-24: the interior-elevation symbol, under the name) Room-elevation marker over the room name
   - [x] 16f. (already fixed: the tool hint gives way to the bulk one) Double hint in bulk patch
   - [x] 16g. (done: the other pane outlines since Round 10; the tip’s halo 2026-11-22) Hover outline only in the active pane; + tip has no halo
 - [ ] **17. Data on live projects** — 30F IDF1 "48P Rack Tie" panels have no cables; 81 import notes on Journey to clear; 161 LR import notes to review; Tourney tidy-up (`later.md:75-76`, `phase8.md:4306, 4421`). **User 2026-11-23:** review LR's 161 import notes and report (no changes); leave the rest for now.
@@ -80,7 +80,7 @@ Answered 2026-11-23 (User). A decided item that needs building has a "→ build"
   → build: 54.
 - [x] **22. Rack BOM products** — count custom products too (templates with a product), not only the Panduit seed. → build: 55.
 - [x] **23. Zones on one floor** — skipped here: being built in another session (see 6, the whole-floor plan).
-- [ ] **24. Import Pages models (7.4)?** — User: show the counts first (what each project's Pages models hold), then decide. → 56.
+- [x] **24. Import Pages models (7.4)?** — CLOSED 2026-11-24 (User: "we don’t need to import any more models"; counts in 56).
 - [x] **25. Plan Z-cuts** — no band; use the low / high layers.
 - [x] **26. Power, AV, security, EMS** — no separate models: the same outlets, runs, routes, fill and rendering code as
   structured cabling, but each kept as its own CATEGORY (separate contractors) with its own socket types and cable
@@ -96,11 +96,19 @@ Answered 2026-11-23 (User). A decided item that needs building has a "→ build"
 ### C2. Built from the decisions (2026-11-23)
 - [ ] **54. Racks and cabinets as one kind** (21) — Doors / Enclosed options, migration of cabinet racks, BOM names. P3 · M
 - [x] **55. Rack BOM counts custom products** (22) — done 2026-11-24 (`phase8.md`). P3 · S
-- [x] **56. Count what Pages models hold per project** (24) — done 2026-11-24: counts in `phase8.md`, reported to the User; 24 waits for the User — conduits, walls, notes, sections; report to the User. P3 · S
+- [x] **56. Count what Pages models hold per project** (24) — done 2026-11-24: counts in `phase8.md`; 24 closed (no more model imports). P3 · S
 - [x] **57. Cabling categories: power, AV, security, EMS** (26) — done 2026-11-24 (`phase8.md`) — a category on usages / cable types / socket types;
   draw, filter (layers) and BOM by category; same routing and fill code. P2 · M
 - [ ] **58. Delete the newest release, void older ones** (28). P3 · S–M
 - [x] **59. Ctrl+K finds viewports** (29) — already built: the search shows matching viewports under their sheet (checked 2026-11-24). P3 · S
+  **Findings (2026-11-24, for reference):** the Navigator tree (`domain/navTree.ts`) gives every sheet a child row per
+  viewport — label = the viewport's own label, else its view's name (`viewName`: "1F plan", "1F · 33IDF2 racks · Row A",
+  "Section IDF2 A" …), detail = its scale ("1:20"). The search box (Ctrl+K) filters label + detail (`filterTree`) and
+  keeps each match's parents, so a viewport shows under its sheet and that sheet's place / category group. A click opens
+  the VIEW (the model view the viewport shows), not the sheet. Checked on Test Project: "racks" lists S006 › "1F ·
+  33IDF2 racks · Row A", S002 › "4F · Server room B racks" …; "1:50" found nothing (no viewport at 1:50 there).
+  Not there (not asked for): Enter on a viewport row opening its sheet with the viewport selected; a sheet's number in
+  the viewport row itself (it's in the parent row).
 - [ ] **60. Drop the depth band** (31) — remove its UI and per-view setting; elevations / sections take depth from sections. P3 · S–M
 
 ### D. Features not yet in cad (from other docs)

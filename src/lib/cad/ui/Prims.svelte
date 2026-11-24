@@ -223,8 +223,12 @@
 	.section-arrow.filled { fill: #0f766e; }
 	.section-arrow { stroke: #0f766e; }
 	text.section-label { fill: #0f766e; font-weight: 400; }   /* not bold (User 2026-10-15: too thick) */
-	.elev-marker { stroke: #0f766e; fill: none; }   /* a room's elevations marker (User 2026-10-15) */
-	text.elev-marker-letter { fill: #ffffff; font-weight: 600; }
+	/* a room's elevations marker (User 2026-10-15), the interior-elevation symbol (16e, 2026-11-24): black on white */
+	.elev-marker { stroke: #0f172a; fill: none; }
+	.elev-marker-disc { stroke: #0f172a; fill: #ffffff; }
+	.elev-corner, .elev-corner.filled { stroke: #0f172a; fill: #0f172a; }
+	text.elev-marker-letter { fill: #0f172a; font-weight: 600; }
+	text.elev-marker-id { fill: #0f172a; }
 	.run-break { stroke: #334155; fill: none; stroke-width: 1.2px; vector-effect: non-scaling-stroke; }   /* a run cut off by a section's end (S-break) */
 	.cut.filled { fill: #334155; }
 	.cut { stroke: #0f172a; }

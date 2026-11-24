@@ -4562,3 +4562,9 @@ User: "Yes, cords kept inside the set" (the ❓ entry of 2026-10-17).
   - 3 sections in all. The outlet blocks and legacy trunks are copies of the Outlets tool's data, which cad already
     imported; what only Pages holds is the furniture / wall boxes, the riser-room boxes and fibre conduits, and the
     paper notes.
+- **Room-elevation marker (backlog 16e, User 2026-11-24: "make it look like the unisex bathroom" on the floorplan):** the
+  usual interior-elevation symbol, black on white (`views/sectionMarks.ts` `roomElevMarker`): a circle split across —
+  the elevations' name (their names less the letter) above, the sheet they're on below (`elevSheet`, blank when on
+  none) — inside a square turned 45°, each corner pointing at a wall, filled black where it has an elevation (picks it)
+  and lettered A–D outside. It sits just under the room's name (it covered it). PDF styles too. Checked on Test Project
+  1F, IDF2. Decision 24 (import Pages models) closed: User, no more model imports.

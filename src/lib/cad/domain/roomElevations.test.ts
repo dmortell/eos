@@ -33,9 +33,21 @@ describe('the plan shows a room\'s elevations as one marker (User 2026-10-15)', 
 		const secs = roomElevations(room, () => `E${i++}`)
 		const other = { type: 'section', id: 'X', levelId: 'L1', name: 'Section X', a: { x: 0, y: 5000 }, b: { x: 4000, y: 5000 }, depth: 1000 }
 		const ps = planDisplayList(new ProjectIndex([level, room, ...secs, other] as never[]), 'L1', { scale: 100 })
-		expect(ps.filter((p) => p.k !== 'image' && p.cls === 'elev-marker')).toHaveLength(1)
-		expect(ps.filter((p) => p.k !== 'image' && p.cls === 'section-arrow' && secs.some((s) => s.id === p.src))).toHaveLength(4)
+		// the interior-elevation symbol (16e): a white disc split across inside a square turned 45°, a black corner per section
+		expect(ps.filter((p) => p.k === 'circle' && p.cls === 'elev-marker-disc')).toHaveLength(1)
+		expect(ps.filter((p) => p.k !== 'image' && p.cls === 'elev-corner' && secs.some((s) => s.id === p.src))).toHaveLength(4)
 		expect(ps.filter((p) => p.k === 'text' && p.cls === 'elev-marker-letter').map((p) => (p.k === 'text' ? p.text : ''))).toEqual(['A', 'B', 'C', 'D'])
 		expect(ps.filter((p) => p.k !== 'image' && p.cls === 'section-line').map((p) => (p.k !== 'image' ? p.src : ''))).toEqual(['X'])
+		// under the room's name, not on it: the square's top tip lies below the name's baseline
+		const name = ps.find((p) => p.k === 'text' && p.cls.includes('room-name'))!, square = ps.find((p) => p.k === 'line' && p.cls === 'elev-marker' && p.closed)!
+		expect(name.k === 'text' && square.k === 'line' && Math.min(...square.pts.map((q) => q.y)) > name.at.y).toBe(true)
+	})
+	it('the sheet the elevations are on, under the split', async () => {
+		const { roomElevMarker } = await import('../views/sectionMarks')
+		let i = 0
+		const secs = roomElevations(room, () => `E${i++}`)
+		const ids = (sheet?: string) => roomElevMarker(room, secs, 100, sheet).filter((p) => p.k === 'text' && p.cls === 'elev-marker-id').map((p) => (p.k === 'text' ? p.text : ''))
+		expect(ids('A-25')).toContain('A-25')
+		expect(ids()).not.toContain('A-25')
 	})
 })
