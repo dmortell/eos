@@ -4581,3 +4581,11 @@ User: "Yes, cords kept inside the set" (the ❓ entry of 2026-10-17).
   Document tabs (Kestrel B1) were already there: the drawing tab strip (preview / kept tabs, drag to reorder, Split,
   kept per project in this browser). Help + agent guide updated. Tests in `palette.test.ts`; checked on Test Project
   ("idf2" → the IDF2 sections, room, sheet; "bom" → BOM, cord BOM; Enter opened Section IDF2 B).
+- **Delete the newest release, void older ones (backlog 58, User decision 28):** Releases table: the newest release
+  has Delete… (`app/issue.ts` `deleteRelease`; pure part `cantDeleteRelease` / `unreleaseSheets` in `domain/issue.ts`)
+  — one undo step takes the revisions it gave its sheets off (a sheet's own change notes back to "changed since", the
+  design log's changes pending again: `released` entry off, done → open) and deletes the record; then its frozen copies
+  in `cadIssued` (sheets it bumped + its cover pages, only those it froze) are deleted — not undoable, so the question
+  says an Undo can't bring back a reprint. Its PDF / Excel files stay in Uploads, a backup made with it in Backups; a
+  new round it started and clouds it deleted stay as they are. Older releases: Void… (why, optional) sets
+  `Issue.voided {date, reason}` — VOID tag, name struck through; Unvoid. Help updated; tests in `issueDelete.test.ts`.

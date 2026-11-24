@@ -88,7 +88,7 @@ Answered 2026-11-23 (User). A decided item that needs building has a "→ build"
 - [x] **56. Count what Pages models hold per project** (24) — done 2026-11-24: counts in `phase8.md`; 24 closed (no more model imports). P3 · S
 - [x] **57. Cabling categories: power, AV, security, EMS** (26) — done 2026-11-24 (`phase8.md`) — a category on usages / cable types / socket types;
   draw, filter (layers) and BOM by category; same routing and fill code. P2 · M
-- [ ] **58. Delete the newest release, void older ones** (28). P3 · S–M
+- [x] **58. Delete the newest release, void older ones** (28) — done 2026-11-24 (`phase8.md`). P3 · S–M
 - [x] **59. Ctrl+K finds viewports** (29) — already built: the search shows matching viewports under their sheet (checked 2026-11-24). P3 · S
   **Findings (2026-11-24, for reference):** the Navigator tree (`domain/navTree.ts`) gives every sheet a child row per
   viewport — label = the viewport's own label, else its view's name (`viewName`: "1F plan", "1F · 33IDF2 racks · Row A",

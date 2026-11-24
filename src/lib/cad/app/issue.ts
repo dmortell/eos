@@ -4,7 +4,7 @@
 // Firebase Storage, Settings › Files; + `files/{id}`, so it lists in Uploads) and recorded on the Issue. Reprinting an issue draws the same frozen lists again.
 import { coverPages, type CoverRow } from '../views/transmittalPage'
 import type { Id } from '../domain/types'
-import { doc, getDoc, runTransaction } from 'firebase/firestore'
+import { doc, getDoc, runTransaction, writeBatch } from 'firebase/firestore'
 import type { CadProject } from './project.svelte'
 import { storeFile } from './projectFiles'
 import { fileSnapshot, type FileSnapshot } from './pdf.svelte'
@@ -14,7 +14,7 @@ import type { Underlay } from '../domain/types'
 import { settingsOf } from '../domain/settings'
 import type { Prim } from '../views/display'
 import { sheetDisplayList, paperSize } from '../views/sheet'
-import { freeze, sheetPrint, planIssue, issuedRevision, withCodes, revCodeProblem, underlayRef, parseUnderlayRef, floorplansIn, tagDraftClouds, PICTURE_REF, issueNumbers, nextIssueNumber, issueTag, issueTitle, type IssuePlanRow } from '../domain/issue'
+import { freeze, sheetPrint, planIssue, issuedRevision, withCodes, revCodeProblem, underlayRef, parseUnderlayRef, floorplansIn, tagDraftClouds, PICTURE_REF, issueNumbers, nextIssueNumber, issueTag, issueTitle, cantDeleteRelease, unreleaseSheets, type IssuePlanRow } from '../domain/issue'
 import { pagesToPdf, browserImageLoader, browserTextRaster, type ImageLoader, type PdfPage } from '../render/pdf'
 import { fileSafe, saveFile } from '../render/download'
 import { bomFile, cableScheduleFile, XLSX_TYPE, type XlsxFile } from '../render/exports'
@@ -273,6 +273,30 @@ export async function reprintIssue(project: CadProject, issue: Issue): Promise<{
 	const n = issueNumbers(project.store.ofType('issue')).get(issue.id)
 	if (!await saveFile(pdf.output('blob'), `${fileSafe(`${project.name} ${n ? issueTitle(n, issue.name) : issue.name} ${issue.date}`)} (reprint).pdf`, 'application/pdf', { what: `${issue.name} reprint`, ...(n ? { version: String(n).padStart(2, '0') } : {}) })) return null
 	return { unsupported, rasterised }
+}
+
+/** DELETE the newest release (backlog 58): its new revisions come off the sheets (their change notes back to pending)
+ *  and the record goes, in one undo step; then its frozen copies are deleted (not undoable — after an Undo it can't be
+ *  reprinted). Its PDF and Excel files stay in Uploads; a backup made with it stays in Backups. */
+export async function deleteRelease(project: CadProject, issue: Issue): Promise<void> {
+	const why = cantDeleteRelease(issue, project.store.ofType('issue'), (id) => { const s = project.store.get(id); return s?.type === 'sheet' ? s : undefined })
+	if (why) throw new Error(why)
+	const sheets = issue.sheets.map((r) => project.store.get(r.sheetId)).filter((s): s is Sheet => s?.type === 'sheet')
+	const back = unreleaseSheets(issue, sheets, logChanges(project))
+	project.store.transact(`Delete ${issue.name}`, (tx) => {
+		for (const s of back.sheets) tx.put(s)
+		for (const c of back.changes) tx.put(c)
+		tx.del(issue.id)
+	})
+	const keys = [...issue.sheets.filter((r) => r.changed).map((r) => key(r.sheetId, r.rev)), ...Array.from({ length: issue.cover ?? 0 }, (_, i) => key(coverId(issue.id), String(i + 1)))]
+	for (const k of keys) {
+		const head = (await getDoc(doc(project.db, col(project), k))).data()
+		if (!head || head.issueId !== issue.id) continue   // a copy another release froze is left alone
+		const b = writeBatch(project.db)
+		b.delete(doc(project.db, col(project), k))
+		for (let i = 0; i < (head.parts as number); i++) b.delete(doc(project.db, col(project), `${k}~p${i}`))
+		await b.commit()
+	}
 }
 
 /** ONE sheet as it was issued at revision `rev` (backlog "Show old issued versions"), downloaded as a PDF. */

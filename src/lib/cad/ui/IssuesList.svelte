@@ -9,11 +9,11 @@
 	import type { Issue, Sheet, SheetPackage } from '../domain/drawing'
 	import { packageFromIssue } from '../domain/packages'
 	import { newId } from '../domain/ids'
-	import { reprintIssue } from '../app/issue'
+	import { reprintIssue, deleteRelease, today } from '../app/issue'
 	import { unsupportedNote } from '../app/sheetsPdf'
 	import { exportTransmittal } from '../render/transmittal'
 	import { exportIssueRegister } from '../render/issueRegister'
-	import { issueNumbers, ISSUE_PURPOSES } from '../domain/issue'
+	import { issueNumbers, ISSUE_PURPOSES, cantDeleteRelease } from '../domain/issue'
 	import { canRestore } from '../domain/restorePlan'
 	import TableFrame from './TableFrame.svelte'
 	import type { MenuItem } from './cadMenus'
@@ -61,6 +61,20 @@
 		try { const r = await ws.building(`the PDF of ${i.name}`, () => reprintIssue(project, i)); if (r) ws.say(`Reprinted ${i.name} as released${unsupportedNote(r.unsupported, r.rasterised)}`) }
 		catch (e) { project.error = `Reprint failed: ${(e as Error).message}` }
 	}
+	/** Backlog 58: the newest release can be deleted; an older one only voided (kept on record, marked VOID). */
+	const sheetOf = (id: string) => { const s = project.index.getOf('sheet', id); return s?.type === 'sheet' ? s : undefined }
+	function del(i: Issue) {
+		const why = cantDeleteRelease(i, issues, sheetOf)
+		if (why) { ws.say(why); return }
+		const bumped = i.sheets.filter((s) => s.changed).map((s) => `${s.number} ${s.rev}`)
+		ws.ask2(`Delete ${i.name}?${bumped.length ? ` ${bumped.join(', ')} come off the sheets (their change notes go back to pending).` : ''} Its frozen copies are deleted, so even after an Undo it can't be reprinted; its PDF stays in Uploads.`, 'Delete release', async () => {
+			try { await deleteRelease(project, i); ws.say(`Deleted ${i.name}`) } catch (e) { project.error = `Delete failed: ${(e as Error).message}` }
+		})
+	}
+	function voidIt(i: Issue) {
+		ws.askInDialog({ title: `Void ${i.name}`, label: 'Why (optional — shown with it)', value: '', ok: 'Void' }, (t) =>
+			editIssue(i, `Void ${i.name}`, { voided: { date: today(), ...(t.trim() ? { reason: t.trim() } : {}) } }))
+	}
 	async function transmittal(i: Issue) {
 		try { await ws.building('the transmittal', () => exportTransmittal(i, project.name, numbers.get(i.id))) } catch (e) { project.error = `Excel failed: ${(e as Error).message}` }
 	}
@@ -74,8 +88,8 @@
 		<tr><th class="px-2 py-1" title="The release's number (edit it to renumber)">No.</th><th class="px-2">Date</th><th class="px-2">Package</th><th class="px-2">Purpose</th><th class="px-2">To</th><th class="px-2">Sheets (rev)</th><th class="px-2">PDF</th><th class="px-2"></th></tr>
 	</thead>
 	<tbody>
-		{#each issues as i (i.id)}
-			<tr class="align-top">
+		{#each issues as i, row (i.id)}
+			<tr class="align-top" class:voided={!!i.voided}>
 				<td class="px-2"><input class="no" type="number" min="1" value={numbers.get(i.id)} onchange={(e) => { const n = Math.round(Number(e.currentTarget.value)); if (n > 0) project.store.transact(`Release number ${n}`, (tx) => tx.put({ ...i, number: n })) }} /></td>
 				<td class="px-2 font-mono">{i.date}</td>
 				{#if editing === i.id}
@@ -85,7 +99,7 @@
 					<td class="px-2"><input class="cell w-full" list="cad-purposes" value={i.purpose} onchange={(e) => e.currentTarget.value.trim() && editIssue(i, 'Release purpose', { purpose: e.currentTarget.value.trim() })} /></td>
 					<td class="px-2"><input class="cell w-full" value={i.to ?? ''} placeholder="To" onchange={(e) => editIssue(i, 'Release to', { to: e.currentTarget.value.trim() || undefined })} /></td>
 				{:else}
-					<td class="px-2" title={i.note ?? ''}>{i.name}{#if i.note}<span class="block muted">{i.note}</span>{/if}</td>
+					<td class="px-2" title={i.note ?? ''}>{#if i.voided}<span class="void" title="Voided {i.voided.date}{i.voided.reason ? ` — ${i.voided.reason}` : ''}">VOID</span> {/if}<span class="nm">{i.name}</span>{#if i.voided?.reason}<span class="block muted">Void: {i.voided.reason}</span>{/if}{#if i.note}<span class="block muted">{i.note}</span>{/if}</td>
 					<td class="px-2">{i.purpose}</td>
 					<td class="px-2">{i.to ?? ''}</td>
 				{/if}
@@ -101,6 +115,9 @@
 					{#if !i.packageId}<button class="btn" title="Make a re-usable package of its sheets (this release becomes the package's last release)" onclick={() => makePackage(i)}>Make package</button>
 					{:else}<span class="pk" title="Released from a package">{project.index.nameOf(i.packageId) || 'package'}</span>{/if}
 					<button class="btn" title="Rename it, or change its purpose / recipient / note (what was released stays as it was)" onclick={() => (editing = editing === i.id ? null : i.id)}>{editing === i.id ? 'Done' : 'Edit'}</button>
+					{#if row === 0}<button class="btn" disabled={busy} title="Take this release back: its new revisions come off the sheets and its frozen copies go (its PDF stays in Uploads). Only the newest release can be deleted" onclick={() => del(i)}>Delete…</button>
+					{:else if i.voided}<button class="btn" title="Take the VOID mark off" onclick={() => editIssue(i, `Unvoid ${i.name}`, { voided: undefined })}>Unvoid</button>
+					{:else}<button class="btn" title="Mark it VOID — withdrawn, kept on record (only the newest release can be deleted)" onclick={() => voidIt(i)}>Void…</button>{/if}
 				</td>
 			</tr>
 		{:else}
@@ -111,6 +128,8 @@
 </TableFrame>
 
 <style>
+	.void { font-size: 10px; font-weight: 700; color: #b91c1c; border: 1px solid #b91c1c; border-radius: 3px; padding: 0 3px; }
+	tr.voided .nm { text-decoration: line-through; opacity: 0.7; }
 	.pk { font-size: 10px; color: #0369a1; background: #e0f2fe; border-radius: 3px; padding: 0 4px; }
 	input.no { width: 3rem; border: 1px solid var(--cad-line); border-radius: 4px; padding: 0 4px; background: var(--cad-input); color: var(--cad-text); font-family: ui-monospace, monospace; }
 	.btn { min-height: 20px; border: 1px solid var(--cad-line); border-radius: 4px; padding: 0 6px; background: var(--cad-input); color: var(--cad-text); }

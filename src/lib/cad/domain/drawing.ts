@@ -196,6 +196,8 @@ export interface Issue {
 	floorplans?: string[]
 	/** Excel files issued with its PDF (W21): the BOM, cable and outlet schedules as they were, in file storage. */
 	attachments?: { id: string; url: string; name: string; kind: 'bom' | 'cables' | 'outlets' }[]
+	/** Marked VOID (backlog 58): withdrawn, kept on record (only the newest release can be deleted). YYYY-MM-DD. */
+	voided?: { date: string; reason?: string }
 }
 
 /** A PACKAGE (sheets-organising §3): a named, re-usable set of sheets issued again and again ("Tender set", "IDF1

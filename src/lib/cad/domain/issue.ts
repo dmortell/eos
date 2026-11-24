@@ -3,7 +3,7 @@
 // their last issue) and which go at the revision they were last issued at. The app part (Firestore, upload, PDF) is
 // app/issue.ts.
 import type { Prim } from './prim'
-import type { Issue, Sheet, SheetChange } from './drawing'
+import type { DesignChange, Issue, Sheet, SheetChange } from './drawing'
 
 /** The revision after `code`: none → `first`; a trailing number counts up keeping its width (P01 → P02, 9 → 10);
  *  letters count A → B … Z → AA. */
@@ -245,6 +245,41 @@ export const issueTag = (n: number): string => `Release ${String(n).padStart(2, 
 export function issueTitle(n: number, name: string): string {
 	const rest = n ? name.replace(new RegExp(`^\\s*(release\\s*)?0*${n}(?!\\d)\\s*[-–:.]?\\s*`, 'i'), '') : name
 	return `${issueTag(n)}${rest.trim() ? ` ${rest.trim()}` : ''}`
+}
+
+/** DELETING A RELEASE (backlog 58, User 2026-11-23): only the newest can be deleted — older ones can only be voided.
+ *  Why this one can't be (null = it can): not the newest, or a sheet has a later revision than the one it got here. */
+export function cantDeleteRelease(issue: Issue, issues: Issue[], sheetOf: (id: string) => Sheet | undefined): string | null {
+	const nums = issueNumbers(issues), mine = nums.get(issue.id) ?? 0
+	if ([...nums.values()].some((n) => n > mine)) return 'Only the newest release can be deleted — void this one instead'
+	for (const r of issue.sheets) {
+		if (!r.changed) continue
+		const s = sheetOf(r.sheetId), last = s?.revisions?.at(-1)
+		if (s && last && last.issueId !== issue.id && s.revisions!.some((x) => x.issueId === issue.id)) return `${s.number || s.title} has a revision after ${r.rev} — it can't be taken off`
+	}
+	return null
+}
+/** What deleting a release puts back: each sheet that got a new revision in it loses that revision (its own change notes
+ *  return to "changed since", the design log's changes become pending on it again — open if every sheet had them). */
+export function unreleaseSheets(issue: Issue, sheets: Sheet[], changes: DesignChange[]): { sheets: Sheet[]; changes: DesignChange[] } {
+	const outSheets: Sheet[] = [], logIds = new Set(changes.map((c) => c.id)), codes = new Map<string, string>()
+	for (const s of sheets) {
+		const rev = s.revisions?.find((r) => r.issueId === issue.id)
+		if (!rev) continue
+		codes.set(s.id, rev.code)
+		const own = (rev.changes ?? []).filter((c) => !logIds.has(c.id)), back = [...own, ...(s.changes ?? [])]
+		const revisions = s.revisions!.filter((r) => r !== rev)
+		const { revisions: _r, changes: _c, ...rest } = s
+		outSheets.push({ ...rest, ...(revisions.length ? { revisions } : {}), ...(back.length ? { changes: back } : {}) } as Sheet)
+	}
+	const outChanges: DesignChange[] = []
+	for (const c of changes) {
+		const released = (c.released ?? []).filter((r) => codes.get(r.sheetId) !== r.code)
+		if (released.length === (c.released ?? []).length) continue
+		const { released: _x, ...rest } = c
+		outChanges.push({ ...rest, ...(released.length ? { released } : {}), ...(c.status === 'done' ? { status: 'open' as const } : {}) })
+	}
+	return { sheets: outSheets, changes: outChanges }
 }
 
 /** The transmittal's rows: the package's sheets in sheet-number order. */
