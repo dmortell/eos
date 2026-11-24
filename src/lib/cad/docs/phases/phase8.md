@@ -4568,3 +4568,7 @@ User: "Yes, cords kept inside the set" (the ❓ entry of 2026-10-17).
   none) — inside a square turned 45°, each corner pointing at a wall, filled black where it has an elevation (picks it)
   and lettered A–D outside. It sits just under the room's name (it covered it). PDF styles too. Checked on Test Project
   1F, IDF2. Decision 24 (import Pages models) closed: User, no more model imports.
+- **Depth band dropped (backlog 60, User 2026-11-23 decision 31: "drop it, rely on sections"):** the elevation tab's
+  "Depth band" box (at / front / back) gone from the view strip, with `ws.band`, the generator's `band` option (left out
+  nearer, faded further), its edges on a Split plan, and the `far` / `band-edge` styles. It was for the session only
+  (nothing stored). An elevation's work plane on the plan stays; sections keep their own range.

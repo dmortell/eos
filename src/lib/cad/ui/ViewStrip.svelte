@@ -148,14 +148,6 @@
 			{#if ws.showRoutes && routeKey}
 				<div class="keys">{#each routeKey as r (r.id)}<span class="rkey" title="Cables to {r.name}"><i style:background={r.color}></i>{r.name}</span>{:else}<span class="rkey">no routed cables here</span>{/each}</div>
 			{/if}
-		{:else if spec.kind === 'elevation'}
-			<!-- the depth band (UX14): around the work depth; nearer is left out, further fades; the plan shows it in Split -->
-			<label title="Show only what's near the work depth — nearer is left out, further is faded (Split with the plan to see the band)"><input type="checkbox" checked={ws.band.on} onchange={() => (ws.band.on = !ws.band.on)} /> Depth band</label>
-			{#if ws.band.on}
-				<label class="num" title="Where the band is: the work depth (mm along the view; blank = the middle of the floor)">at <input type="number" step="100" value={ws.depth ?? ''} placeholder="auto" onchange={(e) => (ws.depth = e.currentTarget.value === '' ? null : Number(e.currentTarget.value))} /></label>
-				<label class="num" title="How far the band reaches towards you (mm)">front <input type="number" min="0" step="100" bind:value={ws.band.front} /></label>
-				<label class="num" title="How far the band reaches away from you (mm); beyond it is faded">back <input type="number" min="0" step="100" bind:value={ws.band.back} /></label>
-			{/if}
 		{:else if spec.kind === 'riser'}
 			<!-- the floor list (User 2026-10-21): which floors this riser tab shows; Hide empty floors is in it -->
 			<RiserFloors {project} {spec} onchange={go} />

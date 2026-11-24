@@ -480,9 +480,6 @@ export class Workspace {
 	/** "Pan / zoom content" (User: instead of Alt): a drag inside the selected / edited viewport pans its view and the
 	 *  wheel steps its scale, with no Alt. */
 	vpContentNav = $state(false)
-	/** An elevation's DEPTH BAND (UX14, a test): around the work depth, `front` mm towards the viewer and `back` mm away.
-	 *  Nearer is left out, further is faded; the plan shows the band in Split. For the session. */
-	band = $state({ on: false, front: 1000, back: 4000 })
 	/** Bumped to focus the Navigator's search (Ctrl+K). */
 	navSearch = $state(0)
 	/** A Navigator row being renamed in place (a level, room, section, a sheet's title or number) — Rename… / F2 /

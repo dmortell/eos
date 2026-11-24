@@ -304,9 +304,6 @@
 	text.chg-gone { fill: #dc2626; stroke: none; text-decoration: line-through; }
 	.guide { stroke: #06b6d4; stroke-width: 1px; stroke-dasharray: 6 4; opacity: 0.8; pointer-events: none; }
 	.guide.guide-hot { stroke-width: 2.5px; opacity: 1; }
-	/* an elevation's depth band (UX14): beyond it faded; its edges on the plan */
-	.far { opacity: 0.3; }
-	.band-edge { stroke: #7c3aed; stroke-dasharray: 10 6; stroke-width: 1.2; }
 	.draft.line { opacity: 1; stroke-dasharray: 4 3; }
 	/* a white halo: readable over the drawing's lines (Round 10: the port +'s tip over a rack's edges) */
 	/* the halo sized to the text (em): 3 drawing units vanished when zoomed out (backlog 16g: the port + tip over a rack's lines) */

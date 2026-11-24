@@ -213,7 +213,7 @@ export function allRoutesOf(ix: ProjectIndex, routes: Map<Id, Route>, levelId: I
 }
 
 /** The OTHER pane's work plane, drawn here: a depth line in plan, a height line in an elevation. */
-export function workPlaneOf(spec: ViewSpec, other: ViewSpec, prims: Prim[], depth: number, z: number, band?: { front: number; back: number }): Prim[] {
+export function workPlaneOf(spec: ViewSpec, other: ViewSpec, prims: Prim[], depth: number, z: number): Prim[] {
 	const b = unionBounds(prims.map(primBounds))
 	if (!b) return []
 	if (spec.kind === 'plan' && other.kind === 'elevation') {
@@ -222,8 +222,7 @@ export function workPlaneOf(spec: ViewSpec, other: ViewSpec, prims: Prim[], dept
 			const c = { x: f.o.x + f.n.x * d, y: f.o.y + f.n.y * d }
 			return { k: 'line', pts: [{ x: c.x - f.t.x * L, y: c.y - f.t.y * L }, { x: c.x + f.t.x * L, y: c.y + f.t.y * L }], cls }
 		}
-		// the elevation's depth band (UX14): its near and far edges either side of the work plane
-		return [at(depth, 'workplane'), ...(band ? [at(depth + band.front, 'band-edge'), at(depth - band.back, 'band-edge')] : [])]
+		return [at(depth, 'workplane')]
 	}
 	if (spec.kind === 'elevation' && other.kind === 'plan') return [{ k: 'line', pts: [{ x: b.x0, y: -z }, { x: b.x1, y: -z }], cls: 'workplane' }]
 	return []

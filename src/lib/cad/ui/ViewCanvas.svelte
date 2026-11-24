@@ -136,7 +136,7 @@
 					? riserDisplayList(project.index, { scale: PLOT_SCALE, routes: project.routes, fills: project.fills, hideEmpty: spec.hideEmpty, buildingId: spec.buildingId, hidden: spec.hidden })
 					: spec.kind === 'section'
 						? (section ? sectionDisplayList(project.index, section, { scale: PLOT_SCALE, blocks: project.blockOf }) : [])
-						: elevationDisplayList(project.index, levelId, space, { scale: PLOT_SCALE, blocks: project.blockOf, ...(ws.band.on ? { band: { near: work.depth + ws.band.front, far: work.depth - ws.band.back } } : {}) }))
+						: elevationDisplayList(project.index, levelId, space, { scale: PLOT_SCALE, blocks: project.blockOf }))
 	// text fields ({PROJECT}, {LEVEL}, {COUNT:…}, domain/fields.ts) — a sheet fills its own (per viewport)
 	const raw = $derived(spec.kind === 'sheet' || spec.kind === 'row' || isPaperSpec(spec) ? drawn
 		: withFields(drawn, fieldCtx(project.index, { project: project.name, building: project.details?.buildingName?.trim(), blocks: project.blockOf, ...(spec.kind === 'riser' ? {} : { levels: [levelId] }) })))
@@ -166,7 +166,7 @@
 	const routeHighlight = $derived(spec.kind === 'plan' && (ws.selection.length || ws.portSel) ? routesOf(project.index, project.routes, levelId, ws.selection, ws.portSel, project.estimates) : [])   // routes read only when there's something to show
 	// the Routes toggle: every cable's route, colored by server room (backlog "Show all routes")
 	const allRoutes = $derived(spec.kind === 'plan' && ws.showRoutes ? allRoutesOf(project.index, project.routes, levelId, project.estimates) : null)
-	const linked = $derived(other && prims.length ? workPlaneOf(spec, other, prims, ws.depth ?? depthAt(other), ws.opts.z, ws.band.on ? ws.band : undefined) : [])
+	const linked = $derived(other && prims.length ? workPlaneOf(spec, other, prims, ws.depth ?? depthAt(other), ws.opts.z) : [])
 	/** The work plane's grip and its value (views/overlays.ts): drag it (Select tool) to set the elevation's work depth /
 	 *  the plan's Z, 10 mm steps (Alt: free); double-click it in the plan → auto depth again. */
 	const wGrip = $derived(other && prims.length ? workPlaneGrip(spec, other, prims, ws.depth ?? depthAt(other), ws.opts.z) : null)

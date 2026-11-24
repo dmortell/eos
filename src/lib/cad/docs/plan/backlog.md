@@ -109,7 +109,7 @@ Answered 2026-11-23 (User). A decided item that needs building has a "→ build"
   33IDF2 racks · Row A", S002 › "4F · Server room B racks" …; "1:50" found nothing (no viewport at 1:50 there).
   Not there (not asked for): Enter on a viewport row opening its sheet with the viewport selected; a sheet's number in
   the viewport row itself (it's in the parent row).
-- [ ] **60. Drop the depth band** (31) — remove its UI and per-view setting; elevations / sections take depth from sections. P3 · S–M
+- [x] **60. Drop the depth band** (31) — done 2026-11-24 (`phase8.md`) — remove its UI and per-view setting; elevations / sections take depth from sections. P3 · S–M
 
 ### D. Features not yet in cad (from other docs)
 - [ ] **33. DXF import** — an uploaded `.dxf` → shapes or an XREF (`pages/todo.md:46`, `kestrel-adoption.md`)
