@@ -27,9 +27,9 @@
 	let { project, ws, racks }: { project: CadProject; ws: Workspace; racks: Rack[] } = $props()
 
 	const one = $derived(racks.length === 1 ? racks[0] : undefined)
-	/** The built-in catalogue, for a product's spec sheet (loaded on demand: it is big). */
+	/** The catalogue (built-in + custom products), for a product's spec sheet (loaded on demand: it is big). */
 	let seed = $state<CatalogProduct[]>([])
-	$effect(() => { void import('$lib/catalog/panduitSeed').then((m) => (seed = m.PANDUIT_SEED)) })
+	$effect(() => { void import('$lib/catalog/service').then((m) => m.loadCatalog()).then((c) => (seed = c)) })
 	const RACK_KINDS: [Rack['kind'], string][] = [['2-post', '2-post'], ['4-post', '4-post'], ['cabinet', 'cabinet'], ['vcm', 'VCM (vertical cable manager)'], ['desk', 'desk'], ['shelf', 'shelf']]
 	/** What the racks share (or mixed). */
 	const rk = <V,>(f: (r: Rack) => V) => shared(racks, f)

@@ -15,7 +15,8 @@
 	let { project, projectName, onclose, ondone }: { project: CadProject; projectName: string; onclose: () => void; ondone: (msg: string) => void } = $props()
 
 	let catalog = $state<CatalogProduct[] | null>(null)
-	$effect(() => { import('$lib/catalog/panduitSeed').then((m) => (catalog = m.PANDUIT_SEED)) })
+	// the built-in Panduit list AND everyone's custom products (backlog 55)
+	$effect(() => { import('$lib/catalog/service').then((m) => m.loadCatalog()).then((c) => (catalog = c)) })
 
 	let materials = $state(true)
 	let rack = $state<'consolidated' | 'byRow' | 'none'>('consolidated')

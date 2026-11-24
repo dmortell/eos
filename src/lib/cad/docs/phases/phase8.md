@@ -4535,3 +4535,8 @@ User: "Yes, cords kept inside the set" (the ❓ entry of 2026-10-17).
   (`route-drop`, the room's color) and for selected cables; on a whole-floor plan, its placed areas' drops too.
   Tests in `routing.test.ts`, `estimates.test.ts`. Checked live on Journey (read only): seg 1 lists 24 backbones and
   4 horizontals 3307-R1 → 3307 outlets; Select shows their routes and 8 drop lines on 33F.
+- **Rack BOM counts custom products (backlog 55, User 2026-11-23 decision 22):** the BOM dialog, the BOM issued with a
+  release and Rack › Spec sheet read the whole catalogue — the Panduit seed plus everyone's custom products
+  (`$lib/catalog/service.ts` `loadCatalog`; the seed alone if the custom list can't be read). A rack drawn from a
+  custom product now gets its own SKU / description line, and its accessories when the product names them. Test in
+  `catalog/service.test.ts`.

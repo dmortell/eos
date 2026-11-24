@@ -256,8 +256,8 @@ export const ATTACHMENT_NAME: Record<Attachment, string> = { bom: 'Bill of mater
 async function attachmentFile(project: CadProject, a: Attachment): Promise<XlsxFile> {
 	if (a === 'outlets') return outletScheduleFile(project.index, project.name)
 	if (a === 'cables') return cableScheduleFile(cableSchedule(project.index, project.routes, cableSettings(project.index), project.estimates), project.name)
-	const { PANDUIT_SEED } = await import('$lib/catalog/panduitSeed')
-	return bomFile(project.index, project.name, PANDUIT_SEED, project.routes, { materials: true, rack: 'consolidated' }, project.estimates)
+	const { loadCatalog } = await import('$lib/catalog/service')
+	return bomFile(project.index, project.name, await loadCatalog(), project.routes, { materials: true, rack: 'consolidated' }, project.estimates)
 }
 
 async function uploadPdf(project: CadProject, file: File): Promise<Issue['file']> {

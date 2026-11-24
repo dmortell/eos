@@ -34,6 +34,17 @@ export function subscribeCatalog(
 	return unsub
 }
 
+/** The whole catalog once (seed + customs) — for a BOM; the seed alone if the custom list can't be read. */
+export async function loadCatalog(db?: Pick<Firestore, 'getMany'>): Promise<CatalogProduct[]> {
+	try {
+		const store = db ?? new (await import('$lib/db.svelte')).Firestore()
+		const docs = (await store.getMany('catalog')) as unknown as CatalogProduct[]
+		return mergeCatalog(docs.filter(d => !!d.id && !!d.maker && !!d.sku))
+	} catch {
+		return mergeCatalog([])
+	}
+}
+
 /**
  * Upsert a custom product into the global catalog.
  * For seeded product ids, this creates a Firestore override.
