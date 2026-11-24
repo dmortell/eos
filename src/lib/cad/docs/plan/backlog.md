@@ -95,12 +95,12 @@ Answered 2026-11-23 (User). A decided item that needs building has a "→ build"
 
 ### C2. Built from the decisions (2026-11-23)
 - [ ] **54. Racks and cabinets as one kind** (21) — Doors / Enclosed options, migration of cabinet racks, BOM names. P3 · M
-- [ ] **55. Rack BOM counts custom products** (22). P3 · S
-- [ ] **56. Count what Pages models hold per project** (24) — conduits, walls, notes, sections; report to the User. P3 · S
-- [ ] **57. Cabling categories: power, AV, security, EMS** (26) — a category on usages / cable types / socket types;
+- [x] **55. Rack BOM counts custom products** (22) — done 2026-11-24 (`phase8.md`). P3 · S
+- [x] **56. Count what Pages models hold per project** (24) — done 2026-11-24: counts in `phase8.md`, reported to the User; 24 waits for the User — conduits, walls, notes, sections; report to the User. P3 · S
+- [x] **57. Cabling categories: power, AV, security, EMS** (26) — done 2026-11-24 (`phase8.md`) — a category on usages / cable types / socket types;
   draw, filter (layers) and BOM by category; same routing and fill code. P2 · M
 - [ ] **58. Delete the newest release, void older ones** (28). P3 · S–M
-- [ ] **59. Ctrl+K finds viewports** (29). P3 · S
+- [x] **59. Ctrl+K finds viewports** (29) — already built: the search shows matching viewports under their sheet (checked 2026-11-24). P3 · S
 - [ ] **60. Drop the depth band** (31) — remove its UI and per-view setting; elevations / sections take depth from sections. P3 · S–M
 
 ### D. Features not yet in cad (from other docs)

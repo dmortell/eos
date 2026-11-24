@@ -4551,3 +4551,14 @@ User: "Yes, cords kept inside the set" (the ❓ entry of 2026-10-17).
   - Help: "Keep power, AV, security or EMS cabling apart". Tests in `categories.test.ts`.
 - **Ctrl+K finds viewports (backlog 59):** already there — the Navigator's search matches a sheet's viewport rows (their
   view name and scale) and shows them under their sheet; a click opens the view. Checked on Test Project ("racks").
+- **What the Pages models hold (backlog 56, for decision 24; read only, 2026-11-24):** only two projects have Pages
+  models (`projects/{pid}/models`).
+  - Journey (9 models, 8 Pages sheets): Zone 3303 — 123 outlet blocks, 49 furniture boxes, 8 wall boxes, 3 walls,
+    12 conduits (9 of them the legacy Outlets tool's trunks), 2 openings, 5 texts, 1 legend on paper; Zone 3307 — 57
+    outlet blocks, 5 legacy trunks, 3 rects, 3 texts; the building model — 10 riser rooms / EPS boxes, 9 conduits
+    (7 on a fibre layer); a 10F model — 3 outlet blocks, 4 dims; five more hold only a floorplan picture.
+  - Test Project (4 models, 10 Pages sheets): 1F — paper notes (4 polylines, 4 texts, 2 rects, 1 dim); 4F — 19 outlet
+    blocks, a few boxes, 1 trunk; "test" — 4 riser rooms, 3 conduits; Room A empty.
+  - 3 sections in all. The outlet blocks and legacy trunks are copies of the Outlets tool's data, which cad already
+    imported; what only Pages holds is the furniture / wall boxes, the riser-room boxes and fibre conduits, and the
+    paper notes.
