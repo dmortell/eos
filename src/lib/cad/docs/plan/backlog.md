@@ -56,7 +56,7 @@ review; 8's is in `outside-review.md`.
   - [x] 16e. (done 2026-11-24: the interior-elevation symbol, under the name) Room-elevation marker over the room name
   - [x] 16f. (already fixed: the tool hint gives way to the bulk one) Double hint in bulk patch
   - [x] 16g. (done: the other pane outlines since Round 10; the tip’s halo 2026-11-22) Hover outline only in the active pane; + tip has no halo
-- [ ] **17. Data on live projects** — 30F IDF1 "48P Rack Tie" panels have no cables; 81 import notes on Journey to clear; 161 LR import notes to review; Tourney tidy-up (`later.md:75-76`, `phase8.md:4306, 4421`). **User 2026-11-23:** review LR's 161 import notes and report (no changes); leave the rest for now.
+- [x] **17. Data on live projects** (CLOSED 2026-11-25, User: the LR 10F outlets are fine — on Rack1) — 30F IDF1 "48P Rack Tie" panels have no cables; 81 import notes on Journey to clear; 161 LR import notes to review; Tourney tidy-up (`later.md:75-76`, `phase8.md:4306, 4421`). **User 2026-11-23:** review LR's 161 import notes and report (no changes); leave the rest for now.
   **LR review (2026-11-24, read only):** the import (2026-10-02) left 1 "heights defaulted" note (level heights /
   elevations are defaults — check in Properties) and 160 "allocated to two panel ports — kept the first", all on 10F:
   40 outlets A.097 … B.008 (80 ports), each port twice. Cause: in the legacy Racks doc, room HR10-1's three racks each
