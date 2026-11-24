@@ -142,6 +142,13 @@
 	const ed = new CellEdit<Field>({ fields: () => FIELDS, ids: () => rows.map((r) => r.id), save })
 </script>
 
+<!-- an end's label; an unlabelled panel port shows its rack-U-port name in italics (backlog 40) -->
+{#snippet lab(text: string, id: string, end: 'a' | 'b')}
+	{@const c = text ? undefined : project.index.getOf('cord', id)}
+	{@const fb = c?.type === 'cord' ? project.index.portFallback(c[end]) : ''}
+	{#if text}{text}{:else if fb}<i title="No label yet — its rack, U and port until it gets one">{fb}</i>{:else}—{/if}
+{/snippet}
+
 <input bind:this={fileInput} type="file" accept=".xlsx" hidden onchange={(e) => importIds(e.currentTarget.files?.[0])} />
 <TableFrame label="Patch list" {t} view={inRoomView && roomId ? project.index.nameOf(roomId) : 'This view (all rooms)'} onkeydown={tableKey} {more}
 	count="{rows.length} of {all.length}{nSel ? ` · ${nSel} selected` : ''}" nSel={selCords.length}
@@ -167,11 +174,11 @@
 				{@const rep = r.status === 'replace' ? replacedText(project.index.getOf('cord', r.id)!, typeLabel) : ''}
 				<tr bind:this={rowEls[r.id]} class="hov" class:row-sel={selected.has(r.id) || onPorts.has(r.id)} class:gone={r.status === 'remove'} oncontextmenu={(e) => rowMenu(r.id, e)} onmousedown={noTextPick} onclick={(e) => pick(r.id, e)}>
 					<td class="px-2 py-0.5">{shown(r.from)}{#if r.wasFrom}<span class="was" title="Was {shown(r.wasFrom)}">↶</span>{/if}</td>
-					<td class="px-2 font-mono muted">{r.fromLabel || '—'}</td>
+					<td class="px-2 font-mono muted">{@render lab(r.fromLabel, r.id, 'a')}</td>
 					{#if ed.is(r.id, 'to')}
 						<td class="ed"><input class="ed-box" value={r.to} use:focusCell onkeydown={(e) => ed.key(e, r.id, 'to')} onblur={(e) => ed.blur(r.id, 'to', e.currentTarget.value)} onclick={(e) => e.stopPropagation()} /></td>
 					{:else}<td class="px-2" title="Double-click to re-patch: type device : port (SW1:41), or just the port · several cords at once: select them, Re-patch… (the rest go to the next free ports)" ondblclick={(e) => ed.start(r.id, 'to', e)}>{shown(r.to)}{#if r.wasTo}<span class="was" title="Was {shown(r.wasTo)}">↶</span>{/if}</td>{/if}
-					<td class="px-2 font-mono muted">{r.toLabel || '—'}</td>
+					<td class="px-2 font-mono muted">{@render lab(r.toLabel, r.id, 'b')}</td>
 					<td class="px-2 muted" title="The usage of the outlet this cord serves (Settings › Usages)">{r.usage}</td>
 					{#if hasWas}<td class="px-2 was-txt">{wasText(r)}</td>{/if}
 					<td class="px-2"><span class="sw" style:background={r.colour}></span>{typeLabel(r.cableType)}{#if rep}<span class="was" title="Replaces the cord there now — {rep}">↶</span>{/if}</td>

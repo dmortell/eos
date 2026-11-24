@@ -108,7 +108,7 @@ Answered 2026-11-23 (User). A decided item that needs building has a "→ build"
 - [ ] **37. Whole-project JSON export / import** — check against cad backups (`pages/todo.md:60`)
 - [ ] **38. Sheets workflow leftovers** — For review / Approved gate, revert to a release, typed / superseded packages, copy a sheet to another project, drag sheets in the Navigator, nested groups, send a package, all-releases register, sheet-number templates (`sheets-organising.md:244-252`)
 - [ ] **39. Port labels readable in print** — callouts or a port schedule in the rack viewport (`elevations-plan.md:744`)
-- [ ] **40. Fallback labels for unlabelled panel ports** (`R04-U33-P07`) (`elevations-plan.md:738`)
+- [x] **40. Fallback labels for unlabelled panel ports** — done 2026-11-24 (`phase8.md`; on screen only, patching still needs a label) (`R04-U33-P07`) (`elevations-plan.md:738`)
 
 ### E. App-wide and other pages
 - [x] **41. Uploads subscribes to the whole global `files` collection** — by design: the list offers other projects’ files to share in (2bbb8405) — per-project query commented out (`routes/projects/[pid]/uploads/+page.svelte:24`, `docs/firestore-structure.md:142`)

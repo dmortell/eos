@@ -94,6 +94,16 @@ export class ProjectIndex {
 		return l?.kind === 'tie' ? this.#tieLabel(l) : ''
 	}
 
+	/** What an UNLABELLED panel port is called until it gets a label (backlog 40, `elevations-plan.md` 738): its rack, U
+	 *  and port — "R04-U33-P07". Shown on screen (patch list, cord / port Properties, tips) in italics, never stored or
+	 *  printed on labels. '' for a labelled port or anything but a panel port. */
+	portFallback(r: PortRef): string {
+		const d = this.byId.get(r.on)
+		if (d?.type !== 'device' || d.kind !== 'panel' || this.portLabel(r)) return ''
+		const rack = this.byId.get(d.rackId)
+		return `${rack?.type === 'rack' ? rack.name : '?'}-U${d.u}-P${String(r.port).padStart(2, '0')}`
+	}
+
 	/** A device port's own name, as its panel shows it — not an outlet's label carried to it, nor a tie's made-up one:
 	 *  its `portLabels` text, its labelled range's, or the switch port it's cabled to. '' when none. */
 	devicePortLabel(r: PortRef): string {

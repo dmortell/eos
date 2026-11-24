@@ -36,6 +36,13 @@
 	}
 </script>
 
+<!-- an end's label; an unlabelled panel port shows its rack-U-port name in italics (backlog 40) -->
+{#snippet lab(r: Cord['a'])}
+	{#if label(r)}<span class="font-mono text-zinc-500">{label(r)}</span>
+	{:else if project.index.portFallback(r)}<span class="font-mono text-zinc-500 italic" title="No label yet — its rack, U and port until it gets one">{project.index.portFallback(r)}</span>
+	{:else}<span class="font-mono text-zinc-500">—</span>{/if}
+{/snippet}
+
 <!-- groups (UX review "Properties groups"): Ends (with its status and the install workflow) · Cable · Circuit -->
 <PropGroup kind="cord" title="Ends">
 	<div class="ends">
@@ -44,8 +51,8 @@
 			onchange={(e) => set('Cord status', setStatus(c, e.currentTarget.value as Cord['status']))}>
 			{#each CORD_STATUSES as st (st)}<option value={st}>{st}</option>{/each}
 		</select></span>
-		<span class="k">From</span><span>{end(c.a)}<br /><span class="font-mono text-zinc-500">{label(c.a) || '—'}</span></span>
-		<span class="k">To</span><span>{end(c.b)}<br /><span class="font-mono text-zinc-500">{label(c.b) || '—'}</span></span>
+		<span class="k">From</span><span>{end(c.a)}<br />{@render lab(c.a)}</span>
+		<span class="k">To</span><span>{end(c.b)}<br />{@render lab(c.b)}</span>
 	</div>
 	{#if c.status === 'replace'}<p class="text-zinc-500">Replaces the cord there now{replacedText(c, typeLabel) ? ` — ${replacedText(c, typeLabel)}` : ': set the new type, color or length below'}</p>
 	{:else if c.previous}<p class="text-zinc-500">Was: {end(c.previous.a)} → {end(c.previous.b)} ({c.previous.status})</p>{/if}

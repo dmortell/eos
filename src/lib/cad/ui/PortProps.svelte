@@ -23,7 +23,7 @@
 		const far = project.index.farEnd(ref), fe = far ? project.index.get(far.on) : undefined
 		const cord = project.index.cords.find((c) => (c.a.on === sel.on && c.a.port === n) || (c.b.on === sel.on && c.b.port === n))
 		return {
-			n, label: project.index.portLabel(ref),
+			n, label: project.index.portLabel(ref), fallback: project.index.portFallback(ref),
 			from: fe?.type === 'outlet' ? `outlet ${fe.label} : ${far!.port}` : fe ? `${project.index.portPlace(far!)}` : 'own label',
 			cord: cord ? project.index.portPlace(cord.a.on === sel.on && cord.a.port === n ? cord.b : cord.a) : '',
 		}
@@ -170,7 +170,7 @@
 <div class="ports">
 	{#each rows as r (r.n)}
 		<span class="n" title={reservedAs(r.n) ? `Reserved for ${reservedAs(r.n)}` : ''}>{r.n}{reservedAs(r.n) ? 'ʳ' : ''}</span>
-		<input class="inp font-mono" value={r.label} placeholder="—" aria-label="Port {r.n} label" title={r.from === 'own label' ? 'This port’s own label' : `Stored on the ${r.from} (one label, shown at both ends)`} onchange={(e) => edit(r.n, e.currentTarget)} />
+		<input class="inp font-mono" value={r.label} placeholder={r.fallback || '—'} aria-label="Port {r.n} label" title={r.fallback ? `No label yet — called ${r.fallback} (its rack, U and port) until it gets one` : r.from === 'own label' ? 'This port’s own label' : `Stored on the ${r.from} (one label, shown at both ends)`} onchange={(e) => edit(r.n, e.currentTarget)} />
 		<span class="from" title={r.cord ? `Patched to ${r.cord}` : ''}>{r.from}{links.find((l) => (l.a.on === sel.on ? l.a.port : l.b.port) === r.n)?.pinned ? ' ◆' : ''}{r.cord ? ' ⇄' : ''}</span>
 	{/each}
 </div>

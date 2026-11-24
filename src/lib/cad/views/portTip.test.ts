@@ -20,6 +20,7 @@ describe('port tips', () => {
 	})
 	it('an unused port says so', () => {
 		expect(portTip(ix, { on: 'P1', port: 20, face: 'front' }).at(-1)).toBe('not connected · no label — tie or label it before patching')
+		expect(portTip(ix, { on: 'P1', port: 20, face: 'front' })[1]).toMatch(/-U\d+-P20 \(no label yet\)$/)   // backlog 40
 		expect(portTipUse(ix, { on: 'P1', port: 20, face: 'front' })).toBe('Panel 1: 4 cabled · 2 patched · 2 free to patch · 20 unlabelled')
 		// Patch to… for the whole panel takes only those 2 (User 2026-10-26: "Patch all 48 ports" with half the panel tied)
 		expect(patchablePorts(ix, ix.get('P1') as Device)).toHaveLength(2)

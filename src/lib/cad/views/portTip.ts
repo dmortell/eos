@@ -43,6 +43,9 @@ export function portTip(ix: ProjectIndex, r: PortRef): string[] {
 		const d = ix.get(r.on)
 		out.push(d?.type === 'device' && d.kind === 'panel' ? 'not connected · no label — tie or label it before patching' : 'not connected')
 	}
+	// an unlabelled panel port's rack-U-port name, second (backlog 40)
+	const fb = label ? '' : ix.portFallback(r)
+	if (fb) out.splice(1, 0, `${fb} (no label yet)`)
 	return out
 }
 

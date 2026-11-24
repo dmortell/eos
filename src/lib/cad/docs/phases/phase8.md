@@ -4589,3 +4589,9 @@ User: "Yes, cords kept inside the set" (the ❓ entry of 2026-10-17).
   says an Undo can't bring back a reprint. Its PDF / Excel files stay in Uploads, a backup made with it in Backups; a
   new round it started and clouds it deleted stay as they are. Older releases: Void… (why, optional) sets
   `Issue.voided {date, reason}` — VOID tag, name struck through; Unvoid. Help updated; tests in `issueDelete.test.ts`.
+- **Fallback names for unlabelled panel ports (backlog 40, `elevations-plan.md` 738):** `ProjectIndex.portFallback`
+  — a panel port with no label (none of its own, from an outlet, a range, a switch or a tie) is called
+  `<rack>-U<u>-P<nn>` ("R04-U33-P07") on screen: the port tip (second line, "(no label yet)"), the Patching table's
+  Label columns and a cord's Properties (italics), and Port properties (the label box's greyed placeholder). Not
+  stored, not in exports or printed labels. Patching to an unlabelled panel port is still refused (the port-level gate
+  stays). Help updated; tests in `portFallback.test.ts`, `portTip.test.ts`.
